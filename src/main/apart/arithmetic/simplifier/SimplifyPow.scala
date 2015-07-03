@@ -2,6 +2,8 @@ package apart
 package arithmetic
 package simplifier
 
+import scala.language.postfixOps
+
 object SimplifyPow {
 
   /**
@@ -22,7 +24,7 @@ object SimplifyPow {
     case (Cst(x), _) if x == 0 || x == 1 => Some(base)
 
     // Distribute product: x^(m+n) => x^m * x^n
-    case (base, Sum(terms)) => Some(terms.map(base pow _).reduce(_*_))
+    case (base, Sum(terms)) => Some(terms.map(base pow).reduce(_*_))
 
     // Power of a product: (x*y)^(n) => x^n * y^n
     case (Prod(terms), exp) => Some(terms.map(_ pow exp).reduce(_*_))

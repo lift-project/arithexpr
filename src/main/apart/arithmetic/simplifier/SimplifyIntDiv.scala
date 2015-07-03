@@ -39,10 +39,9 @@ object SimplifyIntDiv {
     case (x@Cst(0), _) => Some(x)
 
     // If there exists a common denominator, simplify
-    case (x, y) if ArithExpr.gcd(x,y) != Cst(1) => {
+    case (x, y) if ArithExpr.gcd(x,y) != Cst(1) =>
       val fac = ArithExpr.gcd(x,y)
       Some((x/^fac) / (y/^fac))
-    }
 
     // Compute for constants
     case (Cst(x), Cst(y)) => Some(Cst(x / y))

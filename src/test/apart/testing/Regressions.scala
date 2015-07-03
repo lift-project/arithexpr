@@ -30,7 +30,7 @@ class Regressions {
   }
 
   @Test def expr3(): Unit = {
-    val expr = (9*((2+15)) / (13))-108
+    val expr = (9* (2 + 15) / 13)-108
     assertEquals(Cst(-97), ArithExpr.substitute(expr, valmap))
   }
 
@@ -43,11 +43,11 @@ class Regressions {
   }
 
   @Test def expr5(): Unit = {
-    val expr = (a pow 2) + (3*1/(32)*1/(5)*1/(13)*a)
+    val expr = (a pow 2) + (3*1/ 32 *1/ 5 *1/ 13 *a)
   }
 
   @Test def expr6(): Unit = {
-    val lhs = (Cst(3) * Cst(1) / (Cst(4)) * Cst(1) / (a) * Cst(1) / (Cst(5)) * Cst(1) / (Cst(7))) + (Cst(104) * Cst(1) / (c) * c * 1 / (Cst(7)))
+    val lhs = (Cst(3) * Cst(1) / Cst(4) * Cst(1) / a * Cst(1) / (Cst(5)) * Cst(1) / (Cst(7))) + (Cst(104) * Cst(1) / (c) * c * 1 / (Cst(7)))
     val rhs = Cst(1747200) * a * Cst(1) / (((Cst(18) * c) + (Cst(12480) * (c pow 2)))) * (c pow Cst(2))
     lhs * rhs
   }

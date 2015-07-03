@@ -18,9 +18,9 @@ object ExprPrinter {
         dump(f.min,depth+1)
         dump(f.max,depth+1)
       case Cst(e) =>
-        println(s"${e}")
+        println(s"$e")
       case Var(a,b) =>
-        println(s"var ${a}")
+        println(s"var $a")
         dump(b.min,depth+1)
         dump(b.max,depth+1)
       case Pow(base, exp) =>
@@ -58,7 +58,7 @@ object ExprPrinter {
       case ? =>
         println("?")
       case _ =>
-        println(s"[***] UNKNOWN ${expr}")
+        println(s"[***] UNKNOWN $expr")
     }
   }
 
@@ -66,7 +66,7 @@ object ExprPrinter {
   class DotNode(label: String, shape: String = "oval", color: String = "\"#eee8d5\""){
     val id: Int = { DotGraph.dotcounter = DotGraph.dotcounter+1; DotGraph.dotcounter}
 
-    override def toString(): String = {
+    override def toString: String = {
       id.toString + "  [label=\"" + label + "\", style=filled, fillcolor="+color+", shape="+shape+"];"
     }
   }
@@ -102,9 +102,9 @@ object ExprPrinter {
             |  graph [ranksep=0.5];
             |""".stripMargin
         else
-          s"subgraph cluster_${gid} {\n  label=" + "\"" + label + "\";\n"
+          s"subgraph cluster_$gid {\n  label=" + "\"" + label + "\";\n"
 
-      nodes.foreach(n => str += s"  ${n}\n")
+      nodes.foreach(n => str += s"  $n\n")
       edges.foreach(e => str += s"  ${e._1} -> ${e._2};\n")
 
       str += "}"
@@ -128,7 +128,7 @@ object ExprPrinter {
       case Cst(e) =>
         graph.addNode(e.toString, color = "\"#268bd2\"")
       case Var(a, b) =>
-        graph.addNode(s"{${a}|{${expr.min}|${expr.max}}}", shape = "record", color = "\"#b58900\"")
+        graph.addNode(s"{$a|{${expr.min}|${expr.max}}}", shape = "record", color = "\"#b58900\"")
       case Pow(base, exp) =>
         graph.addNode(s"{Pow|{${expr.min}|${expr.max}}}", shape = "record")
       case Log(b, x) =>

@@ -20,10 +20,9 @@ object SimplifyMod {
     case (Cst(x), Cst(y)) => Some(Cst(x % y))
 
     // If there exists a common denominator, simplify
-    case (x, y) if ArithExpr.gcd(x,y) != Cst(1) => {
+    case (x, y) if ArithExpr.gcd(x,y) != Cst(1) =>
       val fac = ArithExpr.gcd(x,y)
       Some((x/^fac) % (y/^fac))
-    }
 
     case (x, y) if ArithExpr.multipleOf(x, y) => Some(Cst(0))
     case (m: Mod, divisor) if m.divisor == divisor => Some(m)

@@ -13,11 +13,11 @@ object Devel {
   val SanityCheck = true
 
   def Assert(p: Boolean, reason: => String = "no reason"): Unit = {
-    if(!p) throw new RuntimeException(s"Sanity check failed: ${reason}")
+    if(!p) throw new RuntimeException(s"Sanity check failed: $reason")
   }
 
   def AssertNot(p: Boolean, reason: => String = "no reason"): Unit = {
-    if(p) throw new RuntimeException(s"Sanity check failed: ${reason}")
+    if(p) throw new RuntimeException(s"Sanity check failed: $reason")
   }
 }
 
@@ -30,13 +30,13 @@ final class NotEvaluableException extends ControlThrowable
  * Predicate object. Stores two arithmetic expressions and an operator
  */
 case class Predicate(lhs: ArithExpr, rhs: ArithExpr, op: Predicate.Operator.Operator) {
-  override lazy val toString: String = s"(${lhs} ${op} ${rhs})"
+  override lazy val toString: String = s"($lhs $op $rhs)"
 
-  sealed class TrueBlock(predicate: Predicate, then: ArithExpr) {
-    def !!(els: ArithExpr) = SimplifyIfThenElse(predicate, then, els)
+  sealed class TrueBlock(predicate: Predicate, thenblock: ArithExpr) {
+    def !!(els: ArithExpr) = SimplifyIfThenElse(predicate, thenblock, els)
   }
 
-  def ??(then: ArithExpr) = new TrueBlock(this, then)
+  def ??(thenblock: ArithExpr) = new TrueBlock(this, thenblock)
 
   val digest: Int =  0x7c6736c0 ^ lhs.digest() ^ rhs.digest() ^ op.hashCode()
 }
@@ -46,7 +46,7 @@ object Predicate {
    * List of comparison operators
    */
   object Operator extends Enumeration {
-    type Operator = Value;
+    type Operator = Value
     val < = Value("<")
     val > = Value(">")
     val <= = Value("<=")
@@ -348,7 +348,7 @@ object ArithExpr {
       case (x, Prod(f)) if f.contains(x) => x
 
       // GCD of sums: find common factor across all terms
-      case (s1:Sum, s2:Sum) => {
+      case (s1:Sum, s2:Sum) =>
         // Compute the common factors
         val fac1 = FactorizeSum(s1)
         if (fac1 == Cst(1)) return fac1
@@ -359,9 +359,9 @@ object ArithExpr {
         val common = List(fac1, s1 /^ fac1).intersect(List(fac2, s2 /^ fac2))
         if(common.isEmpty) Cst(1)
         else common.head
-      }
+
       case (x, s:Sum) => gcd(b,a)
-      case (s:Sum, x) => {
+      case (s:Sum, x) =>
         // compute the common factor
         val factor = FactorizeSum(s)
         // If there is none, there is no possible common factor
@@ -372,7 +372,6 @@ object ArithExpr {
           //case Cst(x) if x == 1 => gcd(x, s /^ factor)
           case x => x
         }
-      }
 
       case (x,y) => Cst(1)
     }
@@ -467,7 +466,7 @@ object ArithExpr {
     // A constant is a multiple of a product if it is a multiple of its constant factor
     case (Prod(terms), Cst(c)) =>
       val cst = terms.find(_.isInstanceOf[Cst])
-      !cst.isEmpty && cst.get.asInstanceOf[Cst].c % c == 0
+      cst.isDefined && cst.get.asInstanceOf[Cst].c % c == 0
 
     // If it is something else, it is a multiple if it is included in the list of factors and the product does not
     // contain a division
@@ -536,7 +535,7 @@ object ArithExpr {
       case Sum(terms) => terms.foreach(t => visit(t, f))
       case Prod(terms) => terms.foreach(t => visit(t, f))
       case Var(_,_) |  Cst(_) | IfThenElse(_,_,_) | ArithExprFunction(_) | ? =>
-      case _ => throw new RuntimeException(s"Cannot visit expression ${e}")
+      case _ => throw new RuntimeException(s"Cannot visit expression $e")
     }
   }
 
@@ -560,7 +559,7 @@ object ArithExpr {
           terms.foreach(t => if (visitUntil(t, f)) return true)
           false
         case Var(_,_) |  Cst(_) | IfThenElse(_,_,_) | ArithExprFunction(_) | ? => false
-        case _ => throw new RuntimeException(s"Cannot visit expression ${e}")
+        case _ => throw new RuntimeException(s"Cannot visit expression $e")
       }
     }
   }
@@ -575,8 +574,8 @@ object ArithExpr {
         val cond = Predicate(substitute(i.lhs, substitutions), substitute(i.rhs, substitutions), i.op)
         cond ?? substitute(t, substitutions) !! substitute(e, substitutions)
       case Floor(expr) => Floor(substitute(expr, substitutions))
-      case adds: Sum => (adds.terms.map(t => substitute(t, substitutions))).reduce(_+_)
-      case muls: Prod => (muls.factors.map(t => substitute(t, substitutions))).reduce(_*_)
+      case adds: Sum => adds.terms.map(t => substitute(t, substitutions)).reduce(_+_)
+      case muls: Prod => muls.factors.map(t => substitute(t, substitutions)).reduce(_*_)
       case x => x
     }
 
@@ -685,7 +684,7 @@ case class IntDiv(numer: ArithExpr, denom: ArithExpr) extends ArithExpr() {
   if(denom == Cst(0))
     throw new ArithmeticException()
 
-  override def toString: String = s"(${numer}) / (${denom})"
+  override def toString: String = s"($numer) / ($denom)"
 
   /**
    * Upper bound of the expression: for a fraction:
@@ -751,9 +750,9 @@ case class Log(b: ArithExpr, x: ArithExpr) extends ArithExpr with SimplifiedExpr
 case class Prod private[arithmetic] (factors: List[ArithExpr]) extends ArithExpr {
 
   if (simplified) {
-    Devel.Assert(factors.length > 1, s"Factors should have at least two terms in ${toString}")
+    Devel.Assert(factors.length > 1, s"Factors should have at least two terms in $toString")
     factors.foreach(x => {
-      Devel.AssertNot(x.isInstanceOf[Prod], s"Prod cannot contain a Prod in ${toString}")
+      Devel.AssertNot(x.isInstanceOf[Prod], s"Prod cannot contain a Prod in $toString")
       Devel.AssertNot(x.isInstanceOf[Sum], "Prod should not contain a Sum")
     })
   }
@@ -816,7 +815,7 @@ case class Prod private[arithmetic] (factors: List[ArithExpr]) extends ArithExpr
 case class Sum private[arithmetic] (terms: List[ArithExpr]) extends ArithExpr {
 
   if (simplified) {
-    Devel.Assert(terms.length > 1, s"Terms should have at least two terms in ${toString}")
+    Devel.Assert(terms.length > 1, s"Terms should have at least two terms in $toString")
     terms.foreach(x => {
       Devel.AssertNot(x.isInstanceOf[Sum], "Sum cannot contain a Sum")
     })
@@ -885,7 +884,7 @@ case class Floor(ae : ArithExpr) extends ArithExpr {
  * @param e The 'else block.
  */
 case class IfThenElse(test: Predicate, t : ArithExpr, e : ArithExpr) extends ArithExpr {
-  override lazy val toString: String = s"( ${test} ? ${t} : ${e} )"
+  override lazy val toString: String = s"( $test ? $t : $e )"
 
   override val digest: Int =  0x32c3d095 ^ test.digest ^ t.digest() ^ ~e.digest()
 }
@@ -920,7 +919,7 @@ case class Var(name: String, var range : Range = RangeUnknown) extends ArithExpr
 
   override lazy val hashCode = 8 * 79 + id
 
-  override lazy val toString = if (name == "") s"v_${id}" else name + s"_${id}"
+  override lazy val toString = if (name == "") s"v_$id" else name + s"_$id"
 
   def updateRange(func: (Range) => Range): Unit = {
     if (range != RangeUnknown) {

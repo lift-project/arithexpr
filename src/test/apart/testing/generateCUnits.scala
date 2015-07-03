@@ -4,7 +4,7 @@ import java.io.File
 
 import apart.arithmetic.{Cst, Var, ArithExpr}
 import org.junit.Test
-import scala.collection.mutable.StringBuilder
+import scala.language.postfixOps
 
 /**
  * Generate C Unit test cases to cross validate the expression simplifier and the actual C behavior
@@ -12,8 +12,8 @@ import scala.collection.mutable.StringBuilder
 class generateCUnits {
   // var pool
   val pool = List(Var("a"), Var("b"), Var("c"), Var("d"))
-  val valmap = Map[ArithExpr, ArithExpr](
-    (pool(0), Cst(12)),
+  val value_map = Map[ArithExpr, ArithExpr](
+    (pool.head, Cst(12)),
     (pool(1), Cst(57)),
     (pool(2), Cst(2)),
     (pool(3), Cst(4))
@@ -22,10 +22,10 @@ class generateCUnits {
   val rd = new scala.util.Random(1)
 
   def out(x: String, sb: StringBuilder): Unit = {
-    sb ++= s"${x};\n"
+    sb ++= s"$x;\n"
   }
 
-  def getTerm(): ArithExpr = {
+  def newTerm(): ArithExpr = {
     val c = rd.nextInt(3)
     if(c == 0)
       pool(rd.nextInt(pool.length))
@@ -35,30 +35,30 @@ class generateCUnits {
 
   def addTerm(a: ArithExpr, sb: StringBuilder): ArithExpr = {
     val seed = rd.nextInt(9)
-    val other = getTerm()
+    val other = newTerm()
     sb ++= "  res "
     if (seed == 0) {
-      out(s"%= ${other}",sb)
+      out(s"%= $other",sb)
       a % other
     }
     else if (seed < 3) {
-      out(s"-= ${other}",sb)
+      out(s"-= $other",sb)
       a - other
     }
     else if (seed < 4) {
-      out(s"/= ${other}",sb)
+      out(s"/= $other",sb)
       a / other
     }
     else if (seed < 6) {
-      out(s"*= ${other}",sb)
+      out(s"*= $other",sb)
       a * other
     }
     else if (seed == 6) {
-      out(s" = pow(res,(${other} % 3))",sb)
+      out(s" = pow(res,($other % 3))",sb)
       a pow (other % 3)
     }
     else {
-      out(s"+= ${other}",sb)
+      out(s"+= $other",sb)
       a + other
     }
   }
@@ -69,18 +69,18 @@ class generateCUnits {
     var sb = new StringBuilder
 
     for( i <- 1 to 100) {
-      System.out.println(s"Generating test ${i} out of 100")
-      var a = getTerm()
-      sb ++= s"TEST(ArithExpr, Test${i}) {\n  int res = ${a.toString};\n"
+      System.out.println(s"Generating test $i out of 100")
+      var a = newTerm()
+      sb ++= s"TEST(ArithExpr, Test$i) {\n  int res = ${a.toString};\n"
       for (i <- 0 to 5) { a = addTerm(a, sb)}
-      val sub = ArithExpr.substitute(a, valmap)
+      val sub = ArithExpr.substitute(a, value_map)
       sb ++=
         s"""
           |  // Partially evaluated expression:
-          |  EXPECT_EQ(res, ${a}) << "Partially evaluated expression does not match";
+          |  EXPECT_EQ(res, $a) << "Partially evaluated expression does not match";
           |
           |  // After substitution:
-          |  EXPECT_EQ(res, ${sub}) << "Wrong result after substitution";
+          |  EXPECT_EQ(res, $sub) << "Wrong result after substitution";
           |}
           |
           |""".stripMargin
@@ -97,9 +97,9 @@ class generateCUnits {
         |  return std::pow(a,b);
         |}
         |
-        |${(valmap map {case (a,b) => s"int ${a} = ${b};\n" } toList).reduce(_+_)}
+        |${(value_map map {case (a,b) => s"int $a = $b;\n" } toList).reduce(_+_)}
         |
-        |${sb}
+        |$sb
         |
         |int main(int argc, char **argv) {
         |  ::testing::InitGoogleTest(&argc, argv);

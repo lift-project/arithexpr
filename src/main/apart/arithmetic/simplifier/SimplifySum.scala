@@ -47,7 +47,7 @@ object SimplifySum {
     case (p:Prod, x) if p.withoutFactor(p.cstFactor) == x => Some(x * (p.cstFactor + 1))
 
     // Try to factorize terms and see if they simplify
-    case (x, y) if ArithExpr.gcd(x, y) != Cst(1) => {
+    case (x, y) if ArithExpr.gcd(x, y) != Cst(1) =>
       val gcd = ArithExpr.gcd(x, y)
       val slhs = x /^ gcd
       val srhs = y /^ gcd
@@ -55,7 +55,6 @@ object SimplifySum {
         case s@Sum(sterms) if sterms.contains(slhs) && sterms.contains(srhs) => None
         case other => Some(other * gcd)
       }
-    }
 
     case x => None
   }
