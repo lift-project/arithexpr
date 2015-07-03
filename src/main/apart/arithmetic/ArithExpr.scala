@@ -569,7 +569,7 @@ object ArithExpr {
     substitutions.getOrElse(e, e) match {
       case Pow(l,r) => substitute(l,substitutions) pow substitute(r,substitutions)
       case IntDiv(n, d) => (substitute(n, substitutions) / substitute(d, substitutions))
-      case Mod(dividend, divisor) => (substitute(dividend, substitutions) % substitute(divisor, substitutions))
+      case Mod(dividend, divisor) => substitute(dividend, substitutions) % substitute(divisor, substitutions)
       case Log(b,x) => Log(substitute(b, substitutions), substitute(x, substitutions))
       case IfThenElse(i, t, e) =>
         val cond = Predicate(substitute(i.lhs, substitutions), substitute(i.rhs, substitutions), i.op)
@@ -625,7 +625,7 @@ object ArithExpr {
       // Since Min duplicates the expression, we simplify it in place to point to the same node
       val sx = ExprSimplifier(x)
       val sy = ExprSimplifier(y)
-      IfThenElse(sx le sy, sx, sy)
+      (sx le sy) ?? sx !! sy
     }
 
     /**
@@ -638,7 +638,7 @@ object ArithExpr {
       // Since Max duplicates the expression, we simplify it in place to point to the same node
       val sx = ExprSimplifier(x)
       val sy = ExprSimplifier(y)
-      IfThenElse(sx gt sy, sx, sy)
+      (sx gt sy) ?? sx !! sy
     }
 
     /**
@@ -655,7 +655,7 @@ object ArithExpr {
      * @param x The input value
      * @return |x|
      */
-    def Abs(x: ArithExpr) = IfThenElse(x lt 0, 0-x, x)
+    def Abs(x: ArithExpr) = (x lt Cst(0)) ?? (Cst(0)-x) !! x
   }
 
   def cardinal_id = 0

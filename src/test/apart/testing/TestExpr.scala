@@ -385,23 +385,23 @@ class TestExpr {
     import ArithExpr.Math._
 
     // comparing 0 and 1
-    assertEquals(Cst(0), ExprSimplifier.simplify(Min(Cst(0),Cst(1))))
+    assertEquals(Cst(0), Min(Cst(0),Cst(1)))
     // negative number
-    assertEquals(Cst(-1), ExprSimplifier.simplify(Min(Cst(-1),Cst(1))))
-    assertEquals(Cst(-2), ExprSimplifier.simplify(Min(Cst(-1),Cst(-2))))
+    assertEquals(Cst(-1), Min(Cst(-1),Cst(1)))
+    assertEquals(Cst(-2), Min(Cst(-1),Cst(-2)))
 
     val n = Var("n")
     // unknown var1
-    assertEquals(Min(n, Cst(0)), ExprSimplifier.simplify(Min(n, Cst(0))))
+    assertEquals(Min(n, Cst(0)), Min(n, Cst(0)))
     // unknown var2
-    assertEquals(Min(Cst(0),n), ExprSimplifier.simplify(Min(Cst(0),n)))
+    assertEquals(Min(Cst(0),n), Min(Cst(0),n))
     // equal values
-    assertEquals(n*10, ExprSimplifier.simplify(Min(n*10,n*10)))
+    assertEquals(n*10, Min(n*10,n*10))
 
     // unknown plus offset
-    assertEquals(n+5, ExprSimplifier.simplify(Min(n+5,n+10)))
+    assertEquals(n+5, Min(n+5,n+10))
     // this should not simplify
-    assertEquals(Min(n,n*2), ExprSimplifier.simplify(Min(n,n*2)))
+    assertEquals(Min(n,n*2), Min(n,n*2))
   }
 
   @Test
@@ -409,23 +409,23 @@ class TestExpr {
     import ArithExpr.Math._
 
     // comparing 0 and 1
-    assertEquals(Cst(1), ExprSimplifier.simplify(Max(Cst(0),Cst(1))))
+    assertEquals(Cst(1), Max(Cst(0),Cst(1)))
     // negative number
-    assertEquals(Cst(1), ExprSimplifier.simplify(Max(Cst(-1),Cst(1))))
-    assertEquals(Cst(-1), ExprSimplifier.simplify(Max(Cst(-1),Cst(-2))))
+    assertEquals(Cst(1), Max(Cst(-1),Cst(1)))
+    assertEquals(Cst(-1), Max(Cst(-1),Cst(-2)))
 
     val n = Var("n")
     // unknown var1
-    assertEquals(Max(n, Cst(0)), ExprSimplifier.simplify(Max(n, Cst(0))))
+    assertEquals(Max(n, Cst(0)), Max(n, Cst(0)))
     // unknown var2
-    assertEquals(Max(Cst(0),n), ExprSimplifier.simplify(Max(Cst(0),n)))
+    assertEquals(Max(Cst(0),n), Max(Cst(0),n))
     // equal values
-    assertEquals(n*10, ExprSimplifier.simplify(Max(n*10,n*10)))
+    assertEquals(n*10, Max(n*10,n*10))
 
     // unknown plus offset
-    assertEquals(n+10, ExprSimplifier.simplify(Max(n+5,n+10)))
+    assertEquals(n+10, Max(n+5,n+10))
     // this should not simplify*/
-    assertEquals(Max(n,n*2), ExprSimplifier.simplify(Max(n,n*2)))
+    assertEquals(Max(n,n*2), Max(n,n*2))
   }
 
   @Test

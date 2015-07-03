@@ -34,8 +34,8 @@ object SimplifyProd {
     case (x, y) if x == y => Some(x pow 2)
 
     case (Pow(b1,e1),Pow(b2,e2)) if b1 == b2 => Some(b1 pow (e1 + e2))
-    case (base,Pow(b,e)) if b != Cst(1) && ArithExpr.gcd(base,b) == b => Some(base /^ b * (b pow (e + 1)))
-    case (Pow(b,e),base) if b != Cst(1) && ArithExpr.gcd(base,b) == b => Some(base /^ b * (b pow (e + 1)))
+    case (base,Pow(b,e)) if ArithExpr.gcd(base,b) == b => Some(base /^ b * (b pow (e + 1)))
+    case (Pow(b,e),base) if ArithExpr.gcd(base,b) == b => Some(base /^ b * (b pow (e + 1)))
 
     case (x,y) => None
   }
@@ -49,8 +49,6 @@ object SimplifyProd {
   def simplify(lhs: ArithExpr, rhs: ArithExpr): Option[ArithExpr] = (lhs, rhs) match {
     // Constant product
     case (Cst(x), Cst(y)) => Some(Cst(x*y))
-
-    case (x, y) if x == y => Some(x pow 2)
 
     // Multiplication by zero
     case (Cst(0), _) | (_, Cst(0)) => Some(Cst(0))
