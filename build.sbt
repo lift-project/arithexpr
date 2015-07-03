@@ -24,8 +24,6 @@ libraryDependencies += "org.clapper" %% "argot" % "1.0.3"
 
 scalacOptions in (Compile,doc) := Seq("-implicits", "-diagrams")
 
-ScoverageSbtPlugin.ScoverageKeys.coverageExcludedPackages := "<empty>;benchmarks.*;.*Test.*;junit.*;.*interop.*"
-
 testOptions += Tests.Argument(TestFrameworks.JUnit, "-q", "-v")
 
 fork := true
