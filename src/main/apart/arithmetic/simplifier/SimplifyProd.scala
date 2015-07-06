@@ -47,6 +47,10 @@ object SimplifyProd {
    * @return An option containing a different operation if the product can be re-written, None otherwise
    */
   def simplify(lhs: ArithExpr, rhs: ArithExpr): Option[ArithExpr] = (lhs, rhs) match {
+    // Factor simplification
+    case (x, y) if !x.simplified => Some(ExprSimplifier(x) * y)
+    case (x, y) if !y.simplified => Some(x * ExprSimplifier(y))
+
     // Constant product
     case (Cst(x), Cst(y)) => Some(Cst(x*y))
 
@@ -61,10 +65,6 @@ object SimplifyProd {
     // Multiplication by one
     case (Cst(1), _) => Some(rhs)
     case (_, Cst(1)) => Some(lhs)
-
-    // Factor simplification
-    case (x, y) if !x.simplified => Some(ExprSimplifier(x) * y)
-    case (x, y) if !y.simplified => Some(x * ExprSimplifier(y))
 
     // Distribute sums
     case (x, s: Sum) => Some(s.terms.map(_*x).reduce(_+_))

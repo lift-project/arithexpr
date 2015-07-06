@@ -981,13 +981,13 @@ object Var {
       newVars.map(v => {
         v.range match {
           case RangeAdd(start, stop, step) => v.range = RangeAdd(
-            ExprSimplifier(ArithExpr.substitute(start, newSubsts.toMap)),
-            ExprSimplifier(ArithExpr.substitute(stop, newSubsts.toMap)),
-            ExprSimplifier(ArithExpr.substitute(step, newSubsts.toMap)))
+            ArithExpr.substitute(start, newSubsts.toMap),
+            ArithExpr.substitute(stop, newSubsts.toMap),
+            ArithExpr.substitute(step, newSubsts.toMap))
           case RangeMul(start, stop, step) => v.range = RangeMul(
-            ExprSimplifier(ArithExpr.substitute(start, newSubsts.toMap)),
-            ExprSimplifier(ArithExpr.substitute(stop, newSubsts.toMap)),
-            ExprSimplifier(ArithExpr.substitute(step, substitutions.toMap)))
+            ArithExpr.substitute(start, newSubsts.toMap),
+            ArithExpr.substitute(stop, newSubsts.toMap),
+            ArithExpr.substitute(step, substitutions.toMap))
           case _ =>
         }
         v

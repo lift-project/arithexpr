@@ -27,20 +27,12 @@ object SimplifyMod {
     case (x, y) if ArithExpr.multipleOf(x, y) => Some(Cst(0))
     case (m: Mod, divisor) if m.divisor == divisor => Some(m)
     case (x, y) if ArithExpr.isSmaller(x, y) => Some(x)
-    case (Sum(terms), d) =>
-      // (A + B) mod C = (A mod C + B mod C) mod C
-      // try to distribute the mod. If this results in a simpler sum (by the number of terms) then keep it
-      terms.map(_ % d).reduce(_ + _) match {
-        case Sum(newTerms) =>
-          // If the new sum is simpler, re-factorize the mod with the new expression
-          if (newTerms.length < terms.length) {
-            Some(newTerms.map({
-              case Mod(_dividend, _divisor) if _divisor == d => _dividend
-              case t => t
-            }).reduce(_ + _) % d)
-          } else None
-        case x => Some(x % d)
-      }
+
+    // Isolate the terms which are multiple of the mod and eliminate
+    case (s@Sum(terms), d) =>
+      val (multiple, notmultiple) = terms.partition(x => ArithExpr.gcd(x, d) != Cst(1))
+      if (multiple.nonEmpty) Some(s.withoutTerm(multiple) % d)
+      else None
     case _ => None
   }
 
