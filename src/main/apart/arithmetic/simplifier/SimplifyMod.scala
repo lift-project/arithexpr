@@ -21,7 +21,6 @@ object SimplifyMod {
 
     case (x, y) if ArithExpr.multipleOf(x, y) => Some(Cst(0))
     case (m: Mod, divisor) if m.divisor == divisor => Some(m)
-    case (x, y) if ArithExpr.isSmaller(x, y) => Some(x)
 
     // If the divident is a product, try to find the divisor. Finding the GCD below should make this redundant, but the
     // GCD method does not return fractions, but the divisor could be one.
@@ -30,8 +29,10 @@ object SimplifyMod {
     // If there exists a common denominator, simplify
     case (x, y) if ArithExpr.gcd(x,y) == y => Some(Cst(0))
 
+    case (x, y) if !x.might_be_negative && ArithExpr.isSmaller(x, y) => Some(x)
+
     // Isolate the terms which are multiple of the mod and eliminate
-    case (s@Sum(terms), d) =>
+    case (s@Sum(terms), d) if !s.might_be_negative =>
       val (multiple, notmultiple) = terms.partition(x => ArithExpr.gcd(x, d) == d)
       if (multiple.nonEmpty) Some(s.withoutTerm(multiple) % d)
       else None

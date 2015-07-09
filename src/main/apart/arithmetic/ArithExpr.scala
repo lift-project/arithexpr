@@ -75,6 +75,12 @@ abstract sealed class ArithExpr {
   val simplified: Boolean = false
 
   /**
+   * Flag set if the value might be negative. All variables are considered positive. If an expression contains a subtraction
+   * or a negative constant, compute if the value might be negative.
+   */
+  lazy val might_be_negative = ArithExpr.visitUntil(this, x => x.isInstanceOf[Cst] && x.asInstanceOf[Cst].c < 0)
+
+  /**
    * Lower and upper bounds of the expression.
    */
   lazy val (min,max): (ArithExpr,ArithExpr) = (Var(""), Var(""))
