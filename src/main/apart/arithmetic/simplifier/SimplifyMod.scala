@@ -20,7 +20,7 @@ object SimplifyMod {
     case (Cst(x), Cst(y)) => Some(Cst(x % y))
 
     case (x, y) if x == y => Some(Cst(0))
-    case (x, y) if ArithExpr.isSmaller(x, y) => Some(x)
+    case (x, y) if !x.might_be_negative && ArithExpr.isSmaller(x, y) => Some(x)
     case (x, y) if ArithExpr.multipleOf(x, y) => Some(Cst(0))
     case (m: Mod, divisor) if m.divisor == divisor => Some(m)
 
@@ -32,7 +32,7 @@ object SimplifyMod {
     case (x, y) if ArithExpr.gcd(x,y) == y => Some(Cst(0))
 
     // Isolate the terms which are multiple of the mod and eliminate
-    case (s@Sum(terms), d) =>
+    case (s@Sum(terms), d) if !s.might_be_negative =>
       val (multiple, notmultiple) = terms.partition(x => (x, d) match {
         case (Prod(factors1), Prod(factors2)) => factors2 forall (factors1 contains)
         case (Prod(factors), x) if factors.contains(x) => true

@@ -78,7 +78,7 @@ abstract sealed class ArithExpr {
    * Flag set if the value might be negative. All variables are considered positive. If an expression contains a subtraction
    * or a negative constant, compute if the value might be negative.
    */
-  lazy val might_be_negative = ArithExpr.visitUntil(this, x => x.isInstanceOf[Cst] && x.asInstanceOf[Cst].c < 0)
+  lazy val might_be_negative: Boolean = true
 
   /**
    * Lower and upper bounds of the expression.
@@ -140,7 +140,7 @@ abstract sealed class ArithExpr {
   lazy val varList = getVars()
 
   def ==(that: ArithExpr): Boolean = {
-    if (digest() == that.digest()) {
+    if (this.HashSeed() == that.HashSeed() && digest() == that.digest()) {
       if(digest != 0x3fac31) {
         // cross check: digest submodes
         var thistree = 0
@@ -269,6 +269,8 @@ abstract sealed class ArithExpr {
    * @return A 32 bit digest of the expression.
    */
   def digest(): Int
+
+  def HashSeed(): Int
 }
 
 //object floor {
@@ -318,7 +320,7 @@ object ArithExpr {
       (for {
         t1 <- s.terms
         t2 <- s.terms
-        if t1.digest < t2.digest
+        if t1.HashSeed < t2.HashSeed || (t1.HashSeed == t2.HashSeed && t1.digest < t2.digest)
       } yield gcd(t1,t2)).map{
         case c@Cst(1) => return c
         case x => x
@@ -670,7 +672,11 @@ object ArithExpr {
 
 case object ? extends ArithExpr with SimplifiedExpr {
 
-  override val digest: Int = 0x3fac31
+  override val HashSeed = 0x3fac31
+
+  override val digest: Int = HashSeed
+
+  override lazy val might_be_negative = true
 }
 
 case class Cst(c: Int) extends ArithExpr with SimplifiedExpr {
@@ -682,7 +688,11 @@ case class Cst(c: Int) extends ArithExpr with SimplifiedExpr {
 
   override lazy val toString = c.toString
 
+  override val HashSeed = Integer.hashCode(c)
+
   override val digest: Int =  Integer.hashCode(c)
+
+  override lazy val might_be_negative = c < 0
 }
 
 
@@ -710,7 +720,11 @@ case class IntDiv(numer: ArithExpr, denom: ArithExpr) extends ArithExpr() {
     }
   }
 
-  override val digest: Int =  0xf233de5a ^ numer.digest() ^ ~denom.digest()
+  override val HashSeed = 0xf233de5a
+
+  override val digest: Int = HashSeed ^ numer.digest() ^ ~denom.digest()
+
+  override lazy val might_be_negative = numer.might_be_negative || denom.might_be_negative
 }
 
 case class Pow(b: ArithExpr, e: ArithExpr) extends ArithExpr {
@@ -740,13 +754,21 @@ case class Pow(b: ArithExpr, e: ArithExpr) extends ArithExpr {
     case _ => "pow("+b+","+e+")"
   }
 
-  override val digest: Int =  0x63fcd7c2 ^ b.digest() ^ e.digest()
+  override val HashSeed = 0x63fcd7c2
+
+  override val digest: Int = HashSeed ^ b.digest() ^ e.digest()
+
+  override lazy val might_be_negative = b.might_be_negative
 }
 
 case class Log(b: ArithExpr, x: ArithExpr) extends ArithExpr with SimplifiedExpr {
   override def toString: String = "log"+b+"("+x+")"
 
-  override val digest: Int =  0x370285bf ^ b.digest() ^ ~x.digest()
+  override val HashSeed = 0x370285bf
+
+  override val digest: Int = HashSeed ^ b.digest() ^ ~x.digest()
+
+  override lazy val might_be_negative = b.might_be_negative
 }
 
 
@@ -791,7 +813,9 @@ case class Prod private[arithmetic] (factors: List[ArithExpr]) extends ArithExpr
 
   override def hashCode(): Int = digest
 
-  override lazy val digest: Int = factors.foldRight(0x286be17e)((x,hash) => hash ^ x.digest())
+  override lazy val digest: Int = factors.foldRight(HashSeed)((x,hash) => hash ^ x.digest())
+
+  override val HashSeed = 0x286be17e
 
   /**
    * Remove a single factor from the list of factors and return either a Product of the factor left.
@@ -822,6 +846,8 @@ case class Prod private[arithmetic] (factors: List[ArithExpr]) extends ArithExpr
   }
 
   lazy val isNegatedTerm = cstFactor == Cst(-1)
+
+  override lazy val might_be_negative = factors.exists(_.might_be_negative)
 }
 
 
@@ -872,12 +898,16 @@ case class Sum private[arithmetic] (terms: List[ArithExpr]) extends ArithExpr {
     else new Sum(rest) with SimplifiedExpr
   }
 
-  override val digest: Int = terms.foldRight(0x8e535130)((x,hash) => hash ^ x.digest())
+  override val digest: Int = terms.foldRight(HashSeed)((x,hash) => hash ^ x.digest())
+
+  override val HashSeed = 0x8e535130
 
   lazy val cstTerm: Cst = {
     if (simplified) terms.find(_.isInstanceOf[Cst]).getOrElse(Cst(0)).asInstanceOf[Cst]
     else Cst(terms.filter(_.isInstanceOf[Cst]).foldLeft[Int](0)(_ + _.asInstanceOf[Cst].c))
   }
+
+  override lazy val might_be_negative = terms.exists(_.might_be_negative)
 }
 
 case class Mod(dividend: ArithExpr, divisor: ArithExpr) extends ArithExpr {
@@ -892,13 +922,21 @@ case class Mod(dividend: ArithExpr, divisor: ArithExpr) extends ArithExpr {
 
   override lazy val toString: String = s"($dividend % ($divisor))"
 
-  override val digest: Int =  0xedf6bb88 ^ dividend.digest() ^ ~divisor.digest()
+  override val digest: Int = HashSeed ^ dividend.digest() ^ ~divisor.digest()
+
+  override val HashSeed = 0xedf6bb88
+
+  override lazy val might_be_negative = dividend.might_be_negative
 }
 
 case class Floor(ae : ArithExpr) extends ArithExpr {
   override lazy val toString: String = "Floor(" + ae + ")"
 
-  override val digest: Int =  0x558052ce ^ ae.digest()
+  override val digest: Int = HashSeed ^ ae.digest()
+
+  override val HashSeed = 0x558052ce
+
+  override lazy val might_be_negative = ae.might_be_negative
 }
 
 /**
@@ -910,13 +948,22 @@ case class Floor(ae : ArithExpr) extends ArithExpr {
 case class IfThenElse(test: Predicate, t : ArithExpr, e : ArithExpr) extends ArithExpr {
   override lazy val toString: String = s"( $test ? $t : $e )"
 
-  override lazy val digest: Int =  0x32c3d095 ^ test.digest ^ t.digest() ^ ~e.digest()
+  override lazy val digest: Int = HashSeed ^ test.digest ^ t.digest() ^ ~e.digest()
+
+  override val HashSeed = 0x32c3d095
 }
 
 case class ArithExprFunction(name: String, var range: Range = RangeUnknown) extends ArithExpr with SimplifiedExpr {
-  override lazy val digest: Int =  0x3105f133 ^ range.digest() ^ name.hashCode
+  override lazy val digest: Int = HashSeed ^ range.digest() ^ name.hashCode
+
+  override val HashSeed = 0x3105f133
 
   override lazy val toString: String = s"$name($range)"
+
+  /**
+   * TODO(tlutz): This is true for now but probably too restrictive
+   */
+  override lazy val might_be_negative = false
 }
 
 /**
@@ -953,7 +1000,11 @@ case class Var(name: String, var range : Range = RangeUnknown) extends ArithExpr
     }
   }
 
-  override val digest: Int = 0x54e9bd5e /*^ name.hashCode*/ ^ Integer.hashCode(id) ^ range.digest()
+  override val digest: Int = HashSeed /*^ name.hashCode*/ ^ Integer.hashCode(id) ^ range.digest()
+
+  override val HashSeed =  0x54e9bd5e
+
+  override lazy val might_be_negative = false
 }
 
 
