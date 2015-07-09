@@ -101,7 +101,7 @@ class Regressions {
     val v_N_0 = Var("v_N_0")
     val v_wg_id_249 = Var("v_wg_id_249")
     val v_wg_id_246 = Var("v_wg_id_246", GoesToRange(v_N_0 / 64))
-    assertEquals(64 * v_N_0 * v_wg_id_249 + 7 * v_N_0 + v_N_0 * new func1(1) * 8 + 48 + new func1(0), (64 * v_N_0 * v_wg_id_249) + (7 * v_N_0) + (v_N_0 * new func1(1) * 8) + (((v_wg_id_246 + (v_N_0 * new func1(1) / 8) + (7 * v_N_0 / 64)) % (v_N_0 / 64)) * 64) + 48 + new func1(0))
+    assertEquals(64 * v_N_0 * v_wg_id_249 + 7 * v_N_0 + v_N_0 * new func1(1) * 8 + 48 + new func1(0) + 64 * v_wg_id_246, (64 * v_N_0 * v_wg_id_249) + (7 * v_N_0) + (v_N_0 * new func1(1) * 8) + (((v_wg_id_246 + (v_N_0 * new func1(1) / 8) + (7 * v_N_0 / 64)) % (v_N_0 / 64)) * 64) + 48 + new func1(0))
   }
 
 }
