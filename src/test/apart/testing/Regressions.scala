@@ -1,6 +1,6 @@
 package apart.testing
 
-import apart.arithmetic.{ArithExprFunction, ArithExpr, Var, Cst}
+import apart.arithmetic._
 import org.junit.Assert._
 import org.junit.Test
 
@@ -94,6 +94,14 @@ class Regressions {
     val x = Cst(8)
 
     assertEquals(x * Cst(4) * (a+b), x * (Cst(4) * (a + b) / Cst(16)) * Cst(16) + x * (Cst(4) * (a + b) % Cst(16)))
+  }
+
+  @Test
+  def expr12(): Unit = {
+    val v_N_0 = Var("v_N_0")
+    val v_wg_id_249 = Var("v_wg_id_249")
+    val v_wg_id_246 = Var("v_wg_id_246", GoesToRange(v_N_0 / 64))
+    assertEquals(64 * v_N_0 * v_wg_id_249 + 7 * v_N_0 + v_N_0 * new func1(1) * 8 + 48 + new func1(0), (64 * v_N_0 * v_wg_id_249) + (7 * v_N_0) + (v_N_0 * new func1(1) * 8) + (((v_wg_id_246 + (v_N_0 * new func1(1) / 8) + (7 * v_N_0 / 64)) % (v_N_0 / 64)) * 64) + 48 + new func1(0))
   }
 
 }
