@@ -292,7 +292,6 @@ class TestExpr {
     assertEquals(Cst(5), Cst(-1) * Cst(-5))
   }
 
-  @Ignore
   @Test def modBug(): Unit = {
     val n = Var("n")
     val l = Var("l", ContinuousRange(0, 4))
@@ -353,7 +352,7 @@ class TestExpr {
   @Test
   def diffProdVal(): Unit = {
     val a = Var("a")
-    //assertEquals(a, a + a - a)
+    assertEquals(a, a + a - a)
     assertEquals(Cst(2), (2 + a) + (a * -1))
   }
 

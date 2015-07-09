@@ -1,6 +1,6 @@
 package apart.testing
 
-import apart.arithmetic.{ArithExpr, Var, Cst}
+import apart.arithmetic.{ArithExprFunction, ArithExpr, Var, Cst}
 import org.junit.Assert._
 import org.junit.Test
 
@@ -56,6 +56,44 @@ class Regressions {
     val expr = (3*a*b)
     assertEquals(a*b*11, a*b*6 + a*b*5)
     assertNotEquals(a*b*11, a*b*6 + a*5)
+  }
+
+  @Test def expr8(): Unit = {
+    assertEquals(a /^ 2048, a * 128 * 1 /^ (262144))
+  }
+
+  @Test def expr9(): Unit = {
+    val a = Var("a")
+    assertEquals(a /^ 2, a * (a*1/^(2)) /^ a)
+  }
+
+  class func1(a: Int) extends ArithExprFunction("func1")
+
+  class func2(a: Int) extends ArithExprFunction("func2")
+
+  @Test def expr10(): Unit = {
+    assertNotEquals(Cst(0), new func1(0) - new func2(0))
+    assertNotEquals(Cst(10), new func1(6) + new func1(4))
+    assertNotEquals(Cst(10), new func1(6) + new func1(4))
+    assertNotEquals(new func1(10), new func1(6) + new func1(4))
+  }
+
+  @Test def expr11(): Unit = {
+    val v_l_id_8 = new Var("a")
+    val v_l_id_7 = new Var("b")
+
+    assertNotEquals(v_l_id_7 % 8, (((v_l_id_8 * 4) + v_l_id_7) % 8) * 1)
+    assertEquals((v_l_id_8 * 4) + v_l_id_7, 0 + ((((v_l_id_8 * 4) + v_l_id_7) / 8) * 8 * 1) + ((((v_l_id_8 * 4) + v_l_id_7) % 8) * 1))
+  }
+
+  @Test
+  def divPlusModOfSumMultipliedConstants(): Unit = {
+    val a = Var("a")
+    val b = Var("b")
+    val d = Cst(2)
+    val x = Cst(8)
+
+    assertEquals(x * Cst(4) * (a+b), x * (Cst(4) * (a + b) / Cst(16)) * Cst(16) + x * (Cst(4) * (a + b) % Cst(16)))
   }
 
 }

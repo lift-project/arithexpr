@@ -125,25 +125,27 @@ abstract sealed class ArithExpr {
     e match {
       case adds: Sum => adds.terms.foldLeft(l)((acc,expr) => getVars(expr, acc))
       case muls: Prod => muls.factors.foldLeft(l)((acc,expr) => getVars(expr, acc))
-      case v: Var => if (l contains v) l else  l + v
+      case Pow(b,e) => l ++ getVars(b) ++ getVars(e)
+      case v: Var => l + v
       case _ => l
     }
   }
 
   lazy val varList = getVars()
 
-  final def ==(that: ArithExpr): Boolean = {
+  def ==(that: ArithExpr): Boolean = {
     if (digest() == that.digest()) {
-      // cross check: digest submodes
-      /*var thistree = 0
-      var thattree = 0
-      ArithExpr.visit(this, x => thistree = thistree ^ x.digest())
-      ArithExpr.visit(that, x => thattree = thattree ^ x.digest())
-      if(thistree != thattree) {
-        throw new RuntimeException("digest clash") // TODO: remove this if a collision occurs
-        return false
-      }
-      else*/ true
+      if(digest != 0x3fac31) {
+        // cross check: digest submodes
+        var thistree = 0
+        var thattree = 0
+        ArithExpr.visit(this, x => thistree = thistree ^ x.digest())
+        ArithExpr.visit(that, x => thattree = thattree ^ x.digest())
+        if (thistree != thattree) {
+          return false
+        }
+        else true
+      } else true
     } else false
   }
 
@@ -183,7 +185,7 @@ abstract sealed class ArithExpr {
     case (x,Cst(1)) => x
     case (Cst(x),Cst(y)) if x % y == 0 => Cst(x/y)
     case (x,y) if x == y => Cst(1)
-    case (x,y) if x == y * -1 => Cst(-1)
+    case (x,y) if x == (y * Cst(-1)) => Cst(-1)
     case (x,y) => x * (y pow -1)
   }
 
@@ -490,19 +492,19 @@ object ArithExpr {
   }
 
   private[arithmetic] def isDivision: (ArithExpr) => Boolean = {
-    case Pow(_, Cst(-1)) => true
+    case Pow(_, Cst(x)) if x < 0 => true
     case e => false
   }
 
   def isSmaller(ae1: ArithExpr, ae2: ArithExpr): Boolean = {
-    //System.out.println(s"${ae1} <?< ${ae2}")
+    //System.err.println(s"${ae1} <?< ${ae2}")
     try {
       // TODO: Assuming range.max is non-inclusive
       val atMax = ae1.atMax
 
       atMax match {
         case Prod(factors) if hasDivision(factors) =>
-          val newProd = ExprSimplifier(factors.filter(!isDivision(_)).reduce(_*_))
+          val newProd = factors.filter(!isDivision(_)).reduce(_*_)
           if (newProd == ae2)
             return true
         case _ =>
@@ -534,7 +536,7 @@ object ArithExpr {
       case Floor(expr) => visit(expr, f)
       case Sum(terms) => terms.foreach(t => visit(t, f))
       case Prod(terms) => terms.foreach(t => visit(t, f))
-      case Var(_,_) |  Cst(_) | IfThenElse(_,_,_) | ArithExprFunction(_) | ? =>
+      case Var(_,_) |  Cst(_) | IfThenElse(_,_,_) | ArithExprFunction(_,_) | ? =>
       case _ => throw new RuntimeException(s"Cannot visit expression $e")
     }
   }
@@ -558,7 +560,7 @@ object ArithExpr {
         case Prod(terms) =>
           terms.foreach(t => if (visitUntil(t, f)) return true)
           false
-        case Var(_,_) |  Cst(_) | IfThenElse(_,_,_) | ArithExprFunction(_) | ? => false
+        case Var(_,_) |  Cst(_) | IfThenElse(_,_,_) | ArithExprFunction(_,_) | ? => false
         case _ => throw new RuntimeException(s"Cannot visit expression $e")
       }
     }
@@ -567,7 +569,7 @@ object ArithExpr {
   def substitute(e: ArithExpr, substitutions: scala.collection.immutable.Map[ArithExpr,ArithExpr]) : ArithExpr =
     substitutions.getOrElse(e, e) match {
       case Pow(l,r) => substitute(l,substitutions) pow substitute(r,substitutions)
-      case IntDiv(n, d) => (substitute(n, substitutions) / substitute(d, substitutions))
+      case IntDiv(n, d) => substitute(n, substitutions) / substitute(d, substitutions)
       case Mod(dividend, divisor) => substitute(dividend, substitutions) % substitute(divisor, substitutions)
       case Log(b,x) => Log(substitute(b, substitutions), substitute(x, substitutions))
       case IfThenElse(i, t, e) =>
@@ -662,7 +664,7 @@ object ArithExpr {
 
 case object ? extends ArithExpr with SimplifiedExpr {
 
-  override val digest: Int =  0x3fac31
+  override val digest: Int = 0x3fac31
 }
 
 case class Cst(c: Int) extends ArithExpr with SimplifiedExpr {
@@ -757,6 +759,14 @@ case class Prod private[arithmetic] (factors: List[ArithExpr]) extends ArithExpr
     })
   }
 
+  // Refine the equality operator to compare factors
+  override def ==(that: ArithExpr): Boolean = that match {
+    case Prod(otherfactors) =>
+      if(otherfactors.length != factors.length) return false
+      factors.map(_.digest()).sortWith(_<_) == otherfactors.map(_.digest()).sortWith(_<_)
+    case _ => false
+  }
+
   // TODO(tlutz): product depends on sign, should compute magnitude and sign independently
   override lazy val (min,max): (ArithExpr,ArithExpr) =
     (ExprSimplifier(factors.reduceLeft(_.min * _.min)), ExprSimplifier(factors.reduceLeft(_.max * _.max)))
@@ -819,6 +829,14 @@ case class Sum private[arithmetic] (terms: List[ArithExpr]) extends ArithExpr {
     terms.foreach(x => {
       Devel.AssertNot(x.isInstanceOf[Sum], "Sum cannot contain a Sum")
     })
+  }
+
+  // Refine the equality operator to compare terms
+  override def ==(that: ArithExpr): Boolean = that match {
+    case Sum(otherterms) =>
+      if(otherterms.length != terms.length) return false
+      terms.map(_.digest()).sortWith(_<_) == otherterms.map(_.digest()).sortWith(_<_)
+    case _ => false
   }
 
   override lazy val (min,max): (ArithExpr,ArithExpr) =
@@ -889,8 +907,8 @@ case class IfThenElse(test: Predicate, t : ArithExpr, e : ArithExpr) extends Ari
   override val digest: Int =  0x32c3d095 ^ test.digest ^ t.digest() ^ ~e.digest()
 }
 
-case class ArithExprFunction(var range: Range = RangeUnknown) extends ArithExpr with SimplifiedExpr {
-  override val digest: Int =  0x3105f133 ^ range.digest()
+case class ArithExprFunction(name: String, var range: Range = RangeUnknown) extends ArithExpr with SimplifiedExpr {
+  override val digest: Int =  0x3105f133 ^ range.digest() ^ name.hashCode
 }
 
 /**

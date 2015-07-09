@@ -41,8 +41,8 @@ object SimplifySum {
     case (x,y) if x == y => Some(2 * x)
 
     // Prune zeroed vars
-    case (x, v:Var) if v.range.max == 1 => Some(x)
-    case (v:Var, x) if v.range.max == 1 => Some(x)
+    case (x, v:Var) if v.range.max == Cst(1) => Some(x)
+    case (v:Var, x) if v.range.max == Cst(1) => Some(x)
 
     // Merge products if they only differ by a constant factor
     case (p1:Prod, p2:Prod) if p1.withoutFactor(p1.cstFactor) == p2.withoutFactor(p2.cstFactor) =>

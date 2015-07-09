@@ -34,8 +34,18 @@ object SimplifyProd {
     case (x, y) if x == y => Some(x pow 2)
 
     case (Pow(b1,e1),Pow(b2,e2)) if b1 == b2 => Some(b1 pow (e1 + e2))
+    case (base,Pow(b,e)) if base == Cst(1) => Some(base /^ b * (b pow (e + 1)))
+    case (Pow(b,e),base) if base == Cst(1) => Some(base /^ b * (b pow (e + 1)))
     case (base,Pow(b,e)) if ArithExpr.gcd(base,b) == b => Some(base /^ b * (b pow (e + 1)))
     case (Pow(b,e),base) if ArithExpr.gcd(base,b) == b => Some(base /^ b * (b pow (e + 1)))
+    case (base,Pow(b,e)) if ArithExpr.gcd(base,b) != Cst(1) && e == Cst(-1) => {
+      val gcd = ArithExpr.gcd(base,b)
+      Some(base /^ gcd * ((b /^ gcd) pow (e)))
+    }
+    case (Pow(b,e),base) if ArithExpr.gcd(base,b) != Cst(1) && e == Cst(-1) => {
+      val gcd = ArithExpr.gcd(base,b)
+      Some(base /^ gcd * ((b /^ gcd) pow (e)))
+    }
 
     case (x,y) => None
   }

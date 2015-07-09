@@ -13,7 +13,7 @@ object ExprPrinter {
     print("  |" * depth + "- ")
 
     expr match {
-      case ArithExprFunction(f) =>
+      case ArithExprFunction(_,f) =>
         println(s"fct")
         dump(f.min,depth+1)
         dump(f.max,depth+1)
@@ -123,7 +123,7 @@ object ExprPrinter {
 
     // Build current node
     val node: DotNode = expr match {
-      case ArithExprFunction(f) =>
+      case ArithExprFunction(_, f) =>
         graph.addNode(f.toString)
       case Cst(e) =>
         graph.addNode(e.toString, color = "\"#268bd2\"")
@@ -153,7 +153,7 @@ object ExprPrinter {
 
     // explore children
     expr match {
-      case ArithExprFunction(f) =>
+      case ArithExprFunction(_, f) =>
         dot(f.min, graph, id)
         dot(f.max, graph, id)
       case Var(a, b) =>
