@@ -67,9 +67,17 @@ class Regressions {
     assertEquals(a /^ 2, a * (a*1/^(2)) /^ a)
   }
 
-  class func1(a: Int) extends ArithExprFunction("func1")
+  class func1(a: Int) extends ArithExprFunction("func1") {
+    override lazy val digest: Int =  0x3105f133 ^ range.digest() ^ name.hashCode ^ a.hashCode()
 
-  class func2(a: Int) extends ArithExprFunction("func2")
+    override lazy val toString: String = s"$name($a)"
+  }
+
+  class func2(a: Int) extends ArithExprFunction("func2") {
+    override lazy val digest: Int =  0x3105f133 ^ range.digest() ^ name.hashCode ^ a.hashCode()
+
+    override lazy val toString: String = s"$name($a)"
+  }
 
   @Test def expr10(): Unit = {
     assertNotEquals(Cst(0), new func1(0) - new func2(0))
@@ -101,7 +109,10 @@ class Regressions {
     val v_N_0 = Var("v_N_0")
     val v_wg_id_249 = Var("v_wg_id_249")
     val v_wg_id_246 = Var("v_wg_id_246", GoesToRange(v_N_0 / 64))
-    assertEquals(64 * v_N_0 * v_wg_id_249 + 7 * v_N_0 + v_N_0 * new func1(1) * 8 + 48 + new func1(0) + 64 * v_wg_id_246, (64 * v_N_0 * v_wg_id_249) + (7 * v_N_0) + (v_N_0 * new func1(1) * 8) + (((v_wg_id_246 + (v_N_0 * new func1(1) / 8) + (7 * v_N_0 / 64)) % (v_N_0 / 64)) * 64) + 48 + new func1(0))
+    assertEquals(64 * v_N_0 * v_wg_id_249 + 7 * v_N_0 + v_N_0 * new func1(1) * 8 + 48 + new func1(0) + 64 * v_wg_id_246,
+      (64 * v_N_0 * v_wg_id_249) + (7 * v_N_0) + (v_N_0 * new func1(1) * 8) + (
+        ((v_wg_id_246 + (v_N_0 * new func1(1) / 8) + (7 * v_N_0 / 64)) % (v_N_0 / 64))
+          * 64) + 48 + new func1(0))
   }
 
 }

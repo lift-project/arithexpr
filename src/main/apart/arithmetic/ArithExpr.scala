@@ -352,8 +352,8 @@ object ArithExpr {
         case Some(x) => gcd(c,x)
         case _ => Cst(1)
       }
-      case (Prod(f), x) if f.contains(x) => x
-      case (x, Prod(f)) if f.contains(x) => x
+      case (Prod(f), x) if f.contains(x) && !ArithExpr.hasDivision(f) => x
+      case (x, Prod(f)) if f.contains(x) && !ArithExpr.hasDivision(f) => x
 
       // GCD of sums: find common factor across all terms
       case (s1:Sum, s2:Sum) =>
@@ -890,7 +890,7 @@ case class Mod(dividend: ArithExpr, divisor: ArithExpr) extends ArithExpr {
 
   override lazy val max: ArithExpr = ExprSimplifier(divisor.max - 1)
 
-  override lazy val toString: String = "(" + dividend + " % " + divisor + ")"
+  override lazy val toString: String = s"($dividend % ($divisor))"
 
   override val digest: Int =  0xedf6bb88 ^ dividend.digest() ^ ~divisor.digest()
 }
@@ -910,11 +910,13 @@ case class Floor(ae : ArithExpr) extends ArithExpr {
 case class IfThenElse(test: Predicate, t : ArithExpr, e : ArithExpr) extends ArithExpr {
   override lazy val toString: String = s"( $test ? $t : $e )"
 
-  override val digest: Int =  0x32c3d095 ^ test.digest ^ t.digest() ^ ~e.digest()
+  override lazy val digest: Int =  0x32c3d095 ^ test.digest ^ t.digest() ^ ~e.digest()
 }
 
 case class ArithExprFunction(name: String, var range: Range = RangeUnknown) extends ArithExpr with SimplifiedExpr {
-  override val digest: Int =  0x3105f133 ^ range.digest() ^ name.hashCode
+  override lazy val digest: Int =  0x3105f133 ^ range.digest() ^ name.hashCode
+
+  override lazy val toString: String = s"$name($range)"
 }
 
 /**

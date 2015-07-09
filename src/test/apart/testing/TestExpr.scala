@@ -456,6 +456,15 @@ class TestExpr {
   }
 
   @Test
+  def bugBIsSmaller(): Unit = {
+    val n = Var("n")
+    val l = Var("l", ContinuousRange(0, 4))
+    val wg = Var("wg", ContinuousRange(0, n/^4))
+
+    assertTrue(ArithExpr.isSmaller(l * n/^4, n))
+  }
+
+  @Test
   def fractionMultipleOf(): Unit = {
     val n = Var("N")
 
