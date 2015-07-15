@@ -2,6 +2,8 @@ package apart
 package arithmetic
 package simplifier
 
+import scala.language.postfixOps
+
 object SimplifyMod {
 
   def simplify(dividend: ArithExpr, divisor: ArithExpr): Option[ArithExpr] = (dividend, divisor) match {
