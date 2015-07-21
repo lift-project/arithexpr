@@ -153,7 +153,7 @@ abstract sealed class ArithExpr {
    * @note This operator works only for simplified expressions.
    */
   def ==(that: ArithExpr): Boolean = {
-    if (this != ? && this.HashSeed() == that.HashSeed() && digest() == that.digest())
+    if (this.HashSeed() == that.HashSeed() && digest() == that.digest())
       this === that
     else false
   }
@@ -175,8 +175,8 @@ abstract sealed class ArithExpr {
     case (Prod(a), Prod(b)) => a.length == b.length && (a zip b).forall(x => x._1 == x._2)
     case (IfThenElse(test1, t1, e1), IfThenElse(test2, t2, e2)) =>
       test1.op == test2.op && test1.lhs == test2.lhs && test1.rhs == test2.rhs && t1 == t2 && e1 == e2
-    case (ArithExprFunction(n1, r1), ArithExprFunction(n2, r2)) => n1 == n2 && r1 == r2
-    case (Var(n1, r1), Var(n2, r2)) => n1 == n2 && r1 == r2
+    case (f1:ArithExprFunction, f2:ArithExprFunction) => f1.name == f2.name
+    case (v1:Var, v2:Var) => v1.id == v2.id
     case _ =>
       System.err.println(s"$this and $that are not equal")
       false
@@ -570,7 +570,8 @@ object ArithExpr {
       case Floor(expr) => visit(expr, f)
       case Sum(terms) => terms.foreach(t => visit(t, f))
       case Prod(terms) => terms.foreach(t => visit(t, f))
-      case Var(_,_) |  Cst(_) | IfThenElse(_,_,_) | ArithExprFunction(_,_) | ? =>
+      case Var(_,_) |  Cst(_) | IfThenElse(_,_,_) | ArithExprFunction(_,_) =>
+      case x if x.getClass == ?.getClass =>
       case _ => throw new RuntimeException(s"Cannot visit expression $e")
     }
   }
@@ -594,7 +595,8 @@ object ArithExpr {
         case Prod(terms) =>
           terms.foreach(t => if (visitUntil(t, f)) return true)
           false
-        case Var(_,_) |  Cst(_) | IfThenElse(_,_,_) | ArithExprFunction(_,_) | ? => false
+        case Var(_,_) |  Cst(_) | IfThenElse(_,_,_) | ArithExprFunction(_,_) => false
+        case x if x.getClass == ?.getClass => false
         case _ => throw new RuntimeException(s"Cannot visit expression $e")
       }
     }
@@ -706,6 +708,8 @@ case object ? extends ArithExpr with SimplifiedExpr {
   override val digest: Int = HashSeed
 
   override lazy val might_be_negative = true
+
+  override def ==(that: ArithExpr): Boolean = that.getClass == this.getClass
 }
 
 case class Cst(c: Int) extends ArithExpr with SimplifiedExpr {
