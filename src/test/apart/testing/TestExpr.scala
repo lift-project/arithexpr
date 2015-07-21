@@ -514,9 +514,16 @@ class TestExpr {
 
   @Test
   def subtractProds(): Unit = {
-    val expr1: ArithExpr = Pow(4,-1) * Var("N")
+    val expr1: ArithExpr = Var("N") * 1 /^ 4
     val expr2: ArithExpr = expr1 + 1
 
     assertEquals(Cst(1), expr2 - expr1)
+  }
+
+  @Test def Equality(): Unit = {
+    val a = Var("a"); val b = Var("a")
+    val expr1 = Cst(2)*(a+b)
+    val expr2 = Cst(2)*a + Cst(2)*b
+    assertEquals(expr1, expr2)
   }
 }

@@ -20,7 +20,7 @@ object SimplifySum {
       case _ =>
     })
     // If we couldn't simplify the expression, create a simplified Sum object
-    new Sum(term :: sum.terms) with SimplifiedExpr
+    new Sum((term :: sum.terms).sortWith(ArithExpr.sort)) with SimplifiedExpr
   }
 
   /**
@@ -104,7 +104,7 @@ object SimplifySum {
     case Some(toReturn) => toReturn
     case None => combineTerms(rhs, lhs) match {
       case Some(toReturn) => toReturn
-      case None => new Sum(List(lhs, rhs)) with SimplifiedExpr
+      case None => new Sum(List(lhs, rhs).sortWith(ArithExpr.sort)) with SimplifiedExpr
     }
   }
 }

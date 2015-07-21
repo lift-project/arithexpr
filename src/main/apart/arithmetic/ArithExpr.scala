@@ -9,7 +9,12 @@ import scala.util.Random
 
 import scala.util.control.ControlThrowable
 
-object Devel {
+/**
+ * Sanity checks. These methods are used to check the sanity of simplified expressions as they are built.
+ * They can be quite expensive since they traverse the list of terms and factors a few times for sums and prods.
+ * If the expression evaluation starts to be noticeably slow, it should be disabled.
+ */
+object Debug {
   val SanityCheck = true
 
   def Assert(p: Boolean, reason: => String = "no reason"): Unit = {
@@ -131,7 +136,7 @@ abstract sealed class ArithExpr {
     e match {
       case adds: Sum => adds.terms.foldLeft(l)((acc,expr) => getVars(expr, acc))
       case muls: Prod => muls.factors.foldLeft(l)((acc,expr) => getVars(expr, acc))
-      case Pow(b,e) => l ++ getVars(b) ++ getVars(e)
+      case Pow(b,oe) => l ++ getVars(b) ++ getVars(oe)
       case v: Var => l + v
       case _ => l
     }
@@ -139,20 +144,42 @@ abstract sealed class ArithExpr {
 
   lazy val varList = getVars()
 
+  /**
+   * Fast Equality operator.
+   * The function first compares the seeds, then the digests. If they are equal, the trees are compared using the
+   * full equality operator.
+   * @param that Another expression.
+   * @return True if the two expressions are equal, false otherwise.
+   * @note This operator works only for simplified expressions.
+   */
   def ==(that: ArithExpr): Boolean = {
-    if (this.HashSeed() == that.HashSeed() && digest() == that.digest()) {
-      if(digest != 0x3fac31) {
-        // cross check: digest submodes
-        var thistree = 0
-        var thattree = 0
-        ArithExpr.visit(this, x => thistree = thistree ^ x.digest())
-        ArithExpr.visit(that, x => thattree = thattree ^ x.digest())
-        if (thistree != thattree) {
-          return false
-        }
-        else true
-      } else true
-    } else false
+    if (this != ? && this.HashSeed() == that.HashSeed() && digest() == that.digest())
+      this === that
+    else false
+  }
+
+  /**
+   * True equality operator. Compare each operands.
+   * @param that Another expression.
+   * @return True iif the two expressions are equal.
+   * @note This operator works only for simplified expressions.
+   */
+  def ===(that: ArithExpr): Boolean = (this, that) match {
+    case (Cst(x), Cst(y)) => x == y
+    case (IntDiv(x1,y1), IntDiv(x2,y2)) => x1 == x2 && y1 == y2
+    case (Pow(x1,y1), Pow(x2,y2)) => x1 == x2 && y1 == y2
+    case (Log(x1,y1), Log(x2,y2)) => x1 == x2 && y1 == y2
+    case (Mod(x1,y1), Mod(x2,y2)) => x1 == x2 && y1 == y2
+    case (Floor(a), Floor(x)) => a == x
+    case (Sum(a), Sum(b)) => a.length == b.length && (a zip b).forall(x => x._1 == x._2)
+    case (Prod(a), Prod(b)) => a.length == b.length && (a zip b).forall(x => x._1 == x._2)
+    case (IfThenElse(test1, t1, e1), IfThenElse(test2, t2, e2)) =>
+      test1.op == test2.op && test1.lhs == test2.lhs && test1.rhs == test2.rhs && t1 == t2 && e1 == e2
+    case (ArithExprFunction(n1, r1), ArithExprFunction(n2, r2)) => n1 == n2 && r1 == r2
+    case (Var(n1, r1), Var(n2, r2)) => n1 == n2 && r1 == r2
+    case _ =>
+      System.err.println(s"$this and $that are not equal")
+      false
   }
 
   /* === Arithmetic operators === */
@@ -273,10 +300,6 @@ abstract sealed class ArithExpr {
   def HashSeed(): Int
 }
 
-//object floor {
- // def apply(exp: ArithExpr) = Floor(exp)
-//}
-
 object ArithExpr {
 
   implicit def IntToCst(i: Int): Cst = Cst(i)
@@ -286,6 +309,9 @@ object ArithExpr {
   def max(e1: ArithExpr, e2: ArithExpr) : ArithExpr = minmax(e1, e2)._2
 
   def min(e1: ArithExpr, e2: ArithExpr) : ArithExpr = minmax(e1, e2)._1
+
+  val sort: (ArithExpr,ArithExpr) => Boolean = (x:ArithExpr, y:ArithExpr) =>
+    x.HashSeed() < y.HashSeed() || (x.HashSeed() == y.HashSeed() && x.digest() < y.digest())
 
   def minmax(v: Var, c: Cst): (ArithExpr, ArithExpr) = {
     val m1 = v.range.min match { case Cst(min) => if (min >= c.c) Some((c, v)) else None; case _ => ??? }
@@ -340,12 +366,12 @@ object ArithExpr {
       // TODO: handle negative exp
       case (Pow(_,Cst(x)), _) if x < 0 => Cst(1)
       case (_, Pow(_,Cst(x))) if x < 0 => Cst(1)
-      case (x, Pow(b,e)) if b == x => x // pow 1 (implicit)
+      case (x, Pow(ob,e)) if ob == x => x // pow 1 (implicit)
       case (Pow(b1,e1), Pow(b2,e2)) if b1 == b2 => b1 pow ArithExpr.min(e1, e2)
-      case (Pow(b,e), Prod(factors)) if factors.contains(b) => b // pow 1 (implicit)
-      case (Prod(factors), Pow(b,e)) if factors.contains(b) => b // pow 1 (implicit)
-      case (Pow(b,e), x) if b == x => x // pow 1 (implicit)
-      case (x, Pow(b,e)) if b == x => x // pow 1 (implicit)
+      case (Pow(ob,e), Prod(factors)) if factors.contains(ob) => ob // pow 1 (implicit)
+      case (Prod(factors), Pow(ob,e)) if factors.contains(ob) => ob // pow 1 (implicit)
+      case (Pow(ob,e), x) if ob == x => x // pow 1 (implicit)
+      case (x, Pow(ob,e)) if ob == x => x // pow 1 (implicit)
 
       // GCD of products: find GCD in factor pairs
       case (Prod(fs1), Prod(fs2)) => (for { f1 <- fs1; f2 <- fs2 } yield gcd(f1,f2)).reduce(_*_)
@@ -670,6 +696,9 @@ object ArithExpr {
   def cardinal_id = 0
 }
 
+/**
+ * ? represents an unknown value.
+ */
 case object ? extends ArithExpr with SimplifiedExpr {
 
   override val HashSeed = 0x3fac31
@@ -737,12 +766,12 @@ case class Pow(b: ArithExpr, e: ArithExpr) extends ArithExpr {
         // If exponent and value are single point, emit single point
         val point = Cst(x) pow Cst(a)
         (point, point)
-      case (Cst(x), Cst(y), Cst(a), Cst(b)) if x >= 0 && y >=0 && a > 0 && b > 0 =>
+      case (Cst(x), Cst(y), Cst(a), Cst(ob)) if x >= 0 && y >=0 && a > 0 && ob > 0 =>
         // If the value is positive and the exponent is strictly positive, pow is monotonically increasing
-        (Cst(x) pow Cst(a), Cst(y) pow Cst(b))
-      case (Cst(x), Cst(y), Cst(a), Cst(b)) if x >= 0 && y >=0 && a < 0 && b < 0 =>
+        (Cst(x) pow Cst(a), Cst(y) pow Cst(ob))
+      case (Cst(x), Cst(y), Cst(a), Cst(ob)) if x >= 0 && y >=0 && a < 0 && ob < 0 =>
         // If the value is positive and the exponent is strictly negative, pow is monotonically decreasing
-        (Cst(y) pow Cst(a), Cst(x) pow Cst(b))
+        (Cst(y) pow Cst(a), Cst(x) pow Cst(ob))
       case x =>
         // Otherwise it could be anything
         (Var(""), Var(""))
@@ -779,11 +808,12 @@ case class Log(b: ArithExpr, x: ArithExpr) extends ArithExpr with SimplifiedExpr
  */
 case class Prod private[arithmetic] (factors: List[ArithExpr]) extends ArithExpr {
 
-  if (simplified) {
-    Devel.Assert(factors.length > 1, s"Factors should have at least two terms in $toString")
+  if (Debug.SanityCheck && simplified) {
+    Debug.Assert(factors.view.zip(factors.tail).forall(x => ArithExpr.sort(x._1,x._2)), "Factors should be sorted")
+    Debug.Assert(factors.length > 1, s"Factors should have at least two terms in $toString")
     factors.foreach(x => {
-      Devel.AssertNot(x.isInstanceOf[Prod], s"Prod cannot contain a Prod in $toString")
-      Devel.AssertNot(x.isInstanceOf[Sum], "Prod should not contain a Sum")
+      Debug.AssertNot(x.isInstanceOf[Prod], s"Prod cannot contain a Prod in $toString")
+      Debug.AssertNot(x.isInstanceOf[Sum], "Prod should not contain a Sum")
     })
   }
 
@@ -825,7 +855,7 @@ case class Prod private[arithmetic] (factors: List[ArithExpr]) extends ArithExpr
     assert(simplified, "This function only works on simplified products")
     val rest = factors.diff(list)
     // If we took all the elements out, return neutral (1 for product)
-    if (rest.length == 0) Cst(1)
+    if (rest.isEmpty) Cst(1)
     // If there is only one left, return it
     else if (rest.length == 1) rest.head
     // Otherwise create a new product, which is also simplified by construction
@@ -856,10 +886,11 @@ case class Prod private[arithmetic] (factors: List[ArithExpr]) extends ArithExpr
 
 case class Sum private[arithmetic] (terms: List[ArithExpr]) extends ArithExpr {
 
-  if (simplified) {
-    Devel.Assert(terms.length > 1, s"Terms should have at least two terms in $toString")
+  if (Debug.SanityCheck && simplified) {
+    Debug.Assert(terms.view.zip(terms.tail).forall(x => ArithExpr.sort(x._1,x._2)), "Terms should be sorted")
+    Debug.Assert(terms.length > 1, s"Terms should have at least two terms in $toString")
     terms.foreach(x => {
-      Devel.AssertNot(x.isInstanceOf[Sum], "Sum cannot contain a Sum")
+      Debug.AssertNot(x.isInstanceOf[Sum], "Sum cannot contain a Sum")
     })
   }
 
@@ -970,7 +1001,7 @@ case class ArithExprFunction(name: String, var range: Range = RangeUnknown) exte
  * Represents a variable in the expression. A variable is an unknown term which is immutable within the expression
  * but its value may change between expression, like a variable in C (cf sequence point).
  * @param name Identifier for the variable. Might be empty, in which case a name will be generated.
- * @param range
+ * @param range Range of possible values for the variable.
  * @note The uniqueness of the variable name is not enforced since there is no notion of scope.
  *       Also note that the name is purely decorative during partial evaluation: the variable is actually tracked
  *       using an instance counter, hence multiple instances sharing the same name will not be simplified.

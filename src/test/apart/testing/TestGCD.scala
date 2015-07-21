@@ -33,13 +33,13 @@ class TestGCD {
     assertEquals(Cst(2), ArithExpr.gcd(4*a, 2))
     assertEquals(a*b, ArithExpr.gcd(a*b*a*b, a*b*c))
 
-    assertEquals(a+b, ArithExpr.gcd(a*a + a*b, a*c + b*c))
-    assertEquals(a, ArithExpr.gcd(a + a*b + a*c, a))
+    assertEquals(a+b,     ArithExpr.gcd(a*a + a*b, a*c + b*c))
+    assertEquals(a,       ArithExpr.gcd(a + a*b + a*c, a))
 
-    assertEquals(Cst(1), ArithExpr.gcd(a + a*b + a*c, a + b))
+    assertEquals(Cst(1),  ArithExpr.gcd(a + a*b + a*c, a + b))
 
-    assertEquals(a, ArithExpr.gcd(-1*a, a))
+    assertEquals(a,       ArithExpr.gcd(-1*a, a))
 
-    assertEquals(a, ArithExpr.gcd(2*a,-1*a))
+    assertEquals(a,       ArithExpr.gcd(2*a,-1*a))
   }
 }

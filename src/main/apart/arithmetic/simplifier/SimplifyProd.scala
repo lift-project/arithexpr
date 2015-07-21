@@ -19,7 +19,7 @@ object SimplifyProd {
       if (newfac.isDefined) return prod.withoutFactor(x) * newfac.get
     })
 
-    new Prod(factor :: prod.factors) with SimplifiedExpr
+    new Prod((factor :: prod.factors).sortWith(ArithExpr.sort)) with SimplifiedExpr
   }
 
   /**
@@ -38,15 +38,12 @@ object SimplifyProd {
     case (Pow(b,e),base) if base == Cst(1) => Some(base /^ b * (b pow (e + 1)))
     case (base,Pow(b,e)) if ArithExpr.gcd(base,b) == b => Some(base /^ b * (b pow (e + 1)))
     case (Pow(b,e),base) if ArithExpr.gcd(base,b) == b => Some(base /^ b * (b pow (e + 1)))
-    case (base,Pow(b,e)) if ArithExpr.gcd(base,b) != Cst(1) && e == Cst(-1) => {
+    case (base,Pow(b,e)) if ArithExpr.gcd(base,b) != Cst(1) && e == Cst(-1) =>
       val gcd = ArithExpr.gcd(base,b)
-      Some(base /^ gcd * ((b /^ gcd) pow (e)))
-    }
-    case (Pow(b,e),base) if ArithExpr.gcd(base,b) != Cst(1) && e == Cst(-1) => {
+      Some(base /^ gcd * ((b /^ gcd) pow e))
+    case (Pow(b,e),base) if ArithExpr.gcd(base,b) != Cst(1) && e == Cst(-1) =>
       val gcd = ArithExpr.gcd(base,b)
-      Some(base /^ gcd * ((b /^ gcd) pow (e)))
-    }
-
+      Some(base /^ gcd * ((b /^ gcd) pow e))
     case (x,y) => None
   }
 
@@ -100,7 +97,7 @@ object SimplifyProd {
     case Some(toReturn) => toReturn
     case None => combineFactors(lhs,rhs) match {
       case Some(toReturn) => toReturn
-      case None => new Prod(List(lhs, rhs)) with SimplifiedExpr
+      case None => new Prod(List(lhs, rhs).sortWith(ArithExpr.sort)) with SimplifiedExpr
     }
   }
 }
