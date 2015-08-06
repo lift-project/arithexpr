@@ -1027,8 +1027,6 @@ case class Var(name: String, var range : Range = RangeUnknown) extends ArithExpr
 
   override lazy val hashCode = 8 * 79 + id
 
-  override lazy val toString = if (name == "") s"v_$id" else name + s"_$id"
-
   def updateRange(func: (Range) => Range): Unit = {
     if (range != RangeUnknown) {
       range = func(range)
@@ -1040,6 +1038,8 @@ case class Var(name: String, var range : Range = RangeUnknown) extends ArithExpr
   override lazy val digest: Int = HashSeed /*^ name.hashCode*/ ^ Integer.hashCode(id) ^ range.digest()
 
   override lazy val might_be_negative = false
+
+  override def toString = "v_" + name + "_" + id
 }
 
 
