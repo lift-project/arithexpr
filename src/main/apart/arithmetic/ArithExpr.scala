@@ -1039,7 +1039,7 @@ case class Var(name: String, var range : Range = RangeUnknown) extends ArithExpr
 
   override lazy val might_be_negative = false
 
-  override def toString = "v_" + name + "_" + id
+  override lazy val toString = "v_" + name + "_" + id
 }
 
 
