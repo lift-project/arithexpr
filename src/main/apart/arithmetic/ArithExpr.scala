@@ -570,7 +570,13 @@ object ArithExpr {
       case Floor(expr) => visit(expr, f)
       case Sum(terms) => terms.foreach(t => visit(t, f))
       case Prod(terms) => terms.foreach(t => visit(t, f))
-      case Var(_,_) |  Cst(_) | IfThenElse(_,_,_) | ArithExprFunction(_,_) =>
+      case IfThenElse(test, t, e) => {
+        visit(test.lhs, f)
+        visit(test.rhs, f)
+        visit(t, f)
+        visit(t, f)
+      }
+      case Var(_,_) |  Cst(_) | ArithExprFunction(_,_) =>
       case x if x.getClass == ?.getClass =>
       case _ => throw new RuntimeException(s"Cannot visit expression $e")
     }
