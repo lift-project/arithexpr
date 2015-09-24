@@ -114,4 +114,9 @@ class Regressions {
         ((v_wg_id_246 + (v_N_0 * new func1(1) / 8) + (7 * v_N_0 / 64)) % (v_N_0 / 64))
           * 64) + 48 + new func1(0))
   }
+
+  @Test
+  def expr13(): Unit = {
+    assertNotEquals(? / ?, 1)
+  }
 }

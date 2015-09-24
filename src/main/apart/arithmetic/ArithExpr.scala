@@ -1,6 +1,8 @@
 package apart
 package arithmetic
 
+import java.util.concurrent.atomic.AtomicInteger
+
 import arithmetic.simplifier._
 
 import scala.collection.immutable
@@ -1022,8 +1024,7 @@ case class Var(name: String, var range : Range = RangeUnknown) extends ArithExpr
 
   /** Unique identifier. */
   val id: Int = {
-    Var.cnt += 1
-    Var.cnt
+    Var.cnt.incrementAndGet()
   }
 
   override def equals(that: Any) = that match {
@@ -1068,7 +1069,7 @@ object Var {
   /**
    * Instance counter
    */
-  var cnt: Int = -1
+  var cnt = new AtomicInteger(-1)
 
   def apply(range : Range) : Var = new Var("", range)
 
