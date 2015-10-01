@@ -37,6 +37,7 @@ class TestExpr {
 
     for (a <- 1 to 10) {
       val re = rndExpr(3)
+      print(re)
 
       val oriEval = re.evalDbl
       val sim = ExprSimplifier(re)
