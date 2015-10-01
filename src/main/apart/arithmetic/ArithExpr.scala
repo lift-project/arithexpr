@@ -1071,7 +1071,7 @@ object Var {
   /**
    * Instance counter
    */
-  var cnt = new AtomicInteger(-1)
+  private val cnt = new AtomicInteger(-1)
 
   def apply(range : Range) : Var = new Var("", range)
 
