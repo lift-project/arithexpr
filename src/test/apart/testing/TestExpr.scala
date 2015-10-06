@@ -1,7 +1,6 @@
 package apart.testing
 
 import apart.arithmetic._
-import apart.arithmetic.simplifier.ExprSimplifier
 import org.junit.Assert._
 import org.junit.{Ignore, Test}
 
@@ -40,7 +39,7 @@ class TestExpr {
       print(re)
 
       val oriEval = re.evalDbl
-      val sim = ExprSimplifier(re)
+      val sim = re
 
       val simEval = sim.evalDbl
       assertTrue(oriEval+" != "+simEval, math.abs(oriEval-simEval) <= 1.0/1000000.0)
@@ -73,7 +72,7 @@ class TestExpr {
   @Test def remainderAndModulo(): Unit = {
     val a = Var("x")
     val d = Var("d")
-    assertEquals(a, ExprSimplifier((a / d) * d + a % d))
+    assertEquals(a, (a / d) * d + a % d)
   }
 
   @Test def modOfVarWithVarRange(): Unit = {
@@ -254,7 +253,7 @@ class TestExpr {
 
   @Test def simplifySumZeroProducts(): Unit ={
     val N = Var("N")
-    assertEquals(Cst(0), ExprSimplifier(4*N - 4*N))
+    assertEquals(Cst(0), 4*N - 4*N)
   }
 
   @Test def simplifySumTwoPlusFive(): Unit ={
@@ -319,7 +318,7 @@ class TestExpr {
     val d = Var("d")
     val x = Var("x")
 
-    assertEquals(x*a, ExprSimplifier(x * (a / d) * d + x * (a % d)))
+    assertEquals(x*a, x * (a / d) * d + x * (a % d))
   }
 
   @Test
@@ -328,7 +327,7 @@ class TestExpr {
     val d = Cst(2)
     val x = Cst(8)
 
-    assertEquals(x*a, ExprSimplifier(x * (a / d) * d + x * (a % d)))
+    assertEquals(x*a, x * (a / d) * d + x * (a % d))
   }
 
   @Test
@@ -364,11 +363,11 @@ class TestExpr {
     val d = Cst(2)
     val x = Cst(8)
 
-    assertEquals(a, ExprSimplifier((a / d) * d + (a % d)))
-    assertEquals(a+b, ExprSimplifier(((a+b) / d) * d + ((a+b) % d)))
-    assertEquals(a*b, ExprSimplifier(((a*b) / d) * d + ((a*b) % d)))
-    assertEquals(x*a, ExprSimplifier(x * (a / d) * d + x * (a % d)))
-    assertEquals(x*(a+b), ExprSimplifier(x * ((a + b) / d) * d + x * ((a + b) % d)))
+    assertEquals(a, (a / d) * d + (a % d))
+    assertEquals(a+b, ((a+b) / d) * d + ((a+b) % d))
+    assertEquals(a*b, ((a*b) / d) * d + ((a*b) % d))
+    assertEquals(x*a, x * (a / d) * d + x * (a % d))
+    assertEquals(x*(a+b), x * ((a + b) / d) * d + x * ((a + b) % d))
   }
 
   @Test
@@ -460,7 +459,6 @@ class TestExpr {
   def bugBIsSmaller(): Unit = {
     val n = Var("n")
     val l = Var("l", ContinuousRange(0, 4))
-    val wg = Var("wg", ContinuousRange(0, n/^4))
 
     assertTrue(ArithExpr.isSmaller(l * n/^4, n))
   }
@@ -510,7 +508,7 @@ class TestExpr {
     val n = Var("N")
 
     assertEquals(Cst(0), (n /^ 4) % (n /^ 8))
-//    assertEquals(n / 8, ExprSimplifier((n / 8) % (n / 4)))
+//    assertEquals(n / 8, (n / 8) % (n / 4))
   }
 
   @Test

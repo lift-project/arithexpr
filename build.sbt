@@ -26,4 +26,6 @@ scalacOptions in (Compile,doc) := Seq("-implicits", "-diagrams")
 
 testOptions += Tests.Argument(TestFrameworks.JUnit, "-q", "-v")
 
+ScoverageSbtPlugin.ScoverageKeys.coverageExcludedPackages := "<empty>;.*Test.*;.*testing.*"
+
 fork := true
