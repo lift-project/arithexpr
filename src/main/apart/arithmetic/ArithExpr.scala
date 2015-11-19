@@ -1,7 +1,7 @@
 package apart
 package arithmetic
 
-import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.atomic.AtomicLong
 
 import arithmetic.simplifier._
 
@@ -1025,8 +1025,14 @@ case class Var(name: String, var range : Range = RangeUnknown) extends ArithExpr
   override lazy val (min,max): (ArithExpr, ArithExpr) = (this,this)
 
   /** Unique identifier. */
-  val id: Int = {
-    Var.cnt.incrementAndGet()
+  val id: Long = {
+    var _id: Long = 0
+    do {
+      _id = Var.cnt.incrementAndGet()
+      if(_id < 0)
+        Var.cnt.compareAndSet(_id, 0)
+    } while(_id < 0);
+    _id;
   }
 
   override def equals(that: Any) = that match {
@@ -1034,7 +1040,7 @@ case class Var(name: String, var range : Range = RangeUnknown) extends ArithExpr
     case _ => false
   }
 
-  override lazy val hashCode = 8 * 79 + id
+  override lazy val hashCode = 8 * 79 + id.hashCode
 
   def updateRange(func: (Range) => Range): Unit = {
     if (range != RangeUnknown) {
@@ -1044,7 +1050,7 @@ case class Var(name: String, var range : Range = RangeUnknown) extends ArithExpr
 
   override val HashSeed =  0x54e9bd5e
 
-  override lazy val digest: Int = HashSeed /*^ name.hashCode*/ ^ Integer.hashCode(id) ^ range.digest()
+  override lazy val digest: Int = HashSeed /*^ name.hashCode*/ ^ id.hashCode ^ range.digest()
 
   override lazy val might_be_negative = false
 
@@ -1071,7 +1077,7 @@ object Var {
   /**
    * Instance counter
    */
-  private val cnt = new AtomicInteger(-1)
+  private val cnt = new AtomicLong(-1)
 
   def apply(range : Range) : Var = new Var("", range)
 
