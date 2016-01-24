@@ -832,12 +832,13 @@ case class Prod private[arithmetic] (factors: List[ArithExpr]) extends ArithExpr
   }
 
   // Refine the equality operator to compare factors
-  override def ==(that: ArithExpr): Boolean = that match {
-    case Prod(otherfactors) =>
-      if(otherfactors.length != factors.length) return false
-      factors.map(_.digest()).sortWith(_<_) == otherfactors.map(_.digest()).sortWith(_<_)
-    case _ => false
-  }
+  // TODO: Has false positives!!
+//  override def ==(that: ArithExpr): Boolean = that match {
+//    case Prod(otherfactors) =>
+//      if(otherfactors.length != factors.length) return false
+//      factors.map(_.digest()).sortWith(_<_) == otherfactors.map(_.digest()).sortWith(_<_)
+//    case _ => false
+//  }
 
   // TODO(tlutz): product depends on sign, should compute magnitude and sign independently
   override lazy val (min,max): (ArithExpr,ArithExpr) =
@@ -909,12 +910,13 @@ case class Sum private[arithmetic] (terms: List[ArithExpr]) extends ArithExpr {
   }
 
   // Refine the equality operator to compare terms
-  override def ==(that: ArithExpr): Boolean = that match {
-    case Sum(otherterms) =>
-      if(otherterms.length != terms.length) return false
-      terms.map(_.digest()).sortWith(_<_) == otherterms.map(_.digest()).sortWith(_<_)
-    case _ => false
-  }
+  // TODO: Has false positives!!
+//  override def ==(that: ArithExpr): Boolean = that match {
+//    case Sum(otherterms) =>
+//      if(otherterms.length != terms.length) return false
+//      terms.map(_.digest()).sortWith(_<_) == otherterms.map(_.digest()).sortWith(_<_)
+//    case _ => false
+//  }
 
   override lazy val (min,max): (ArithExpr,ArithExpr) =
     (ExprSimplifier(terms.reduceLeft(_.min + _.min)), ExprSimplifier(terms.reduceLeft(_.max + _.max)))
