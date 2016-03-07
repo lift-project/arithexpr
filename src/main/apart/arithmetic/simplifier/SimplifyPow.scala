@@ -57,8 +57,11 @@ object SimplifyPow {
     case _ => None
   }
 
-  def apply(base: ArithExpr, exp: ArithExpr) = simplify(base, exp) match {
-    case Some(toReturn) => toReturn
-    case None => new Pow(base, exp) with SimplifiedExpr
+  def apply(base: ArithExpr, exp: ArithExpr) = {
+    val simplificationResult = if (PerformSimplification()) simplify(base, exp) else None
+    simplificationResult match {
+      case Some(toReturn) => toReturn
+      case None => new Pow(base, exp) with SimplifiedExpr
+    }
   }
 }
