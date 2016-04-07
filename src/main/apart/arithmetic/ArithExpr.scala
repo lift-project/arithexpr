@@ -624,7 +624,7 @@ object ArithExpr {
       case Floor(expr) => Floor(substitute(expr, substitutions))
       case adds: Sum => adds.terms.map(t => substitute(t, substitutions)).reduce(_+_)
       case muls: Prod => muls.factors.map(t => substitute(t, substitutions)).reduce(_*_)
-      case gc: GroupCall => new GroupCall(gc.group, substitute(gc.innerAe, substitutions))
+      case gc: GroupCall => GroupCall.simplify(gc.group, substitute(gc.innerAe, substitutions))
       case x => x
     }
 
@@ -1016,7 +1016,20 @@ case class ArithExprFunction(name: String, var range: Range = RangeUnknown) exte
 
 class GroupCall(val group: Group,
                 val innerAe: ArithExpr) extends ArithExprFunction("group") {
-  override lazy val toString: String = "groupComp" + group.id + "(" + innerAe + ")"
+
+  override lazy val toString: String = "groupComp" + group.id + "(" + innerAe.toString() + ")"
+}
+
+object GroupCall {
+  def apply(group: Group, innerAe: ArithExpr): ArithExpr = new GroupCall(group, innerAe)
+
+  def simplify(group: Group, innerAe: ArithExpr): ArithExpr = {
+    innerAe match {
+      case c: Cst => val tmp: Array[Int] = group.relIndices.map(_+Math.abs(Math.min(0, group.relIndices.min)))
+        tmp(c.eval)
+      case _ => new GroupCall(group, innerAe)
+    }
+  }
 }
 
 /**
