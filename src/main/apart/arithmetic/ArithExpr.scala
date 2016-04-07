@@ -4,12 +4,11 @@ package arithmetic
 import java.util.concurrent.atomic.AtomicLong
 
 import arithmetic.simplifier._
-import opencl.ir.ast.GroupCall
+import ir.ast.Group
 
 import scala.collection.immutable
 import scala.language.implicitConversions
 import scala.util.Random
-
 import scala.util.control.ControlThrowable
 
 /**
@@ -1013,6 +1012,11 @@ case class ArithExprFunction(name: String, var range: Range = RangeUnknown) exte
    * TODO(tlutz): This is true for now but probably too restrictive
    */
   override lazy val might_be_negative = false
+}
+
+class GroupCall(val group: Group,
+                val innerAe: ArithExpr) extends ArithExprFunction("group") {
+  override lazy val toString: String = "groupComp" + group.id + "(" + innerAe + ")"
 }
 
 /**
