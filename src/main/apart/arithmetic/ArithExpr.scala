@@ -4,6 +4,7 @@ package arithmetic
 import java.util.concurrent.atomic.AtomicLong
 
 import arithmetic.simplifier._
+import opencl.ir.ast.GroupCall
 
 import scala.collection.immutable
 import scala.language.implicitConversions
@@ -624,6 +625,7 @@ object ArithExpr {
       case Floor(expr) => Floor(substitute(expr, substitutions))
       case adds: Sum => adds.terms.map(t => substitute(t, substitutions)).reduce(_+_)
       case muls: Prod => muls.factors.map(t => substitute(t, substitutions)).reduce(_*_)
+      case gc: GroupCall => new GroupCall(gc.group, substitute(gc.innerAe, substitutions))
       case x => x
     }
 
