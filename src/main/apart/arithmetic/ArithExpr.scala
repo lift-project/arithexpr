@@ -1025,8 +1025,9 @@ object GroupCall {
 
   def simplify(group: Group, innerAe: ArithExpr): ArithExpr = {
     innerAe match {
-      case c: Cst => val tmp: Array[Int] = group.relIndices.map(_+Math.abs(Math.min(0, group.relIndices.min)))
-        tmp(c.eval)
+      case c: Cst =>
+        val offset = Math.abs(Math.min(0, group.relIndices.min))
+        group.relIndices.map(_+offset).apply(c.eval)
       case _ => new GroupCall(group, innerAe)
     }
   }
