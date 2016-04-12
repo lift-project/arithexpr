@@ -177,6 +177,7 @@ abstract sealed class ArithExpr {
     case (Prod(a), Prod(b)) => a.length == b.length && (a zip b).forall(x => x._1 == x._2)
     case (IfThenElse(test1, t1, e1), IfThenElse(test2, t2, e2)) =>
       test1.op == test2.op && test1.lhs == test2.lhs && test1.rhs == test2.rhs && t1 == t2 && e1 == e2
+    case (gc1:GroupCall, gc2:GroupCall) => gc1.group == gc2.group && gc1.innerAe == gc2.innerAe
     case (f1:ArithExprFunction, f2:ArithExprFunction) => f1.name == f2.name
     case (v1:Var, v2:Var) => v1.id == v2.id
     case _ =>
@@ -298,6 +299,8 @@ abstract sealed class ArithExpr {
    * @return A 32 bit digest of the expression.
    */
   def digest(): Int
+
+  override def hashCode = digest
 
   def HashSeed(): Int
 }
@@ -578,8 +581,10 @@ object ArithExpr {
         visit(test.lhs, f)
         visit(test.rhs, f)
         visit(t, f)
-        visit(t, f)
+        visit(e, f)
       }
+      case gc: GroupCall =>
+        visit(gc.innerAe, f)
       case Var(_,_) |  Cst(_) | ArithExprFunction(_,_) =>
       case x if x.getClass == ?.getClass =>
       case _ => throw new RuntimeException(s"Cannot visit expression $e")
@@ -605,6 +610,7 @@ object ArithExpr {
         case Prod(terms) =>
           terms.foreach(t => if (visitUntil(t, f)) return true)
           false
+        case gc:GroupCall => visitUntil(gc.innerAe, f)
         case Var(_,_) |  Cst(_) | IfThenElse(_,_,_) | ArithExprFunction(_,_) => false
         case x if x.getClass == ?.getClass => false
         case _ => throw new RuntimeException(s"Cannot visit expression $e")
@@ -857,8 +863,6 @@ case class Prod private[arithmetic] (factors: List[ArithExpr]) extends ArithExpr
 
   def contains(e: ArithExpr): Boolean = factors.contains(e)
 
-  override def hashCode(): Int = digest
-
   override lazy val digest: Int = factors.foldRight(HashSeed)((x,hash) => hash ^ x.digest())
 
   override val HashSeed = 0x286be17e
@@ -926,8 +930,6 @@ case class Sum private[arithmetic] (terms: List[ArithExpr]) extends ArithExpr {
     case s: Sum => terms.length == s.terms.length && terms.intersect(s.terms).length == terms.length
     case _ => false
   }
-
-  override def hashCode(): Int = digest
 
   override lazy val toString: String = {
     val m = if (terms.nonEmpty) terms.mkString("+") else {""}
@@ -1018,6 +1020,13 @@ class GroupCall(val group: Group,
                 val innerAe: ArithExpr) extends ArithExprFunction("group") {
 
   override lazy val toString: String = "groupComp" + group.id + "(" + innerAe.toString() + ")"
+
+  override lazy val digest: Int = HashSeed ^ group.hashCode ^ innerAe.digest()
+
+  override def equals(that: Any) = that match {
+    case thatGc: GroupCall => thatGc.group == this.group && thatGc.innerAe == this.innerAe
+    case _ => false
+  }
 }
 
 object GroupCall {
