@@ -93,11 +93,17 @@ object SimplifyProd {
    * @param rhs The right-hand side.
    * @return A promoted expression or a simplified Prod object.
    */
-  def apply(lhs: ArithExpr, rhs: ArithExpr): ArithExpr = simplify(lhs, rhs) match {
-    case Some(toReturn) => toReturn
-    case None => combineFactors(lhs,rhs) match {
+  def apply(lhs: ArithExpr, rhs: ArithExpr): ArithExpr = {
+    val simplificationResult = if (PerformSimplification()) simplify(lhs, rhs) else None
+    simplificationResult match {
       case Some(toReturn) => toReturn
-      case None => new Prod(List(lhs, rhs).sortWith(ArithExpr.sort)) with SimplifiedExpr
+      case None =>
+        val combineResult = if (PerformSimplification()) combineFactors(lhs,rhs) else None
+        combineResult match {
+          case Some(toReturn) => toReturn
+          case None => new Prod(List(lhs, rhs).sortWith(ArithExpr.sort)) with SimplifiedExpr
+        }
     }
   }
+
 }

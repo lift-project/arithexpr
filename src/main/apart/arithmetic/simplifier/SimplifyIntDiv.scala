@@ -69,8 +69,11 @@ object SimplifyIntDiv {
     case _ => None
   }
 
-  def apply(numer: ArithExpr, denom: ArithExpr): ArithExpr = simplify(numer, denom) match {
-    case Some(toReturn) => toReturn
-    case None => new IntDiv(numer, denom) with SimplifiedExpr
+  def apply(numer: ArithExpr, denom: ArithExpr): ArithExpr = {
+    val simplificationResult = if (PerformSimplification()) simplify(numer, denom) else None
+    simplificationResult match {
+      case Some(toReturn) => toReturn
+      case None => new IntDiv(numer, denom) with SimplifiedExpr
+    }
   }
 }
