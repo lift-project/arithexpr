@@ -1,6 +1,6 @@
 package apart.testing
 
-import apart.arithmetic.{ArithExpr, Cst, Var}
+import apart.arithmetic.{ArithExpr, Cst, Var, Pow}
 import org.junit.Assert._
 import org.junit.Test
 
@@ -41,5 +41,8 @@ class TestGCD {
     assertEquals(a,       ArithExpr.gcd(-1*a, a))
 
     assertEquals(a,       ArithExpr.gcd(2*a,-1*a))
+
+
+    assertEquals(Cst(1), ArithExpr.gcd(Cst(2)*a + Pow(a,Cst(2)), Cst(2) + a))
   }
 }

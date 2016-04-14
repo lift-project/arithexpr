@@ -399,9 +399,9 @@ object ArithExpr {
       case (s1:Sum, s2:Sum) =>
         // Compute the common factors
         val fac1 = FactorizeSum(s1)
-        if (fac1 == Cst(1)) return fac1
+        if (fac1 == Cst(1)) return Cst(1)
         val fac2 = FactorizeSum(s2)
-        if (fac1 == Cst(1)) return fac2
+        if (fac2 == Cst(1)) return Cst(1)
 
         // The GCD could be either the factor or the remainder, so we compute the intersection
         val common = List(fac1, s1 /^ fac1).intersect(List(fac2, s2 /^ fac2))
