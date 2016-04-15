@@ -818,7 +818,8 @@ case class Log(b: ArithExpr, x: ArithExpr) extends ArithExpr with SimplifiedExpr
 
 /**
  * Represent a product of two or more expressions.
- * @param factors The list of factors. The list should contain at least 2 operands and should not contain other products.
+  *
+  * @param factors The list of factors. The list should contain at least 2 operands and should not contain other products.
  */
 case class Prod private[arithmetic] (factors: List[ArithExpr]) extends ArithExpr {
 
@@ -988,7 +989,8 @@ case class Floor(ae : ArithExpr) extends ArithExpr {
 
 /**
  * Conditional operator. Behaves like the `?:` operator in C.
- * @param test A Predicate object.
+  *
+  * @param test A Predicate object.
  * @param t The 'then' block.
  * @param e The 'else block.
  */
@@ -999,6 +1001,7 @@ case class IfThenElse(test: Predicate, t : ArithExpr, e : ArithExpr) extends Ari
 
   override lazy val digest: Int = HashSeed ^ test.digest ^ t.digest() ^ ~e.digest()
 }
+
 
 case class ArithExprFunction(name: String, var range: Range = RangeUnknown) extends ArithExpr with SimplifiedExpr {
   override lazy val digest: Int = HashSeed ^ range.digest() ^ name.hashCode
@@ -1016,7 +1019,8 @@ case class ArithExprFunction(name: String, var range: Range = RangeUnknown) exte
 /**
  * Represents a variable in the expression. A variable is an unknown term which is immutable within the expression
  * but its value may change between expression, like a variable in C (cf sequence point).
- * @param name Identifier for the variable. Might be empty, in which case a name will be generated.
+  *
+  * @param name Identifier for the variable. Might be empty, in which case a name will be generated.
  * @param range Range of possible values for the variable.
  * @note The uniqueness of the variable name is not enforced since there is no notion of scope.
  *       Also note that the name is purely decorative during partial evaluation: the variable is actually tracked
@@ -1124,6 +1128,12 @@ object Var {
     } while (changed)
 
     substitutions
+  }
+}
+
+object PosVar {
+  def apply(name: String): Var = new Var(name, StartFromRange(Cst(0))){
+    override lazy val min = Cst(0)
   }
 }
 
