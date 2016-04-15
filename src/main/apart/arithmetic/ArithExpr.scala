@@ -1021,7 +1021,7 @@ case class ArithExprFunction(name: String, var range: Range = RangeUnknown) exte
   override lazy val might_be_negative = false
 }
 
-class Lookup(val table: Array[Int], val index: ArithExpr, val id: Int) extends ArithExprFunction("lookup") {
+class Lookup(val table: Seq[ArithExpr], val index: ArithExpr, val id: Int) extends ArithExprFunction("lookup") {
 
   override lazy val toString: String = "lookup" + id + "(" + index.toString() + ")"
 
@@ -1035,9 +1035,9 @@ class Lookup(val table: Array[Int], val index: ArithExpr, val id: Int) extends A
 }
 
 object Lookup {
-  def apply(table: Array[Int], index: ArithExpr, id: Int): ArithExpr = new Lookup(table, index, id)
+  def apply(table: Seq[ArithExpr], index: ArithExpr, id: Int): ArithExpr = new Lookup(table, index, id)
 
-  def simplify(table: Array[Int], index: ArithExpr, id: Int): ArithExpr = {
+  def simplify(table: Seq[ArithExpr], index: ArithExpr, id: Int): ArithExpr = {
     index match {
       case c: Cst =>
         table.apply(c.eval)
