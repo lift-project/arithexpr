@@ -99,7 +99,8 @@ abstract sealed class ArithExpr {
    */
   lazy val eval: Int = {
     // Evaluating is quite expensive, traverse the tree to check assess evaluability
-    if (!isEvaluable) throw ArithExpr.NotEvaluable
+    if (!isEvaluable)
+      throw ArithExpr.NotEvaluable
     val dblResult = ArithExpr.evalDouble(this)
     if (dblResult.isValidInt)
       dblResult.toInt
