@@ -989,6 +989,9 @@ case class Mod(dividend: ArithExpr, divisor: ArithExpr) extends ArithExpr {
 }
 
 case class Floor(ae : ArithExpr) extends ArithExpr {
+  override lazy val min: ArithExpr = Floor(ae.min)
+  override lazy val max: ArithExpr = Floor(ae.max)
+
   override lazy val toString: String = "Floor(" + ae + ")"
 
   override val HashSeed = 0x558052ce
@@ -999,6 +1002,9 @@ case class Floor(ae : ArithExpr) extends ArithExpr {
 }
 
 case class Ceiling(ae: ArithExpr) extends ArithExpr {
+  override lazy val min: ArithExpr = Ceiling(ae.min)
+  override lazy val max: ArithExpr = Ceiling(ae.max)
+
   override lazy val toString: String = "Ceiling(" + ae + ")"
 
   override val HashSeed = 0xa45d23d0
