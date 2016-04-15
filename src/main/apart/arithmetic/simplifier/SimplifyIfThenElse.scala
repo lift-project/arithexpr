@@ -24,8 +24,11 @@ object SimplifyIfThenElse {
     }
   }
 
-  def apply(test: Predicate, t : ArithExpr, e : ArithExpr): ArithExpr = simplify(test, t, e) match {
-    case Some(toReturn) => toReturn
-    case None => new IfThenElse(Predicate(ExprSimplifier(test.lhs), ExprSimplifier(test.rhs), test.op), ExprSimplifier(t), ExprSimplifier(e) ) with SimplifiedExpr
+  def apply(test: Predicate, t : ArithExpr, e : ArithExpr): ArithExpr = {
+    val simplificationResult = if (PerformSimplification()) simplify(test, t, e) else None
+    simplificationResult match {
+      case Some(toReturn) => toReturn
+      case None => new IfThenElse(Predicate(ExprSimplifier(test.lhs), ExprSimplifier(test.rhs), test.op), ExprSimplifier(t), ExprSimplifier(e)) with SimplifiedExpr
+    }
   }
 }

@@ -100,11 +100,16 @@ object SimplifySum {
    * @param rhs The right-hand side.
    * @return A promoted expression or a simplified sum object.
    */
-  def apply(lhs: ArithExpr, rhs: ArithExpr): ArithExpr = simplify(lhs, rhs) match {
-    case Some(toReturn) => toReturn
-    case None => combineTerms(rhs, lhs) match {
+  def apply(lhs: ArithExpr, rhs: ArithExpr): ArithExpr = {
+    val simplificationResult = if (PerformSimplification()) simplify(lhs, rhs) else None
+    simplificationResult match {
       case Some(toReturn) => toReturn
-      case None => new Sum(List(lhs, rhs).sortWith(ArithExpr.sort)) with SimplifiedExpr
+      case None =>
+        val combineResult = if (PerformSimplification()) combineTerms(rhs, lhs) else None
+        combineResult match {
+          case Some(toReturn) => toReturn
+          case None => new Sum(List(lhs, rhs).sortWith(ArithExpr.sort)) with SimplifiedExpr
+        }
     }
   }
 }

@@ -47,8 +47,11 @@ object SimplifyMod {
     case _ => None
   }
 
-  def apply(dividend: ArithExpr, divisor: ArithExpr): ArithExpr = simplify(dividend, divisor) match {
-    case Some(toReturn) => toReturn
-    case None => new Mod(dividend, divisor) with SimplifiedExpr
+  def apply(dividend: ArithExpr, divisor: ArithExpr): ArithExpr = {
+    val simplificationResult = if (PerformSimplification()) simplify(dividend, divisor) else None
+    simplificationResult match {
+      case Some(toReturn) => toReturn
+      case None => new Mod(dividend, divisor) with SimplifiedExpr
+    }
   }
 }
