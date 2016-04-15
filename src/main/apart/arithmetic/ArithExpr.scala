@@ -174,6 +174,7 @@ abstract sealed class ArithExpr {
     case (Log(x1,y1), Log(x2,y2)) => x1 == x2 && y1 == y2
     case (Mod(x1,y1), Mod(x2,y2)) => x1 == x2 && y1 == y2
     case (Floor(a), Floor(x)) => a == x
+    case (Ceiling(x), Ceiling(y)) => x == y
     case (Sum(a), Sum(b)) => a.length == b.length && (a zip b).forall(x => x._1 == x._2)
     case (Prod(a), Prod(b)) => a.length == b.length && (a zip b).forall(x => x._1 == x._2)
     case (IfThenElse(test1, t1, e1), IfThenElse(test2, t2, e2)) =>
@@ -573,6 +574,7 @@ object ArithExpr {
         visit(b, f)
         visit(x, f)
       case Floor(expr) => visit(expr, f)
+      case Ceiling(expr) => visit(expr, f)
       case Sum(terms) => terms.foreach(t => visit(t, f))
       case Prod(terms) => terms.foreach(t => visit(t, f))
       case IfThenElse(test, t, e) => {
@@ -600,6 +602,7 @@ object ArithExpr {
         case Log(b,x) =>
           visitUntil(b, f) || visitUntil(x, f)
         case Floor(expr) => visitUntil(expr, f)
+        case Ceiling(expr) => visitUntil(expr, f)
         case Sum(terms) =>
           terms.foreach(t => if (visitUntil(t, f)) return true)
           false
@@ -623,6 +626,7 @@ object ArithExpr {
         val cond = Predicate(substitute(i.lhs, substitutions), substitute(i.rhs, substitutions), i.op)
         cond ?? substitute(t, substitutions) !! substitute(e, substitutions)
       case Floor(expr) => Floor(substitute(expr, substitutions))
+      case Ceiling(expr) => Floor(substitute(expr, substitutions))
       case adds: Sum => adds.terms.map(t => substitute(t, substitutions)).reduce(_+_)
       case muls: Prod => muls.factors.map(t => substitute(t, substitutions)).reduce(_*_)
       case x => x
@@ -642,6 +646,7 @@ object ArithExpr {
     case Prod(terms) => terms.foldLeft(1.0)((result,expr) => result*evalDouble(expr))
 
     case Floor(expr) => scala.math.floor(evalDouble(expr))
+    case Ceiling(expr) => scala.math.ceil(evalDouble(expr))
 
     case _ => throw NotEvaluable
   }
@@ -982,6 +987,16 @@ case class Floor(ae : ArithExpr) extends ArithExpr {
   override lazy val toString: String = "Floor(" + ae + ")"
 
   override val HashSeed = 0x558052ce
+
+  override lazy val digest: Int = HashSeed ^ ae.digest()
+
+  override lazy val might_be_negative = ae.might_be_negative
+}
+
+case class Ceiling(ae: ArithExpr) extends ArithExpr {
+  override lazy val toString: String = "Ceiling(" + ae + ")"
+
+  override val HashSeed = 0xa45d23d0
 
   override lazy val digest: Int = HashSeed ^ ae.digest()
 
