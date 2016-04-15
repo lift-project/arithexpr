@@ -4,7 +4,6 @@ package arithmetic
 import java.util.concurrent.atomic.AtomicLong
 
 import arithmetic.simplifier._
-import ir.ast.Group
 
 import scala.collection.immutable
 import scala.language.implicitConversions
@@ -182,7 +181,7 @@ abstract sealed class ArithExpr {
     case (Prod(a), Prod(b)) => a.length == b.length && (a zip b).forall(x => x._1 == x._2)
     case (IfThenElse(test1, t1, e1), IfThenElse(test2, t2, e2)) =>
       test1.op == test2.op && test1.lhs == test2.lhs && test1.rhs == test2.rhs && t1 == t2 && e1 == e2
-    case (gc1:GroupCall, gc2:GroupCall) => gc1.group == gc2.group && gc1.innerAe == gc2.innerAe
+    case (lu1: Lookup, lu2: Lookup) => lu1.table == lu2.table && lu1.index == lu2.index
     case (f1:ArithExprFunction, f2:ArithExprFunction) => f1.name == f2.name
     case (v1:Var, v2:Var) => v1.id == v2.id
     case _ =>
@@ -588,8 +587,9 @@ object ArithExpr {
         visit(t, f)
         visit(e, f)
       }
-      case gc: GroupCall =>
-        visit(gc.innerAe, f)
+      case lu: Lookup =>
+        visit(lu.index, f)
+        lu.table.foreach(t => visit(t, f))
       case Var(_,_) |  Cst(_) | ArithExprFunction(_,_) =>
       case x if x.getClass == ?.getClass =>
       case _ => throw new RuntimeException(s"Cannot visit expression $e")
@@ -615,7 +615,7 @@ object ArithExpr {
         case Prod(terms) =>
           terms.foreach(t => if (visitUntil(t, f)) return true)
           false
-        case gc:GroupCall => visitUntil(gc.innerAe, f)
+        case gc:Lookup => visitUntil(gc.index, f)
         case Var(_,_) |  Cst(_) | IfThenElse(_,_,_) | ArithExprFunction(_,_) => false
         case x if x.getClass == ?.getClass => false
         case _ => throw new RuntimeException(s"Cannot visit expression $e")
@@ -635,7 +635,7 @@ object ArithExpr {
       case Floor(expr) => Floor(substitute(expr, substitutions))
       case adds: Sum => adds.terms.map(t => substitute(t, substitutions)).reduce(_+_)
       case muls: Prod => muls.factors.map(t => substitute(t, substitutions)).reduce(_*_)
-      case gc: GroupCall => GroupCall.simplify(gc.group, substitute(gc.innerAe, substitutions))
+      case lu: Lookup => Lookup.simplify(lu.table, substitute(lu.index, substitutions), lu.id)
       case x => x
     }
 
@@ -1021,28 +1021,27 @@ case class ArithExprFunction(name: String, var range: Range = RangeUnknown) exte
   override lazy val might_be_negative = false
 }
 
-class GroupCall(val group: Group,
-                val innerAe: ArithExpr) extends ArithExprFunction("group") {
+class Lookup(val table: Array[Int], val index: ArithExpr, val id: Int) extends ArithExprFunction("lookup") {
 
-  override lazy val toString: String = "groupComp" + group.id + "(" + innerAe.toString() + ")"
+  override lazy val toString: String = "lookup" + id + "(" + index.toString() + ")"
 
-  override lazy val digest: Int = HashSeed ^ group.hashCode ^ innerAe.digest()
+  override lazy val digest: Int = HashSeed ^ table.hashCode ^ index.digest() ^ id.hashCode()
 
   override def equals(that: Any) = that match {
-    case thatGc: GroupCall => thatGc.group == this.group && thatGc.innerAe == this.innerAe
+    case thatLookup: Lookup => thatLookup.table == this.table &&
+      thatLookup.index == this.index && thatLookup.id == this.id
     case _ => false
   }
 }
 
-object GroupCall {
-  def apply(group: Group, innerAe: ArithExpr): ArithExpr = new GroupCall(group, innerAe)
+object Lookup {
+  def apply(table: Array[Int], index: ArithExpr, id: Int): ArithExpr = new Lookup(table, index, id)
 
-  def simplify(group: Group, innerAe: ArithExpr): ArithExpr = {
-    innerAe match {
+  def simplify(table: Array[Int], index: ArithExpr, id: Int): ArithExpr = {
+    index match {
       case c: Cst =>
-        val offset = Math.abs(Math.min(0, group.relIndices.min))
-        group.relIndices.map(_+offset).apply(c.eval)
-      case _ => new GroupCall(group, innerAe)
+        table.apply(c.eval)
+      case _ => new Lookup(table, index, id)
     }
   }
 }
