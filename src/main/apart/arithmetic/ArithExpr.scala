@@ -68,6 +68,18 @@ object Predicate {
   }
 }
 
+object Sign extends Enumeration {
+  type Sign = Value
+  val Positive, Negative, Unknown = Value("Unknown")
+  def reverse(s: Sign) : Sign = {
+    s match {
+      case Sign.Positive => Sign.Negative
+      case Sign.Negative => Sign.Positive
+      case Sign.Unknown =>  Sign.Unknown
+    }
+  }
+}
+
 /**
  * Class `ArithExpr` is the base class for arithmetic expression trees.
  *
@@ -92,14 +104,109 @@ abstract sealed class ArithExpr {
    */
   lazy val might_be_negative: Boolean = true
 
-  /**
-   * Lower and upper bounds of the expression.
-   */
-  lazy val (min,max): (ArithExpr,ArithExpr) = (Var(""), Var(""))
+  /* Should be overridden by any class that extends ArithExpr and is outside the arithmetic package */
+  lazy val sign: Sign.Value = this match {
+    case Ceiling(ae) => ae.sign
+    case Floor(ae) => ae.sign
+    case Cst(c) if c>=0 => Sign.Positive
+    case Cst(c) if c<0 => Sign.Negative
+    case Prod(factors) =>
+      def signProd(factors: List[ArithExpr]) : Sign.Value =
+        factors.foldLeft[Sign.Value](Sign.Positive)((s : Sign.Value, f: ArithExpr) =>
+          s match {
+            case Sign.Positive => f.sign
+            case Sign.Negative => Sign.reverse(f.sign)
+            case Sign.Unknown => return Sign.Unknown
+          })
+      signProd(factors)
+    case Sum(terms) =>
+      // only dealing with simple case here (either all positive or all negative, anything else is unknown)
+      // the right thing to do would be to check where the sum of positive terms is larger than the sum of negatie terms (but might be too costly)
+      terms.map(_.sign).reduce((a,b) => if (a==b) a else Sign.Unknown)
+    case IntDiv(numer, denom) =>
+      (numer.sign, denom.sign) match {
+        case (Sign.Positive, Sign.Positive) | (Sign.Negative, Sign.Negative) => Sign.Positive
+        case (Sign.Positive, Sign.Negative) | (Sign.Negative, Sign.Positive) => Sign.Negative
+        case _ => Sign.Unknown
+      }
+    case ite : IfThenElse =>
+      if (ite.t.sign == ite.e.sign)
+        ite.t.sign
+      else
+        Sign.Unknown
+    case Log(b,x) =>
+      x.sign match {
+        case Sign.Positive =>
+          (x-1).sign match {
+            case Sign.Positive => Sign.Positive
+            case Sign.Negative => Sign.Negative
+            case Sign.Unknown => Sign.Unknown
+          }
+        // assumes x is always positive
+      }
+    case Mod(dividend, _) =>
+      dividend.sign
+    case Pow(b,e) =>
+      b.sign
+    case Var(_, range) =>
+      if (range.min.sign == range.max.sign)
+        range.min.sign
+      else
+        Sign.Unknown
+    case ? => Sign.Unknown
+  }
+
+  /* Should be overridden by any class that extends ArithExpr and is outside the arithmetic package */
+  lazy val (min : ArithExpr, max: ArithExpr) = this match {
+    case c: Ceiling => (ceil(c.ae.min), ceil(c.ae.max))
+    case f: Floor => (floor(f.ae.min), floor(f.ae.max))
+    case c: Cst => c
+    case Prod(factors) =>
+      this.sign match {
+        case Sign.Positive => (ExprSimplifier(factors.reduceLeft(_ * _.min)), ExprSimplifier(factors.reduceLeft(_ * _.max)))
+        case Sign.Negative => (ExprSimplifier(factors.reduceLeft(_ * _.max)), ExprSimplifier(factors.reduceLeft(_ * _.min)))
+        case Sign.Unknown => (new Var(""), new Var("")) // impossible to determine the min and max
+      }
+    case Sum(terms) =>
+      (ExprSimplifier(terms.reduceLeft(_ + _.min)), ExprSimplifier(terms.reduceLeft(_ + _.max)))
+    case IntDiv(numer, denom) =>
+      this.sign match {
+        case Sign.Positive => (ExprSimplifier(numer.min / denom.max), ExprSimplifier(numer.max / denom.min))
+        case Sign.Negative => (ExprSimplifier(numer.max / denom.min), ExprSimplifier(numer.min / denom.max))
+        case Sign.Unknown => (new Var(""), new Var("")) // impossible to determine the min and max
+      }
+    case ite : IfThenElse =>
+      (ArithExpr.Math.Min(ite.t.min, ite.e.min), ArithExpr.Math.Max(ite.t.max, ite.e.max))
+    case l:Log =>
+      assert (l.x.sign == Sign.Positive)
+      (l.x-1).sign match {
+        case Sign.Positive => (Log(l.b.max, l.x.min), Log(l.b.min,l.x.max))
+        case Sign.Negative => (Log(l.b.min, l.x.max), Log(l.b.max,l.x.min))
+        case _ => (new Var(""), new Var("")) // impossible to determine the min and max
+      }
+    case Mod(dividend, divisor) =>
+      (dividend.sign,divisor.sign) match{
+        case (Sign.Positive, Sign.Positive) => (0, divisor.max-1)
+        case (Sign.Positive, Sign.Negative) => (0, (0-divisor.max)-1)
+        case (Sign.Negative, Sign.Positive) => (0-(divisor.max-1), 0)
+        case (Sign.Negative, Sign.Negative) => (0-((0-divisor).max-1),0)
+      }
+    case Pow(b,e) =>
+      (b.sign, e.sign) match {
+        case (Sign.Positive, Sign.Positive) => (b.min pow e.min, b.max pow e.max)
+        case (Sign.Positive, Sign.Negative) => (b.max pow e.min, b.min pow e.max)
+        case (Sign.Negative, _) => (new Var(""), new Var("")) // could be anything
+      }
+    case v: Var =>
+      (v.range.min, v.range.max)
+    case ? => (?,?)
+
+  }
 
   /**
    * Evaluates an arithmetic expression.
-   * @return The Int value of the expression.
+    *
+    * @return The Int value of the expression.
    * @throws NotEvaluableException if the expression cannot be fully evaluated.
    */
   lazy val eval: Int = {
@@ -156,7 +263,8 @@ abstract sealed class ArithExpr {
    * Fast Equality operator.
    * The function first compares the seeds, then the digests. If they are equal, the trees are compared using the
    * full equality operator.
-   * @param that Another expression.
+    *
+    * @param that Another expression.
    * @return True if the two expressions are equal, false otherwise.
    * @note This operator works only for simplified expressions.
    */
@@ -168,7 +276,8 @@ abstract sealed class ArithExpr {
 
   /**
    * True equality operator. Compare each operands.
-   * @param that Another expression.
+    *
+    * @param that Another expression.
    * @return True iif the two expressions are equal.
    * @note This operator works only for simplified expressions.
    */
@@ -197,21 +306,24 @@ abstract sealed class ArithExpr {
 
   /**
    * Multiplication operator.
-   * @param that Right-hand side.
+    *
+    * @param that Right-hand side.
    * @return An expression representing the product (not necessarily a Prod object).
    */
   def *(that: ArithExpr): ArithExpr = SimplifyProd(this,that)
 
   /**
    * Addition operator.
-   * @param that Right-hand side.
+    *
+    * @param that Right-hand side.
    * @return An expression representing the sum (not necessarily a Sum object).
    */
   def +(that: ArithExpr): ArithExpr = SimplifySum(this,that)
 
   /**
    * Division operator in Natural set (ie int div like Scala): `1/2=0`.
-   * @param that Right-hand side (divisor).
+    *
+    * @param that Right-hand side (divisor).
    * @return An IntDiv object wrapping the operands.
    * @throws ArithmeticException if the right-hand-side is zero.
    */
@@ -220,7 +332,8 @@ abstract sealed class ArithExpr {
   /**
    * Ordinal division operator.
    * This prevents integer arithmetic simplification through exponentiation.
-   * @param that Right-hand side (divisor).
+    *
+    * @param that Right-hand side (divisor).
    * @return The expression multiplied by the divisor exponent -1.
    */
   def /^(that: ArithExpr) = (this,that) match {
@@ -233,14 +346,16 @@ abstract sealed class ArithExpr {
 
   /**
    * Transform subtraction into sum of product with -1
-   * @param that Right-hand side of the division
+    *
+    * @param that Right-hand side of the division
    * @return A Sum object
    */
   def -(that: ArithExpr) = this + (that * -1)
 
   /**
    * The % operator yields the remainder from the division of the first expression by the second.
-   * @param that The right-hand side (divisor)
+    *
+    * @param that The right-hand side (divisor)
    * @return A Mod expression
    * @throws ArithmeticException if the right-hand-side is zero.
    * @note This operation is defined for negative number since it computes the remainder of the algebraic quotient
@@ -251,35 +366,40 @@ abstract sealed class ArithExpr {
   /* === Comparison operators === */
   /**
    * Lower than comparison operator.
-   * @param that Right-hand side of the comparison
+    *
+    * @param that Right-hand side of the comparison
    * @return A Predicate object
    */
   def lt(that: ArithExpr) = Predicate(this, that, Predicate.Operator.<)
 
   /**
    * Greater than comparison operator.
-   * @param that Right-hand side of the comparison
+    *
+    * @param that Right-hand side of the comparison
    * @return A Predicate object
    */
   def gt(that: ArithExpr) = Predicate(this, that, Predicate.Operator.>)
 
   /**
    * Lower-or-equal comparison operator.
-   * @param that Right-hand side of the comparison
+    *
+    * @param that Right-hand side of the comparison
    * @return A Predicate object
    */
   def le(that: ArithExpr) = Predicate(this, that, Predicate.Operator.<=)
 
   /**
    * Greater-or-equal comparison operator.
-   * @param that Right-hand side of the comparison
+    *
+    * @param that Right-hand side of the comparison
    * @return A Predicate object
    */
   def ge(that: ArithExpr) = Predicate(this, that, Predicate.Operator.>=)
 
   /**
    * Equality comparison operator.
-   * @note Silently overrides the reference comparison operator `AnyRef.eq`
+    *
+    * @note Silently overrides the reference comparison operator `AnyRef.eq`
    * @param that Right-hand side of the comparison
    * @return A Predicate object
    */
@@ -287,7 +407,8 @@ abstract sealed class ArithExpr {
 
   /**
    * Inequality comparison operator.
-   * @note Silently overrides the reference comparison operator `AnyRef.ne`
+    *
+    * @note Silently overrides the reference comparison operator `AnyRef.ne`
    * @param that Right-hand side of the comparison
    * @return A Predicate object
    */
@@ -302,7 +423,8 @@ abstract sealed class ArithExpr {
    * visit with a hash comparison function on the sub-tree to guarantee that each node matches. The probability
    * of a collision is then the probability of a collision of a leaf node, which is zero for constant nodes and zero
    * for the first 2,147,483,647 variable instances.
-   * @return A 32 bit digest of the expression.
+    *
+    * @return A 32 bit digest of the expression.
    */
   def digest(): Int
 
@@ -344,7 +466,8 @@ object ArithExpr {
 
   /**
    * Find the Greatest Common Divisor in two expressions.
-   * @param a The first expression.
+    *
+    * @param a The first expression.
    * @param b The second expression.
    * @return The greatest common divisor.
    */
@@ -498,7 +621,8 @@ object ArithExpr {
 
   /**
    * Find if an expression is possibly a multiple of another.
-   * @param expr The expression.
+    *
+    * @param expr The expression.
    * @param that A possible multiple.
    * @return True if `that` is a multiple of `expr`, false otherwise
    */
@@ -631,7 +755,7 @@ object ArithExpr {
         val cond = Predicate(substitute(i.lhs, substitutions), substitute(i.rhs, substitutions), i.op)
         cond ?? substitute(t, substitutions) !! substitute(e, substitutions)
       case Floor(expr) => Floor(substitute(expr, substitutions))
-      case Ceiling(expr) => Floor(substitute(expr, substitutions))
+      case Ceiling(expr) => Ceiling(substitute(expr, substitutions))
       case adds: Sum => adds.terms.map(t => substitute(t, substitutions)).reduce(_+_)
       case muls: Prod => muls.factors.map(t => substitute(t, substitutions)).reduce(_*_)
       case x => x
@@ -675,7 +799,8 @@ object ArithExpr {
 
     /**
      * Computes the minimal value between the two argument
-     * @param x The first value
+      *
+      * @param x The first value
      * @param y The second value
      * @return The minimum between x and y
      */
@@ -688,7 +813,8 @@ object ArithExpr {
 
     /**
      * Computes the maximal value between the two argument
-     * @param x The first value
+      *
+      * @param x The first value
      * @param y The second value
      * @return The maximum between x and y
      */
@@ -701,7 +827,8 @@ object ArithExpr {
 
     /**
      * Clamps a value to a given range
-     * @param x The input value
+      *
+      * @param x The input value
      * @param min Lower bound of the range
      * @param max Upper bound of the range
      * @return The value x clamped to the interval [min,max]
@@ -710,7 +837,8 @@ object ArithExpr {
 
     /**
      * Computes the absolute value of the argument
-     * @param x The input value
+      *
+      * @param x The input value
      * @return |x|
      */
     def Abs(x: ArithExpr) = (x lt Cst(0)) ?? (Cst(0)-x) !! x
@@ -758,21 +886,7 @@ case class IntDiv(numer: ArithExpr, denom: ArithExpr) extends ArithExpr() {
 
   override def toString: String = s"($numer) / ($denom)"
 
-  /**
-   * Upper bound of the expression: for a fraction:
-   *  - the minimal value is the smallest possible numerator divided by the greatest possible denominator
-   *  - the maximal value is the greatest possible numerator divided by the smallest possible denominator
-   */
-  override lazy val (min,max): (ArithExpr, ArithExpr) = {
-    ExprSimplifier(numer.max - denom.min) match {
-      case Cst(x) if x < 0 => (Cst(0), Cst(0))
-      case _ =>
-        denom.min match {
-          case Cst(0) => (Cst(0), ExprSimplifier(numer.max / denom.min))
-          case _ => (ExprSimplifier(numer.min / denom.max), ExprSimplifier(numer.max / denom.min))
-        }
-    }
-  }
+
 
   override val HashSeed = 0xf233de5a
 
@@ -782,26 +896,7 @@ case class IntDiv(numer: ArithExpr, denom: ArithExpr) extends ArithExpr() {
 }
 
 case class Pow(b: ArithExpr, e: ArithExpr) extends ArithExpr {
-  /**
-   * Lower and upper bounds of the expression
-   */
-  override lazy val (min,max): (ArithExpr,ArithExpr) = {
-    (b.min, b.max, e.min, e.max) match {
-      case (Cst(x), Cst(y), Cst(a), Cst(b)) if x == y && a == b =>
-        // If exponent and value are single point, emit single point
-        val point = Cst(x) pow Cst(a)
-        (point, point)
-      case (Cst(x), Cst(y), Cst(a), Cst(ob)) if x >= 0 && y >=0 && a > 0 && ob > 0 =>
-        // If the value is positive and the exponent is strictly positive, pow is monotonically increasing
-        (Cst(x) pow Cst(a), Cst(y) pow Cst(ob))
-      case (Cst(x), Cst(y), Cst(a), Cst(ob)) if x >= 0 && y >=0 && a < 0 && ob < 0 =>
-        // If the value is positive and the exponent is strictly negative, pow is monotonically decreasing
-        (Cst(y) pow Cst(a), Cst(x) pow Cst(ob))
-      case x =>
-        // Otherwise it could be anything
-        (Var(""), Var(""))
-    }
-  }
+
 
   override def toString : String = e match {
     case Cst(-1) => "1/^("+b+")"
@@ -823,6 +918,7 @@ case class Log(b: ArithExpr, x: ArithExpr) extends ArithExpr with SimplifiedExpr
   override lazy val digest: Int = HashSeed ^ b.digest() ^ ~x.digest()
 
   override lazy val might_be_negative = b.might_be_negative
+
 }
 
 
@@ -852,9 +948,6 @@ case class Prod private[arithmetic] (factors: List[ArithExpr]) extends ArithExpr
 //    case _ => false
 //  }
 
-  // TODO(tlutz): product depends on sign, should compute magnitude and sign independently
-  override lazy val (min,max): (ArithExpr,ArithExpr) =
-    (ExprSimplifier(factors.reduceLeft(_.min * _.min)), ExprSimplifier(factors.reduceLeft(_.max * _.max)))
 
   override def equals(that: Any) = that match {
     case p: Prod => factors.length == p.factors.length && factors.intersect(p.factors).length == factors.length
@@ -930,8 +1023,6 @@ case class Sum private[arithmetic] (terms: List[ArithExpr]) extends ArithExpr {
 //    case _ => false
 //  }
 
-  override lazy val (min,max): (ArithExpr,ArithExpr) =
-    (ExprSimplifier(terms.reduceLeft(_.min + _.min)), ExprSimplifier(terms.reduceLeft(_.max + _.max)))
 
   override def equals(that: Any) = that match {
     case s: Sum => terms.length == s.terms.length && terms.intersect(s.terms).length == terms.length
@@ -969,15 +1060,10 @@ case class Sum private[arithmetic] (terms: List[ArithExpr]) extends ArithExpr {
   override lazy val might_be_negative = terms.exists(_.might_be_negative)
 }
 
+// this is reall the remainder and not modulo!
+// TODO: rename this class as Remainder
 case class Mod(dividend: ArithExpr, divisor: ArithExpr) extends ArithExpr {
-  override lazy val min: ArithExpr = {
-    (dividend.min,divisor.min) match {
-      case (Cst(0),a) => Cst(0)
-      case (a,b) => Cst(1) - b
-    }
-  }
 
-  override lazy val max: ArithExpr = ExprSimplifier(divisor.max - 1)
 
   override lazy val toString: String = s"($dividend % ($divisor))"
 
@@ -988,7 +1074,7 @@ case class Mod(dividend: ArithExpr, divisor: ArithExpr) extends ArithExpr {
   override lazy val might_be_negative = dividend.might_be_negative
 }
 
-case class Floor(ae : ArithExpr) extends ArithExpr {
+case class Floor private[arithmetic] (ae : ArithExpr) extends ArithExpr {
   override lazy val min: ArithExpr = Floor(ae.min)
   override lazy val max: ArithExpr = Floor(ae.max)
 
@@ -1001,7 +1087,16 @@ case class Floor(ae : ArithExpr) extends ArithExpr {
   override lazy val might_be_negative = ae.might_be_negative
 }
 
-case class Ceiling(ae: ArithExpr) extends ArithExpr {
+object floor {
+  def apply(ae: ArithExpr): ArithExpr = {
+    ae match {
+      case c: Cst => c
+      case _ => new Floor(ae)
+    }
+  }
+}
+
+case class Ceiling private[arithmetic] (ae: ArithExpr) extends ArithExpr {
   override lazy val min: ArithExpr = Ceiling(ae.min)
   override lazy val max: ArithExpr = Ceiling(ae.max)
 
@@ -1012,6 +1107,15 @@ case class Ceiling(ae: ArithExpr) extends ArithExpr {
   override lazy val digest: Int = HashSeed ^ ae.digest()
 
   override lazy val might_be_negative = ae.might_be_negative
+}
+
+object ceil {
+  def apply(ae: ArithExpr): ArithExpr = {
+    ae match {
+      case c: Cst => c
+      case _ => new Ceiling(ae)
+    }
+  }
 }
 
 /**
