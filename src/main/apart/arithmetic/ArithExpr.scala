@@ -103,7 +103,8 @@ abstract sealed class ArithExpr {
    */
   lazy val eval: Int = {
     // Evaluating is quite expensive, traverse the tree to check assess evaluability
-    if (!isEvaluable) throw ArithExpr.NotEvaluable
+    if (!isEvaluable)
+      throw ArithExpr.NotEvaluable
     val dblResult = ArithExpr.evalDouble(this)
     if (dblResult.isValidInt)
       dblResult.toInt
@@ -177,6 +178,7 @@ abstract sealed class ArithExpr {
     case (Log(x1,y1), Log(x2,y2)) => x1 == x2 && y1 == y2
     case (Mod(x1,y1), Mod(x2,y2)) => x1 == x2 && y1 == y2
     case (Floor(a), Floor(x)) => a == x
+    case (Ceiling(x), Ceiling(y)) => x == y
     case (Sum(a), Sum(b)) => a.length == b.length && (a zip b).forall(x => x._1 == x._2)
     case (Prod(a), Prod(b)) => a.length == b.length && (a zip b).forall(x => x._1 == x._2)
     case (IfThenElse(test1, t1, e1), IfThenElse(test2, t2, e2)) =>
@@ -579,6 +581,7 @@ object ArithExpr {
         visit(b, f)
         visit(x, f)
       case Floor(expr) => visit(expr, f)
+      case Ceiling(expr) => visit(expr, f)
       case Sum(terms) => terms.foreach(t => visit(t, f))
       case Prod(terms) => terms.foreach(t => visit(t, f))
       case IfThenElse(test, t, e) => {
@@ -609,6 +612,7 @@ object ArithExpr {
         case Log(b,x) =>
           visitUntil(b, f) || visitUntil(x, f)
         case Floor(expr) => visitUntil(expr, f)
+        case Ceiling(expr) => visitUntil(expr, f)
         case Sum(terms) =>
           terms.foreach(t => if (visitUntil(t, f)) return true)
           false
@@ -633,6 +637,7 @@ object ArithExpr {
         val cond = Predicate(substitute(i.lhs, substitutions), substitute(i.rhs, substitutions), i.op)
         cond ?? substitute(t, substitutions) !! substitute(e, substitutions)
       case Floor(expr) => Floor(substitute(expr, substitutions))
+      case Ceiling(expr) => Floor(substitute(expr, substitutions))
       case adds: Sum => adds.terms.map(t => substitute(t, substitutions)).reduce(_+_)
       case muls: Prod => muls.factors.map(t => substitute(t, substitutions)).reduce(_*_)
       case lu: Lookup => Lookup.simplify(lu.table, substitute(lu.index, substitutions), lu.id)
@@ -653,6 +658,7 @@ object ArithExpr {
     case Prod(terms) => terms.foldLeft(1.0)((result,expr) => result*evalDouble(expr))
 
     case Floor(expr) => scala.math.floor(evalDouble(expr))
+    case Ceiling(expr) => scala.math.ceil(evalDouble(expr))
 
     case _ => throw NotEvaluable
   }
@@ -830,7 +836,8 @@ case class Log(b: ArithExpr, x: ArithExpr) extends ArithExpr with SimplifiedExpr
 
 /**
  * Represent a product of two or more expressions.
- * @param factors The list of factors. The list should contain at least 2 operands and should not contain other products.
+  *
+  * @param factors The list of factors. The list should contain at least 2 operands and should not contain other products.
  */
 case class Prod private[arithmetic] (factors: List[ArithExpr]) extends ArithExpr {
 
@@ -985,6 +992,9 @@ case class Mod(dividend: ArithExpr, divisor: ArithExpr) extends ArithExpr {
 }
 
 case class Floor(ae : ArithExpr) extends ArithExpr {
+  override lazy val min: ArithExpr = Floor(ae.min)
+  override lazy val max: ArithExpr = Floor(ae.max)
+
   override lazy val toString: String = "Floor(" + ae + ")"
 
   override val HashSeed = 0x558052ce
@@ -994,9 +1004,23 @@ case class Floor(ae : ArithExpr) extends ArithExpr {
   override lazy val might_be_negative = ae.might_be_negative
 }
 
+case class Ceiling(ae: ArithExpr) extends ArithExpr {
+  override lazy val min: ArithExpr = Ceiling(ae.min)
+  override lazy val max: ArithExpr = Ceiling(ae.max)
+
+  override lazy val toString: String = "Ceiling(" + ae + ")"
+
+  override val HashSeed = 0xa45d23d0
+
+  override lazy val digest: Int = HashSeed ^ ae.digest()
+
+  override lazy val might_be_negative = ae.might_be_negative
+}
+
 /**
  * Conditional operator. Behaves like the `?:` operator in C.
- * @param test A Predicate object.
+  *
+  * @param test A Predicate object.
  * @param t The 'then' block.
  * @param e The 'else block.
  */
@@ -1007,6 +1031,7 @@ case class IfThenElse(test: Predicate, t : ArithExpr, e : ArithExpr) extends Ari
 
   override lazy val digest: Int = HashSeed ^ test.digest ^ t.digest() ^ ~e.digest()
 }
+
 
 case class ArithExprFunction(name: String, var range: Range = RangeUnknown) extends ArithExpr with SimplifiedExpr {
   override lazy val digest: Int = HashSeed ^ range.digest() ^ name.hashCode
@@ -1049,7 +1074,8 @@ object Lookup {
 /**
  * Represents a variable in the expression. A variable is an unknown term which is immutable within the expression
  * but its value may change between expression, like a variable in C (cf sequence point).
- * @param name Identifier for the variable. Might be empty, in which case a name will be generated.
+  *
+  * @param name Identifier for the variable. Might be empty, in which case a name will be generated.
  * @param range Range of possible values for the variable.
  * @note The uniqueness of the variable name is not enforced since there is no notion of scope.
  *       Also note that the name is purely decorative during partial evaluation: the variable is actually tracked
@@ -1157,6 +1183,12 @@ object Var {
     } while (changed)
 
     substitutions
+  }
+}
+
+object PosVar {
+  def apply(name: String): Var = new Var(name, StartFromRange(Cst(0))){
+    override lazy val min = Cst(0)
   }
 }
 

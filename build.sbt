@@ -2,7 +2,7 @@ name := "Apart"
 
 version := "1.0"
 
-scalaVersion := "2.11.6"
+scalaVersion := "2.11.8"
 
 scalaSource in Compile <<= baseDirectory(_ / "src/main")
 
@@ -12,9 +12,13 @@ javaSource in Compile <<= baseDirectory(_ / "src/main")
 
 javaSource in Test <<= baseDirectory(_ / "src/test")
 
-libraryDependencies += "org.scala-lang" % "scala-reflect" % "2.11.6" 
+libraryDependencies += "org.scala-lang" % "scala-reflect" % "2.11.8"
 
-libraryDependencies += "org.scala-lang" % "scala-compiler" % "2.11.6"
+libraryDependencies += "org.scala-lang" % "scala-compiler" % "2.11.8"
+
+libraryDependencies += "org.scala-lang" % "scala-library" % "2.11.8"
+
+libraryDependencies += "org.scala-lang.modules" % "scala-xml_2.11" % "1.0.4"
 
 libraryDependencies += "junit" % "junit" % "4.11"
 
