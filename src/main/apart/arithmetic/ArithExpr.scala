@@ -354,16 +354,14 @@ object ArithExpr {
     // Factorize a sum: find a factor common to all terms
     def FactorizeSum(s: Sum): ArithExpr = {
       assert(s.terms.length > 1)
-      val fac = (for {
+      val fac = for {
         t1 <- s.terms
         t2 <- s.terms
         if t1.HashSeed < t2.HashSeed || (t1.HashSeed == t2.HashSeed && t1.digest < t2.digest)
-      } yield gcd(t1,t2)).map{
-        case c@Cst(1) => return c
-        case x => x
-      }
-      if(fac.isEmpty) Cst(1)
-      else fac.reduce(_+_)
+      } yield gcd(t1,t2)
+
+      if (fac.isEmpty) Cst(1)
+      else fac.reduce( (l, r) => gcd(l, r) )
     }
 
     val g: ArithExpr = (a,b) match {

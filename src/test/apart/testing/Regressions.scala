@@ -119,4 +119,20 @@ class Regressions {
   def expr13(): Unit = {
     assertNotEquals(? / ?, 1)
   }
+
+  @Test
+  def expr14(): Unit = {
+    val N = Var("N")
+    val get_group_id = ArithExprFunction("get_group_id", RangeAdd(0, 2, 1))
+    val get_num_groups = ArithExprFunction("get_num_groups", RangeUnknown)
+    val wg_id = Var("wg_id", RangeAdd(get_group_id, N/^8, get_num_groups))
+    val get_local_id = ArithExprFunction("get_local_id", RangeAdd(0,2, 1))
+
+    val f = (i: ArithExpr) => i / 8 + ((i % 8) * N /^ 8)
+    val i = 2 + (4 * get_local_id) + (8 * wg_id)
+    val output = f(i)
+
+    val expected = N /^ 4 + (get_local_id * N /^ 2) + wg_id
+    assertEquals(expected, output)
+  }
 }
