@@ -1044,10 +1044,9 @@ case class ArithExprFunction(name: String, var range: Range = RangeUnknown) exte
   override lazy val might_be_negative = false
 }
 
-class Lookup(val table: Seq[ArithExpr], val index: ArithExpr, val id: Int) extends ArithExprFunction("lookup") {
+class Lookup private (val table: Seq[ArithExpr], val index: ArithExpr, val id: Int) extends ArithExprFunction("lookup") {
 
   override lazy val toString: String = "lookup" + id + "(" + index.toString() + ")"
-
   override lazy val digest: Int = HashSeed ^ table.hashCode ^ index.digest() ^ id.hashCode()
 
   override def equals(that: Any) = that match {
@@ -1058,7 +1057,7 @@ class Lookup(val table: Seq[ArithExpr], val index: ArithExpr, val id: Int) exten
 }
 
 object Lookup {
-  def apply(table: Seq[ArithExpr], index: ArithExpr, id: Int): ArithExpr = new Lookup(table, index, id)
+  def apply(table: Seq[ArithExpr], index: ArithExpr, id: Int): ArithExpr = simplify(table, index, id)
 
   def simplify(table: Seq[ArithExpr], index: ArithExpr, id: Int): ArithExpr = {
     index match {
