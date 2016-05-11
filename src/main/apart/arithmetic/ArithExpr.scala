@@ -35,7 +35,7 @@ object PerformSimplification {
 /**
  * Control flow exception used to abort arithmetic expression evaluation on unknown terms.
  */
-final class NotEvaluableException extends ControlThrowable
+final class NotEvaluableException extends Throwable
 
 /**
  * Predicate object. Stores two arithmetic expressions and an operator
@@ -315,7 +315,7 @@ object ArithExpr {
 
   implicit def IntToCst(i: Int): Cst = Cst(i)
 
-  val NotEvaluable = new NotEvaluableException()
+  def NotEvaluable = new NotEvaluableException()
 
   def max(e1: ArithExpr, e2: ArithExpr) : ArithExpr = minmax(e1, e2)._2
 
@@ -486,6 +486,8 @@ object ArithExpr {
 
       case Pow(b, cst@Cst(c)) => ( if (c>=0) min(b) pow cst else max(b) pow cst,
                                    if (c>=0) max(b) pow cst else min(b) pow cst )
+
+      case IntDiv (numer, denom) => (numer.min / denom.max, numer.max / denom.min)
 
       case _ =>  throw NotEvaluable
     }
