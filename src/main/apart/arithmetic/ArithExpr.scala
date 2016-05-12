@@ -891,9 +891,16 @@ object ArithExpr {
     diff.sign == Sign.Positive // if the sign of the difference is positive, then ae1 is definitively smaller than ae2
 */
 
+    // TODO: (note for Michel ;-), I have the "more generic" solution, if you don't understand and don't want to implement it, I will do it)
+    // 1) if ae1 and ae2 constants, return True or False
+    // 2) collect all the variables that appears only in ae1 or only in ae2
+    // 3) if no unique var, then return : don't know
+    // 4) call isSmaller (max(ae1),min(ae2)) by forcing min and max to only set the unique vars (in other word the min or max of all the other var should be the var itself (and not the min or max of its range))
+    // this can be achieved probably by rewriting the expression using a special var which wraps the original var, and when the call returns we can unwrap them, this is needed to ensure the min or max of these var is the var itself
+
+
     try {
-      // TODO: Assuming range.max is non-inclusive
-      val atMax = ae1.atMax
+      val atMax = ae1.max
 
       atMax match {
         case Prod(factors) if hasDivision(factors) =>
