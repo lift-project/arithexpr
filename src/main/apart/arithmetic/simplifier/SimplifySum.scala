@@ -41,8 +41,8 @@ object SimplifySum {
     case (x,y) if x == y => Some(2 * x)
 
     // Prune zeroed vars
-    case (x, v:Var) if v.range.max == Cst(1) => Some(x)
-    case (v:Var, x) if v.range.max == Cst(1) => Some(x)
+    case (x, v:Var) if v.max == Cst(0) => Some(x)
+    case (v:Var, x) if v.max == Cst(0) => Some(x)
 
     // Merge products if they only differ by a constant factor
     case (p1:Prod, p2:Prod) if p1.withoutFactor(p1.cstFactor) == p2.withoutFactor(p2.cstFactor) =>
@@ -79,9 +79,9 @@ object SimplifySum {
     case (x, y) if !x.simplified => Some(ExprSimplifier(x) + y)
     case (x, y) if !y.simplified => Some(x + ExprSimplifier(y))
 
-    // Prune zeroed vars
-    case (x, v:Var) if v.range.max == Cst(1) => Some(x)
-    case (v:Var, x) if v.range.max == Cst(1) => Some(x)
+    // Prune zeroed vars (a Var with a range that can only be 0 should have been simplified!)
+    case (x, v:Var) if v.max == Cst(0) => Some(x)
+    case (v:Var, x) if v.max == Cst(0) => Some(x)
 
     // Combine Sums: if there are two sums, let the largest absorb the terms of the other one
     case (s1: Sum, s2: Sum) if s1.terms.length >= s2.terms.length => Some(addTerm(s2.terms.head, s1) + s2.withoutTerm(List(s2.terms.head)))

@@ -5,11 +5,8 @@ import java.util.concurrent.atomic.AtomicLong
 
 import arithmetic.simplifier._
 
-import scala.collection.immutable
 import scala.language.implicitConversions
-import scala.util.Random
 
-import scala.util.control.ControlThrowable
 
 /**
  * Sanity checks. These methods are used to check the sanity of simplified expressions as they are built.
@@ -36,7 +33,7 @@ object PerformSimplification {
 /**
  * Control flow exception used to abort arithmetic expression evaluation on unknown terms.
  */
-final class NotEvaluableException extends ControlThrowable
+final class NotEvaluableException extends Throwable //ControlThrowable
 
 /**
  * Predicate object. Stores two arithmetic expressions and an operator
@@ -70,7 +67,7 @@ object Predicate {
 
 object Sign extends Enumeration {
   type Sign = Value
-  val Positive, Negative, Unknown = Value("Unknown")
+  val Positive, Negative, Unknown = Value
   def reverse(s: Sign) : Sign = {
     s match {
       case Sign.Positive => Sign.Negative
@@ -78,6 +75,12 @@ object Sign extends Enumeration {
       case Sign.Unknown =>  Sign.Unknown
     }
   }
+}
+
+
+object MinMaxNeed extends Enumeration {
+  type MinMaxNeed = Value
+  val NeedMin, NeedMax = Value
 }
 
 /**
@@ -108,6 +111,7 @@ abstract sealed class ArithExpr {
   lazy val sign: Sign.Value = this match {
     case Ceiling(ae) => ae.sign
     case Floor(ae) => ae.sign
+    case Abs(ae) => Sign.Positive
     case Cst(c) if c>=0 => Sign.Positive
     case Cst(c) if c<0 => Sign.Negative
     case Prod(factors) =>
@@ -121,7 +125,7 @@ abstract sealed class ArithExpr {
       signProd(factors)
     case Sum(terms) =>
       // only dealing with simple case here (either all positive or all negative, anything else is unknown)
-      // the right thing to do would be to check where the sum of positive terms is larger than the sum of negatie terms (but might be too costly)
+      // the right thing to do would be to check where the sum of positive terms is larger than the sum of negative terms (but might be too costly)
       terms.map(_.sign).reduce((a,b) => if (a==b) a else Sign.Unknown)
     case IntDiv(numer, denom) =>
       (numer.sign, denom.sign) match {
@@ -149,31 +153,49 @@ abstract sealed class ArithExpr {
     case Pow(b,e) =>
       b.sign
     case Var(_, range) =>
-      if (range.min.sign == range.max.sign)
-        range.min.sign
+      //if (range.min.sign == range.max.sign)
+      //  range.min.sign
+      //else
+      if (range.min.sign == Sign.Positive)
+          Sign.Positive
+      else if (range.max.sign == Sign.Negative)
+          Sign.Negative
       else
         Sign.Unknown
     case ? => Sign.Unknown
   }
 
-  /* Should be overridden by any class that extends ArithExpr and is outside the arithmetic package */
-  lazy val (min : ArithExpr, max: ArithExpr) = this match {
+  /**
+    * Return the min or max of this arithmetic expression by setting all the variables to their min or max values.
+    */
+ lazy val (min : ArithExpr, max: ArithExpr) = _minmax()
+
+
+
+
+  /** This method should only be used internally or in special cases where we want to customise the behaviour based on the variables
+    * Should be overridden by any class that extends ArithExpr and is outside the arithmetic package.
+    */
+  private def _minmax() : (ArithExpr, ArithExpr) =
+  this match {
+    case PosInf => (PosInf, PosInf)
+    case NegInf => (NegInf, NegInf)
     case c: Ceiling => (ceil(c.ae.min), ceil(c.ae.max))
     case f: Floor => (floor(f.ae.min), floor(f.ae.max))
-    case c: Cst => c
+    case c: Cst => (c,c)
     case Prod(factors) =>
       this.sign match {
-        case Sign.Positive => (ExprSimplifier(factors.reduceLeft(_ * _.min)), ExprSimplifier(factors.reduceLeft(_ * _.max)))
-        case Sign.Negative => (ExprSimplifier(factors.reduceLeft(_ * _.max)), ExprSimplifier(factors.reduceLeft(_ * _.min)))
-        case Sign.Unknown => (new Var(""), new Var("")) // impossible to determine the min and max
+        case Sign.Positive => (factors.map(abs(_).min).reduce[ArithExpr](_ * _), factors.map(abs(_).max).reduce[ArithExpr](_ * _))
+        case Sign.Negative => (factors.map(abs(_).max).reduce[ArithExpr](_ * _) * -1, factors.map(abs(_).min).reduce[ArithExpr](_ * _) * -1)
+        case Sign.Unknown => (?,?) // impossible to determine the min and max
       }
     case Sum(terms) =>
-      (ExprSimplifier(terms.reduceLeft(_ + _.min)), ExprSimplifier(terms.reduceLeft(_ + _.max)))
+      (terms.map(_.min).reduce[ArithExpr](_ + _), terms.map(_.max).reduce[ArithExpr](_ + _))
     case IntDiv(numer, denom) =>
       this.sign match {
         case Sign.Positive => (ExprSimplifier(numer.min / denom.max), ExprSimplifier(numer.max / denom.min))
         case Sign.Negative => (ExprSimplifier(numer.max / denom.min), ExprSimplifier(numer.min / denom.max))
-        case Sign.Unknown => (new Var(""), new Var("")) // impossible to determine the min and max
+        case Sign.Unknown => (?,?) // impossible to determine the min and max
       }
     case ite : IfThenElse =>
       (ArithExpr.Math.Min(ite.t.min, ite.e.min), ArithExpr.Math.Max(ite.t.max, ite.e.max))
@@ -182,7 +204,7 @@ abstract sealed class ArithExpr {
       (l.x-1).sign match {
         case Sign.Positive => (Log(l.b.max, l.x.min), Log(l.b.min,l.x.max))
         case Sign.Negative => (Log(l.b.min, l.x.max), Log(l.b.max,l.x.min))
-        case _ => (new Var(""), new Var("")) // impossible to determine the min and max
+        case _ => (?,?) // impossible to determine the min and max
       }
     case Mod(dividend, divisor) =>
       (dividend.sign,divisor.sign) match{
@@ -195,14 +217,200 @@ abstract sealed class ArithExpr {
       (b.sign, e.sign) match {
         case (Sign.Positive, Sign.Positive) => (b.min pow e.min, b.max pow e.max)
         case (Sign.Positive, Sign.Negative) => (b.max pow e.min, b.min pow e.max)
-        case (Sign.Negative, _) => (new Var(""), new Var("")) // could be anything
+        case (Sign.Negative, _) => (?,?) // could be anything
+        case (Sign.Unknown, _) => (?,?) // unkown
       }
-    case v: Var =>
-      (v.range.min, v.range.max)
+    case v: Var => (v.range.min.min: ArithExpr, v.range.max.max: ArithExpr)
     case ? => (?,?)
+  }
+/*
+  class CannotDetermineMinMaxException extends Exception
 
+
+
+
+
+
+  lazy val max : ArithExpr = {
+    val substMap = new scala.collection.mutable.HashMap[ArithExpr, MinMaxNeed.MinMaxNeed]()
+    var e = this
+    val max = try {
+      e._max(substMap)
+      while (substMap.nonEmpty) {
+        e = ArithExpr.substitute(this, substMap.toMap)
+        substMap.clear
+        e._max(substMap)
+      }
+      e
+    } catch {
+      case e : CannotDetermineMinMaxException => ?
+    }
+    max
   }
 
+
+  lazy val min : ArithExpr = {
+    val substMap = new scala.collection.mutable.HashMap[ArithExpr, MinMaxNeed.MinMaxNeed]()
+    var e = this
+    val min = try {
+      e._min(substMap)
+      while (substMap.nonEmpty) {
+        e = ArithExpr.substitute(this, substMap.toMap)
+        substMap.clear
+        e._min(substMap)
+      }
+      e
+    } catch {
+      case e : CannotDetermineMinMaxException => ?
+    }
+    min
+  }
+
+
+
+  // needs to be overriden by any subclasses outside this package
+  def _max(map : scala.collection.mutable.Map[ArithExpr, MinMaxNeed.MinMaxNeed]) : Unit = {
+    this match {
+      case c: Ceiling => c.ae._max(map)
+      case f: Floor => f.ae._max(map)
+      case a: Abs =>
+        a.sign match {
+          case Sign.Positive => a._max(map)
+          case Sign.Negative => a._min(map)
+          case Sign.Unknown => throw new CannotDetermineMinMaxException
+        }
+      case Cst(_) | PosInf | NegInf =>
+      case Prod(factors) =>
+        this.sign match {
+          case Sign.Positive => factors.foreach(abs(_)._max(map))
+          case Sign.Negative => factors.foreach(abs(_)._min(map))
+          case Sign.Unknown => throw new CannotDetermineMinMaxException
+        }
+      case Sum(terms) =>
+        terms.foreach(_._max(map))
+      case IntDiv(numer, denom) =>
+        this.sign match {
+          case Sign.Positive =>
+            numer._max(map)
+            denom._min(map)
+          case Sign.Negative =>
+            numer._min(map)
+            denom._max(map)
+          case Sign.Unknown => throw new CannotDetermineMinMaxException
+        }
+      case ite : IfThenElse =>
+        ite.t._max(map)
+        ite.e._max(map)
+      case l:Log =>
+        assert (l.x.sign == Sign.Positive)
+        (l.x-1).sign match {
+          case Sign.Positive =>
+            l.b._min(map)
+            l.x._max(map)
+          case Sign.Negative =>
+            l.b._max(map)
+            l.x._min(map)
+          case _ => throw new CannotDetermineMinMaxException
+        }
+      case Mod(dividend, divisor) =>
+        (dividend.sign,divisor.sign) match{
+          case (Sign.Positive, Sign.Positive) => divisor._max(map)
+          case (Sign.Positive, Sign.Negative) => divisor._max(map)
+          case (Sign.Negative, Sign.Positive) => 0
+          case (Sign.Negative, Sign.Negative) => 0
+        }
+      case Pow(b,e) =>
+        (b.sign, e.sign) match {
+          case (Sign.Positive, Sign.Positive) =>
+            b._max(map)
+            e._max(map)
+          case (Sign.Positive, Sign.Negative) =>
+            b._min(map)
+            e._max(map)
+          case (Sign.Negative, _) => throw new CannotDetermineMinMaxException
+          case (Sign.Unknown, _) => throw new CannotDetermineMinMaxException
+        }
+      case rae : RangedArithExpr =>
+
+      case v: Var =>
+        val oldValMin = map.getOrElseUpdate(v, v.range.max)
+        if (oldValMin != v.range.max)
+          throw new CannotDetermineMinMaxException
+      case ? => throw new CannotDetermineMinMaxException
+    }
+  }
+
+
+  // needs to be overriden by any subclasses outside this package
+  def _min(map : scala.collection.mutable.Map[ArithExpr, MinMaxNeed.MinMaxNeed]) : Unit =
+    this match {
+      case c: Ceiling => c.ae._min(map)
+      case f: Floor => f.ae._min(map)
+      case a: Abs =>
+        a.sign match {
+          case Sign.Positive => a._min(map)
+          case Sign.Negative => a._max(map)
+          case Sign.Unknown => throw new CannotDetermineMinMaxException
+        }
+      case Cst(_) | PosInf | NegInf =>
+      case Prod(factors) =>
+        this.sign match {
+          case Sign.Positive => factors.foreach(abs(_)._min(map))
+          case Sign.Negative => factors.foreach(abs(_)._max(map))
+          case Sign.Unknown => throw new CannotDetermineMinMaxException
+        }
+      case Sum(terms) =>
+        terms.foreach(_._min(map))
+      case IntDiv(numer, denom) =>
+        this.sign match {
+          case Sign.Positive =>
+            numer._min(map)
+            denom._max(map)
+          case Sign.Negative =>
+            numer._max(map)
+            denom._min(map)
+          case Sign.Unknown => throw new CannotDetermineMinMaxException
+        }
+      case ite : IfThenElse =>
+        ite.t._min(map)
+        ite.e._min(map)
+      case l:Log =>
+        assert (l.x.sign == Sign.Positive)
+        (l.x-1).sign match {
+          case Sign.Positive =>
+            l.b._max(map)
+            l.x._min(map)
+          case Sign.Negative =>
+            l.b._min(map)
+            l.x._max(map)
+          case _ => throw new CannotDetermineMinMaxException
+        }
+      case Mod(dividend, divisor) =>
+        (dividend.sign,divisor.sign) match{
+          case (Sign.Positive, Sign.Positive) =>
+          case (Sign.Positive, Sign.Negative) =>
+          case (Sign.Negative, Sign.Positive) => divisor._max(map)
+          case (Sign.Negative, Sign.Negative) => (0-divisor)._max(map)
+        }
+      case Pow(b,e) =>
+        (b.sign, e.sign) match {
+          case (Sign.Positive, Sign.Positive) =>
+            b._min(map)
+            e._min(map)
+          case (Sign.Positive, Sign.Negative) =>
+            b._max(map)
+            e._min(map)
+          case (Sign.Negative, _) => throw new CannotDetermineMinMaxException
+          case (Sign.Unknown, _) => throw new CannotDetermineMinMaxException
+        }
+      case v: Var =>
+        val oldValMin = map.getOrElseUpdate(v, v.range.min)
+        if (oldValMin != v.range.min)
+          throw new CannotDetermineMinMaxException
+
+      case ? => throw new CannotDetermineMinMaxException
+    }
+*/
   /**
    * Evaluates an arithmetic expression.
     *
@@ -221,7 +429,7 @@ abstract sealed class ArithExpr {
 
   lazy val isEvaluable: Boolean = {
     !ArithExpr.visitUntil(this, x => {
-      x == ? || x.isInstanceOf[ArithExprFunction] || x.isInstanceOf[Var] || x.isInstanceOf[IfThenElse]
+      x==PosInf || x==NegInf||x == ? || x.isInstanceOf[ArithExprFunction] || x.isInstanceOf[Var] || x.isInstanceOf[IfThenElse]
     })
   }
 
@@ -256,6 +464,7 @@ abstract sealed class ArithExpr {
       case _ => l
     }
   }
+
 
   lazy val varList = getVars()
 
@@ -435,7 +644,7 @@ object ArithExpr {
 
   implicit def IntToCst(i: Int): Cst = Cst(i)
 
-  val NotEvaluable = new NotEvaluableException()
+  def/*val*/ NotEvaluable = new NotEvaluableException()
 
   def max(e1: ArithExpr, e2: ArithExpr) : ArithExpr = minmax(e1, e2)._2
 
@@ -592,7 +801,7 @@ object ArithExpr {
     }
   }
 
-  def max(e: ArithExpr) : ArithExpr = minmax(e)._2
+  /*def max(e: ArithExpr) : ArithExpr = minmax(e)._2
 
   def min(e: ArithExpr) : ArithExpr = minmax(e)._1
 
@@ -612,7 +821,8 @@ object ArithExpr {
 
       case _ =>  throw NotEvaluable
     }
-  }
+  }*/
+
 
   def contains(expr: ArithExpr, elem: ArithExpr) : Boolean = {
     visit(expr, e => if (e==elem) return true)
@@ -665,8 +875,23 @@ object ArithExpr {
     case e => false
   }
 
+  /**
+    * Return true if ae1 is definitively smaller than ae2.
+    * Return false if this cannot be proven (this does not mean that ae1 is always larger than ae2)
+   */
   def isSmaller(ae1: ArithExpr, ae2: ArithExpr): Boolean = {
-    //System.err.println(s"${ae1} <?< ${ae2}")
+
+    val diff = ae2-ae1
+    val sign = diff.min.sign
+    sign == Sign.Positive // if the sign of the difference is positive, then ae1 is definitively smaller than ae2
+/*
+    val ae1max = if (ae1.max != ?) ae1.max else ae1
+    val ae2min = if (ae2.min != ?) ae2.min else ae2
+    val diff = ae2min - ae1max
+    diff.sign == Sign.Positive // if the sign of the difference is positive, then ae1 is definitively smaller than ae2
+*/
+
+   /* //System.err.println(s"${ae1} <?< ${ae2}")
     try {
       // TODO: Assuming range.max is non-inclusive
       val atMax = ae1.atMax
@@ -684,7 +909,7 @@ object ArithExpr {
     } catch {
       case e: NotEvaluableException =>
     }
-    false
+    false*/
   }
 
   def visit(e: ArithExpr, f: (ArithExpr) => Unit) : Unit = {
@@ -714,6 +939,7 @@ object ArithExpr {
       }
       case Var(_,_) |  Cst(_) | ArithExprFunction(_,_) =>
       case x if x.getClass == ?.getClass =>
+      case PosInf | NegInf =>
       case _ => throw new RuntimeException(s"Cannot visit expression $e")
     }
   }
@@ -740,12 +966,13 @@ object ArithExpr {
           false
         case Var(_,_) |  Cst(_) | IfThenElse(_,_,_) | ArithExprFunction(_,_) => false
         case x if x.getClass == ?.getClass => false
+        case PosInf | NegInf => false
         case _ => throw new RuntimeException(s"Cannot visit expression $e")
       }
     }
   }
 
-  def substitute(e: ArithExpr, substitutions: scala.collection.immutable.Map[ArithExpr,ArithExpr]) : ArithExpr =
+  def substitute(e: ArithExpr, substitutions: scala.collection.Map[ArithExpr,ArithExpr]) : ArithExpr =
     substitutions.getOrElse(e, e) match {
       case Pow(l,r) => substitute(l,substitutions) pow substitute(r,substitutions)
       case IntDiv(n, d) => substitute(n, substitutions) / substitute(d, substitutions)
@@ -791,6 +1018,7 @@ object ArithExpr {
     case c:Cst => c
     case _ => throw new IllegalArgumentException
   }
+
 
   /**
    * Math operations derived from the basic operations
@@ -859,14 +1087,41 @@ case object ? extends ArithExpr with SimplifiedExpr {
   override lazy val might_be_negative = true
 
   override def ==(that: ArithExpr): Boolean = that.getClass == this.getClass
+
 }
+
+
+case object PosInf extends ArithExpr with SimplifiedExpr {
+  override val HashSeed = 0x4a3e87
+
+  override val digest: Int = HashSeed
+
+  override lazy val might_be_negative = false
+
+  override lazy val sign = Sign.Positive
+
+  override def ==(that: ArithExpr): Boolean = that.getClass == this.getClass
+}
+
+case object NegInf extends ArithExpr with SimplifiedExpr {
+  override val HashSeed = 0x4a3e87
+
+  override val digest: Int = HashSeed
+
+  override lazy val might_be_negative = true
+
+  override lazy val sign = Sign.Negative
+
+  override def ==(that: ArithExpr): Boolean = that.getClass == this.getClass
+}
+
 
 case class Cst(c: Int) extends ArithExpr with SimplifiedExpr {
 
   /**
    * Lower and upper bounds of a constant are itself.
    */
-  override lazy val (min,max): (ArithExpr, ArithExpr) = (this, this)
+  //override lazy val (min,max): (ArithExpr, ArithExpr) = (this, this)
 
   override lazy val toString = c.toString
 
@@ -1074,9 +1329,32 @@ case class Mod(dividend: ArithExpr, divisor: ArithExpr) extends ArithExpr {
   override lazy val might_be_negative = dividend.might_be_negative
 }
 
+case class Abs private[arithmetic] (ae: ArithExpr) extends ArithExpr {
+
+  //override lazy val (min : ArithExpr, max: ArithExpr) = (?,?) // if we have an Abs function, it means the sign of ae is unknown and it is not possible to infer the min or max (would need to use ifthenelse ?:)
+
+  override lazy val toString: String = "Abs(" + ae + ")"
+
+  override val HashSeed = 0x3570a2ce
+
+  override lazy val digest: Int = HashSeed ^ ae.digest()
+
+  override lazy val might_be_negative = false
+}
+
+object abs {
+  def apply(ae: ArithExpr) : ArithExpr = {
+    ae.sign match {
+      case Sign.Positive => ae
+      case Sign.Negative => -1 * ae
+      case Sign.Unknown => new Abs(ae) with SimplifiedExpr
+    }
+  }
+}
+
 case class Floor private[arithmetic] (ae : ArithExpr) extends ArithExpr {
-  override lazy val min: ArithExpr = Floor(ae.min)
-  override lazy val max: ArithExpr = Floor(ae.max)
+  //override lazy val min: ArithExpr = floor(ae.min)
+  //override lazy val max: ArithExpr = floor(ae.max)
 
   override lazy val toString: String = "Floor(" + ae + ")"
 
@@ -1091,14 +1369,35 @@ object floor {
   def apply(ae: ArithExpr): ArithExpr = {
     ae match {
       case c: Cst => c
-      case _ => new Floor(ae)
+      case _ =>
+        try {
+          val d = new Floor(ae).evalDbl
+          assert (d.isValidInt)
+          return new Cst(d.toInt)
+        } catch {
+          case _:NotEvaluableException =>
+            // ok let's try to evaluate floor of min and max
+            try {
+              val min = new Floor(ae.min).evalDbl
+              val max = new Floor(ae.max).evalDbl
+              if (min == max) {
+                assert (min.isValidInt)
+                return new Cst(min.toInt)
+              }
+            } catch {
+              case _: NotEvaluableException => new Floor(ae) with SimplifiedExpr
+              case e => throw e
+            }
+            new Floor(ae) with SimplifiedExpr
+          case e => throw e
+        }
     }
   }
 }
 
 case class Ceiling private[arithmetic] (ae: ArithExpr) extends ArithExpr {
-  override lazy val min: ArithExpr = Ceiling(ae.min)
-  override lazy val max: ArithExpr = Ceiling(ae.max)
+  //override lazy val min: ArithExpr = ceil(ae.min)
+  //override lazy val max: ArithExpr = ceil(ae.max)
 
   override lazy val toString: String = "Ceiling(" + ae + ")"
 
@@ -1113,7 +1412,28 @@ object ceil {
   def apply(ae: ArithExpr): ArithExpr = {
     ae match {
       case c: Cst => c
-      case _ => new Ceiling(ae)
+      case _ =>
+        try {
+          val d = new Ceiling(ae).evalDbl
+          assert (d.isValidInt)
+          return new Cst(d.toInt)
+        } catch {
+          case _:NotEvaluableException =>
+            // ok let's try to evaluate ceiling of min and max
+            try {
+              val min = new Ceiling(ae.min).evalDbl
+              val max = new Ceiling(ae.max).evalDbl
+              if (min == max) {
+                assert (min.isValidInt)
+                return new Cst(min.toInt)
+              }
+            } catch {
+              case _: NotEvaluableException => new Ceiling(ae) with SimplifiedExpr
+              case e => throw e
+            }
+            new Ceiling(ae) with SimplifiedExpr
+          case e => throw e
+        }
     }
   }
 }
@@ -1134,7 +1454,8 @@ case class IfThenElse(test: Predicate, t : ArithExpr, e : ArithExpr) extends Ari
 }
 
 
-case class ArithExprFunction(name: String, var range: Range = RangeUnknown) extends ArithExpr with SimplifiedExpr {
+case class ArithExprFunction(name: String, val range: Range = RangeUnknown) extends ArithExpr with SimplifiedExpr {
+
   override lazy val digest: Int = HashSeed ^ range.digest() ^ name.hashCode
 
   override val HashSeed = 0x3105f133
@@ -1147,6 +1468,18 @@ case class ArithExprFunction(name: String, var range: Range = RangeUnknown) exte
   override lazy val might_be_negative = false
 }
 
+object ArithExprFunction {
+
+  def getArithExprFuns(expr: ArithExpr) : Set[ArithExprFunction] = {
+    val exprFunctions = scala.collection.mutable.HashSet[ArithExprFunction]()
+    ArithExpr.visit(expr, {
+      case function: ArithExprFunction => exprFunctions += function
+      case _ =>
+    })
+    exprFunctions.toSet
+  }
+}
+
 /**
  * Represents a variable in the expression. A variable is an unknown term which is immutable within the expression
  * but its value may change between expression, like a variable in C (cf sequence point).
@@ -1157,9 +1490,9 @@ case class ArithExprFunction(name: String, var range: Range = RangeUnknown) exte
  *       Also note that the name is purely decorative during partial evaluation: the variable is actually tracked
  *       using an instance counter, hence multiple instances sharing the same name will not be simplified.
  */
-case class Var(name: String, var range : Range = RangeUnknown) extends ArithExpr with SimplifiedExpr {
+class Var(val name: String, val range : Range = RangeUnknown) extends ArithExpr with SimplifiedExpr {
 
-  override lazy val (min,max): (ArithExpr, ArithExpr) = (this,this)
+  //override lazy val (min,max): (ArithExpr, ArithExpr) = (this.range.min,this.range.max)
 
   /** Unique identifier. */
   val id: Long = {
@@ -1179,11 +1512,11 @@ case class Var(name: String, var range : Range = RangeUnknown) extends ArithExpr
 
   override lazy val hashCode = 8 * 79 + id.hashCode
 
-  def updateRange(func: (Range) => Range): Unit = {
+  /*def updateRange(func: (Range) => Range): Unit = {
     if (range != RangeUnknown) {
       range = func(range)
     }
-  }
+  }*/
 
   override val HashSeed =  0x54e9bd5e
 
@@ -1192,23 +1525,13 @@ case class Var(name: String, var range : Range = RangeUnknown) extends ArithExpr
   override lazy val might_be_negative = false
 
   override lazy val toString = "v_" + name + "_" + id
-}
 
+}
 
 
 
 /* ==  Companion objects == */
-object ArithExprFunction {
 
-  def getArithExprFuns(expr: ArithExpr) : Set[ArithExprFunction] = {
-    val exprFunctions = scala.collection.mutable.HashSet[ArithExprFunction]()
-    ArithExpr.visit(expr, {
-      case function: ArithExprFunction => exprFunctions += function
-      case _ =>
-    })
-    exprFunctions.toSet
-  }
-}
 
 object Var {
   /**
@@ -1216,9 +1539,27 @@ object Var {
    */
   private val cnt = new AtomicLong(-1)
 
-  def apply(range : Range) : Var = new Var("", range)
+  def apply(name: String = "") : Var = {
+    new Var(name)
+  }
 
-  def setVarsAtRandom(vars : Set[Var]) : scala.collection.immutable.Map[Var, Cst] = {
+  def apply(name: String, range : Range) : ArithExpr = {
+    if (range.min == range.max)
+      return range.min
+    new Var(name,range)
+  }
+
+
+  def apply(range : Range) : ArithExpr = {
+    if (range.min == range.max)
+      return range.min
+    new Var("",range)
+  }
+
+  def unapply(v: Var): Option[(String, Range)] = Some((v.name, v.range))
+
+
+  /*def setVarsAtRandom(vars : Set[Var]) : scala.collection.immutable.Map[Var, Cst] = {
 
     var changed = false
     var substitutions : immutable.Map[Var, Cst] = new immutable.HashMap[Var, Cst]()
@@ -1259,19 +1600,15 @@ object Var {
     } while (changed)
 
     substitutions
-  }
+  }*/
 }
 
 object PosVar {
-  def apply(name: String): Var = new Var(name, StartFromRange(Cst(0))){
-    override lazy val min = Cst(0)
-  }
+  def apply(name: String): Var = new Var(name, StartFromRange(Cst(0)))
 }
 
 object SizeVar {
-  def apply(name: String): Var = new Var(name, StartFromRange(Cst(1))){
-    override lazy val min = Cst(1)
-  }
+  def apply(name: String): Var = new Var(name, StartFromRange(Cst(1)))
 }
 
 trait SimplifiedExpr extends ArithExpr {
