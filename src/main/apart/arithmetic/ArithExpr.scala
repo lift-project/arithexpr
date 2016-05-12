@@ -881,9 +881,9 @@ object ArithExpr {
    */
   def isSmaller(ae1: ArithExpr, ae2: ArithExpr): Boolean = {
 
-    val diff = ae2-ae1
+   /* val diff = ae2-ae1
     val sign = diff.min.sign
-    sign == Sign.Positive // if the sign of the difference is positive, then ae1 is definitively smaller than ae2
+    sign == Sign.Positive // if the sign of the difference is positive, then ae1 is definitively smaller than ae2*/
 /*
     val ae1max = if (ae1.max != ?) ae1.max else ae1
     val ae2min = if (ae2.min != ?) ae2.min else ae2
@@ -891,8 +891,28 @@ object ArithExpr {
     diff.sign == Sign.Positive // if the sign of the difference is positive, then ae1 is definitively smaller than ae2
 */
 
-   /* //System.err.println(s"${ae1} <?< ${ae2}")
     try {
+      // TODO: Assuming range.max is non-inclusive
+      val atMax = ae1.atMax
+
+      atMax match {
+        case Prod(factors) if hasDivision(factors) =>
+          val newProd = factors.filter(!isDivision(_)).reduce(_*_)
+          if (newProd == ae2)
+            return true
+        case _ =>
+      }
+
+      if (atMax == ae2 || ae1.atMax(constantMax = true).eval < ae2.eval)
+        return true
+    } catch {
+      case e: NotEvaluableException =>
+    }
+    false
+
+
+   //System.err.println(s"${ae1} <?< ${ae2}")
+    /*try {
       // TODO: Assuming range.max is non-inclusive
       val atMax = ae1.atMax
 
