@@ -109,7 +109,7 @@ class Regressions {
   def expr12(): Unit = {
     val v_N_0 = SizeVar("v_N_0")
     val v_wg_id_249 = PosVar("v_wg_id_249")
-    val v_wg_id_246 = PosVar("v_wg_id_246", GoesToRange(v_N_0 / 64))
+    val v_wg_id_246 = Var("v_wg_id_246", ContinuousRange(0, v_N_0 / 64))
     assertEquals(64 * v_N_0 * v_wg_id_249 + 7 * v_N_0 + v_N_0 * new func1(1) * 8 + 48 + new func1(0) + 64 * v_wg_id_246,
       (64 * v_N_0 * v_wg_id_249) + (7 * v_N_0) + (v_N_0 * new func1(1) * 8) + (
         ((v_wg_id_246 + (v_N_0 * new func1(1) / 8) + (7 * v_N_0 / 64)) % (v_N_0 / 64))
