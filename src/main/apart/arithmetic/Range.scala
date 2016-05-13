@@ -20,6 +20,18 @@ sealed abstract class Range {
   lazy val numVals : ArithExpr = ?
 }
 
+object Range {
+  def substitute(r: Range, substitutions: scala.collection.Map[ArithExpr,ArithExpr]) : Range = {
+    r match {
+      case s: StartFromRange => StartFromRange(ArithExpr.substitute(s.start, substitutions))
+      case g: GoesToRange => GoesToRange(ArithExpr.substitute(g.end, substitutions))
+      case a: RangeAdd => RangeAdd(ArithExpr.substitute(a.start, substitutions),ArithExpr.substitute(a.stop, substitutions),ArithExpr.substitute(a.step, substitutions))
+      case m: RangeMul => RangeMul(ArithExpr.substitute(m.start, substitutions),ArithExpr.substitute(m.stop, substitutions),ArithExpr.substitute(m.mul, substitutions))
+      case RangeUnknown => r
+    }
+  }
+}
+
 class RangeUnknownException(msg: String) extends Exception(msg)
 
 case class StartFromRange(start: ArithExpr) extends Range {

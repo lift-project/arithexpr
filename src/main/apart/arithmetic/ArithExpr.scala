@@ -875,11 +875,36 @@ object ArithExpr {
     case e => false
   }
 
+
+  def collectVars(ae: ArithExpr) : Set[Var] = {
+    val vars = new scala.collection.mutable.HashSet[Var]()
+    ArithExpr.visit(ae,
+      _ match {
+        case v: Var =>
+          vars += v
+          vars ++= collectVars(v.range.max)
+          vars ++= collectVars(v.range.min)
+        case _ =>
+      }
+    )
+    vars.toSet
+  }
+
+  private class FixedVar(val v : Var, r: Range = RangeUnknown, fixedId: Option[Long] = None) extends Var("", r, fixedId) {
+
+    override def copy(r: Range) = new FixedVar(v, r, Some(this.id))
+
+    override lazy val (min : ArithExpr, max: ArithExpr) = (this,this)
+    override lazy val sign: Sign.Value = v.sign
+  }
+
   /**
     * Return true if ae1 is definitively smaller than ae2.
     * Return false if this cannot be proven (this does not mean that ae1 is always larger than ae2)
    */
-  def isSmaller(ae1: ArithExpr, ae2: ArithExpr): Boolean = {
+  def isSmaller(ae1: ArithExpr, ae2: ArithExpr): Option[Boolean] = {
+
+
 
    /* val diff = ae2-ae1
     val sign = diff.min.sign
@@ -891,7 +916,6 @@ object ArithExpr {
     diff.sign == Sign.Positive // if the sign of the difference is positive, then ae1 is definitively smaller than ae2
 */
 
-    // TODO: (note for Michel ;-), I have the "more generic" solution, if you don't understand and don't want to implement it, I will do it)
     // 1) if ae1 and ae2 constants, return True or False
     // 2) collect all the variables that appears only in ae1 or only in ae2
     // 3) if no unique var, then return : don't know
@@ -900,6 +924,57 @@ object ArithExpr {
 
 
     try {
+      // we check to see if the difference can be evaluated
+      val diff = ae2 - ae1
+      return Some(diff.evalDbl >= 0)
+    } catch {
+      case e: NotEvaluableException =>
+      case e : Throwable => throw e
+    }
+
+    // if we see a fixed var, we cannot say anything
+    if (ae1.isInstanceOf[FixedVar] | ae2.isInstanceOf[FixedVar])
+      return None
+
+    //  handling of infinite values
+    try {
+      (ae1, ae2) match {
+        case (PosInf, PosInf) => return None
+        case (NegInf, NegInf) => return None
+        case (PosInf, NegInf) => return Some(false)
+        case (NegInf, PosInf) => return Some(true)
+        case (PosInf, _) if ae2.isEvaluable => return Some(false)
+        case (NegInf, _) if ae2.isEvaluable => return Some(true)
+        case (_, NegInf) if ae1.isEvaluable => return Some(false)
+        case (_, PosInf) if ae1.isEvaluable => return Some(true)
+
+        case _ =>
+      }
+    }
+
+
+    val ae1Vars = collectVars(ae1)
+    val ae2Vars = collectVars(ae2)
+    val ae1UniqueVars = ae1Vars -- ae2Vars
+    val ae2UniqueVars = ae2Vars -- ae1Vars
+    val uniqueVars = ae1UniqueVars ++ ae2UniqueVars
+    val commonVars = ae1Vars & ae2Vars
+
+    if (uniqueVars.isEmpty)
+      return None
+
+    val replacements = commonVars.map(v => (v,new FixedVar(v))).toMap
+    val ae1WithFixedVars = ArithExpr.substitute(ae1, replacements.toMap)
+    val ae2WithFixedVars = ArithExpr.substitute(ae2, replacements.toMap)
+
+    val ae1WithFixedVarsMax = ae1WithFixedVars.max
+    val ae2WithFixedVarsMin = ae2WithFixedVars.min
+    isSmaller(ae1WithFixedVarsMax, ae2WithFixedVarsMin)
+
+
+
+
+    /*try {
       val atMax = ae1.max
 
       atMax match {
@@ -915,7 +990,7 @@ object ArithExpr {
     } catch {
       case e: NotEvaluableException =>
     }
-    false
+    false*/
 
 
    //System.err.println(s"${ae1} <?< ${ae2}")
@@ -939,6 +1014,12 @@ object ArithExpr {
     false*/
   }
 
+  /**
+    * Warning, this function does not visit the range inside the var (maybe we wants this?)
+    *
+    * @param e
+    * @param f
+    */
   def visit(e: ArithExpr, f: (ArithExpr) => Unit) : Unit = {
     f(e)
     e match {
@@ -1012,6 +1093,8 @@ object ArithExpr {
       case Ceiling(expr) => Ceiling(substitute(expr, substitutions))
       case adds: Sum => adds.terms.map(t => substitute(t, substitutions)).reduce(_+_)
       case muls: Prod => muls.factors.map(t => substitute(t, substitutions)).reduce(_*_)
+      case v: Var => v.copy(Range.substitute(v.range, substitutions))
+        // TODO: needs to substitute range of functions (get_local_id for instance)  (the copy method is currently borken since it will generate a new id for the var)
       case x => x
     }
 
@@ -1517,19 +1600,23 @@ object ArithExprFunction {
  *       Also note that the name is purely decorative during partial evaluation: the variable is actually tracked
  *       using an instance counter, hence multiple instances sharing the same name will not be simplified.
  */
-class Var(val name: String, val range : Range = RangeUnknown) extends ArithExpr with SimplifiedExpr {
+class Var(val name: String, val range : Range = RangeUnknown, fixedId: Option[Long] = None) extends ArithExpr with SimplifiedExpr {
 
   //override lazy val (min,max): (ArithExpr, ArithExpr) = (this.range.min,this.range.max)
 
   /** Unique identifier. */
   val id: Long = {
-    var _id: Long = 0
-    do {
-      _id = Var.cnt.incrementAndGet()
-      if(_id < 0)
-        Var.cnt.compareAndSet(_id, 0)
-    } while(_id < 0);
-    _id;
+    if (fixedId.isDefined)
+      fixedId.get
+    else {
+      var _id: Long = 0
+      do {
+        _id = Var.cnt.incrementAndGet()
+        if (_id < 0)
+          Var.cnt.compareAndSet(_id, 0)
+      } while (_id < 0)
+      _id
+    }
   }
 
   override def equals(that: Any) = that match {
@@ -1552,6 +1639,11 @@ class Var(val name: String, val range : Range = RangeUnknown) extends ArithExpr 
   override lazy val might_be_negative = false
 
   override lazy val toString = "v_" + name + "_" + id
+
+  /**
+    * Needs to be overriden by all subclasses (needed for substitution)
+   */
+  def copy(r: Range) = new Var(name, r, Some(this.id))
 
 }
 
@@ -1584,7 +1676,6 @@ object Var {
   }
 
   def unapply(v: Var): Option[(String, Range)] = Some((v.name, v.range))
-
 
   /*def setVarsAtRandom(vars : Set[Var]) : scala.collection.immutable.Map[Var, Cst] = {
 

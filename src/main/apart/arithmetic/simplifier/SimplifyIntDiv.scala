@@ -47,7 +47,7 @@ object SimplifyIntDiv {
     case (Cst(x), Cst(y)) => Some(Cst(x / y))
 
     // Return zero if the denominator is smaller than the numerator
-    case (x, y) if ArithExpr.isSmaller(x, y) => Some(Cst(0))
+    case (x, y) if ArithExpr.isSmaller(x, y).getOrElse(false) => Some(Cst(0))
 
     // Flip division in the numerator
     case (IntDiv(numer, denom1), denom2) => Some(numer / (denom1 * denom2))
