@@ -212,6 +212,7 @@ abstract sealed class ArithExpr {
         case (Sign.Positive, Sign.Negative) => (0, (0-divisor.max)-1)
         case (Sign.Negative, Sign.Positive) => (0-(divisor.max-1), 0)
         case (Sign.Negative, Sign.Negative) => (0-((0-divisor).max-1),0)
+        case _ => (?,?) // impossible to determine the min and max
       }
     case Pow(b,e) =>
       (b.sign, e.sign) match {
@@ -896,6 +897,11 @@ object ArithExpr {
 
     override lazy val (min : ArithExpr, max: ArithExpr) = (this,this)
     override lazy val sign: Sign.Value = v.sign
+
+    override lazy val isEvaluable = false
+
+    override lazy val might_be_negative: Boolean = v.might_be_negative
+
   }
 
   /**
@@ -954,14 +960,15 @@ object ArithExpr {
     }
 
 
-    val ae1Vars = collectVars(ae1)
-    val ae2Vars = collectVars(ae2)
-    val ae1UniqueVars = ae1Vars -- ae2Vars
-    val ae2UniqueVars = ae2Vars -- ae1Vars
-    val uniqueVars = ae1UniqueVars ++ ae2UniqueVars
+    val ae1Vars = collectVars(ae1).filter(_ match {case _: OpaqueVar => false case _ => true})
+    val ae2Vars = collectVars(ae2).filter(_ match {case _: OpaqueVar => false case _ => true})
     val commonVars = ae1Vars & ae2Vars
 
-    if (uniqueVars.isEmpty)
+    val varsOnlyInae1 = ae1Vars -- commonVars
+    val varsOnlyInae2 = ae2Vars -- commonVars
+    val varsOnlyInae1orae2 = varsOnlyInae1 ++ varsOnlyInae2
+
+    if (varsOnlyInae1orae2.isEmpty)
       return None
 
     val replacements = commonVars.map(v => (v,new OpaqueVar(v))).toMap
