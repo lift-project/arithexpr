@@ -124,9 +124,20 @@ abstract sealed class ArithExpr {
           })
       signProd(factors)
     case Sum(terms) =>
-      // only dealing with simple case here (either all positive or all negative, anything else is unknown)
-      // the right thing to do would be to check where the sum of positive terms is larger than the sum of negative terms (but might be too costly)
-      terms.map(_.sign).reduce((a,b) => if (a==b) a else Sign.Unknown)
+      val unknownSignTerms = terms.filter(_.sign == Sign.Unknown)
+      if (unknownSignTerms.nonEmpty)
+        Sign.Unknown
+      else {
+        val posTerms = terms.filter(_.sign == Sign.Positive)
+        val negTerms = terms.filter(_.sign == Sign.Negative)
+        ArithExpr.isSmaller(negTerms.reduce(_+_), posTerms.reduce(_+_)) match {
+          case Some(true) => Sign.Positive
+          case Some(false) => Sign.Negative
+          case None => Sign.Unknown
+        }
+      }
+
+      //terms.map(_.sign).reduce((a,b) => if (a==b) a else Sign.Unknown)
     case IntDiv(numer, denom) =>
       (numer.sign, denom.sign) match {
         case (Sign.Positive, Sign.Positive) | (Sign.Negative, Sign.Negative) => Sign.Positive
