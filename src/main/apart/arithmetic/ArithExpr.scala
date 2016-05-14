@@ -130,7 +130,7 @@ abstract sealed class ArithExpr {
       else {
         val posTerms = terms.filter(_.sign == Sign.Positive)
         val negTerms = terms.filter(_.sign == Sign.Negative)
-        ArithExpr.isSmaller(negTerms.reduce(_+_), posTerms.reduce(_+_)) match {
+        ArithExpr.isSmaller(negTerms.fold(Cst(0))(_+_), posTerms.fold(Cst(0))(_+_)) match {
           case Some(true) => Sign.Positive
           case Some(false) => Sign.Negative
           case None => Sign.Unknown
