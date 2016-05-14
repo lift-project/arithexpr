@@ -890,9 +890,9 @@ object ArithExpr {
     vars.toSet
   }
 
-  private class FixedVar(val v : Var, r: Range = RangeUnknown, fixedId: Option[Long] = None) extends Var("", r, fixedId) {
+  private class OpaqueVar(val v : Var, r: Range = RangeUnknown, fixedId: Option[Long] = None) extends Var("", r, fixedId) {
 
-    override def copy(r: Range) = new FixedVar(v, r, Some(this.id))
+    override def copy(r: Range) = new OpaqueVar(v, r, Some(this.id))
 
     override lazy val (min : ArithExpr, max: ArithExpr) = (this,this)
     override lazy val sign: Sign.Value = v.sign
@@ -926,14 +926,15 @@ object ArithExpr {
     try {
       // we check to see if the difference can be evaluated
       val diff = ae2 - ae1
-      return Some(diff.evalDbl >= 0)
+      if (diff.isEvaluable)
+        return Some(diff.evalDbl >= 0)
     } catch {
       case e: NotEvaluableException =>
       case e : Throwable => throw e
     }
 
     // if we see a fixed var, we cannot say anything
-    if (ae1.isInstanceOf[FixedVar] | ae2.isInstanceOf[FixedVar])
+    if (ae1.isInstanceOf[OpaqueVar] | ae2.isInstanceOf[OpaqueVar])
       return None
 
     //  handling of infinite values
@@ -963,7 +964,7 @@ object ArithExpr {
     if (uniqueVars.isEmpty)
       return None
 
-    val replacements = commonVars.map(v => (v,new FixedVar(v))).toMap
+    val replacements = commonVars.map(v => (v,new OpaqueVar(v))).toMap
     val ae1WithFixedVars = ArithExpr.substitute(ae1, replacements.toMap)
     val ae2WithFixedVars = ArithExpr.substitute(ae2, replacements.toMap)
 
