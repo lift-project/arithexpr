@@ -72,12 +72,20 @@ class Regressions {
     override lazy val digest: Int =  0x3105f133 ^ range.digest() ^ name.hashCode ^ a.hashCode()
 
     override lazy val toString: String = s"$name($a)"
+
+    override lazy val sign: Sign.Value = Sign.Positive
+
+    override lazy val (min : ArithExpr, max: ArithExpr) = (Cst(0),PosInf)
   }
 
   class func2(a: Int) extends ArithExprFunction("func2") {
     override lazy val digest: Int =  0x3105f133 ^ range.digest() ^ name.hashCode ^ a.hashCode()
 
     override lazy val toString: String = s"$name($a)"
+
+    override lazy val sign: Sign.Value = Sign.Positive
+
+    override lazy val (min : ArithExpr, max: ArithExpr) = (Cst(0),PosInf)
   }
 
   @Test def expr10(): Unit = {

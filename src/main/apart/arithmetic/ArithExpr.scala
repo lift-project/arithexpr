@@ -4,8 +4,6 @@ package arithmetic
 import java.util.concurrent.atomic.AtomicLong
 
 import arithmetic.simplifier._
-import ir.ast.Group
-import opencl.ir.ast.GroupCall
 
 import scala.language.implicitConversions
 
@@ -190,6 +188,7 @@ abstract sealed class ArithExpr {
 
   /**
     * Return the min or max of this arithmetic expression by setting all the variables to their min or max values.
+    * Should be overridden by any class that extends ArithExpr and is outside the arithmetic package.
     */
  lazy val (min : ArithExpr, max: ArithExpr) = _minmax()
 
@@ -197,7 +196,6 @@ abstract sealed class ArithExpr {
 
 
   /** This method should only be used internally or in special cases where we want to customise the behaviour based on the variables
-    * Should be overridden by any class that extends ArithExpr and is outside the arithmetic package.
     */
   private def _minmax() : (ArithExpr, ArithExpr) =
   this match {
@@ -241,6 +239,7 @@ abstract sealed class ArithExpr {
       (b.sign, e.sign) match {
         case (Sign.Positive, Sign.Positive) => (b.min pow e.min, b.max pow e.max)
         case (Sign.Positive, Sign.Negative) => (b.max pow e.min, b.min pow e.max)
+        case (Sign.Positive, _) => (?,?) // could be anything
         case (Sign.Negative, _) => (?,?) // could be anything
         case (Sign.Unknown, _) => (?,?) // unkown
       }

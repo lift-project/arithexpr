@@ -28,6 +28,9 @@ object SimplifyIntDiv {
    * @return An option set a to an expression if a simpler form exists, or `None` if there is no simplification.
    */
   private def simplify(numer: ArithExpr, denom: ArithExpr): Option[ArithExpr] = (numer, denom) match {
+
+    case (?,_) | (_,?) => Some(?)
+
     // Simplify operands
     case (x, y) if !x.simplified => Some(ExprSimplifier(x) / y)
     case (x, y) if !y.simplified => Some(x / ExprSimplifier(y))

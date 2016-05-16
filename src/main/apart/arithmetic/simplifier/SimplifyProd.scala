@@ -54,6 +54,9 @@ object SimplifyProd {
    * @return An option containing a different operation if the product can be re-written, None otherwise
    */
   def simplify(lhs: ArithExpr, rhs: ArithExpr): Option[ArithExpr] = (lhs, rhs) match {
+
+    case (?,_) | (_,?) => Some(?)
+
     // Factor simplification
     case (x, y) if !x.simplified => Some(ExprSimplifier(x) * y)
     case (x, y) if !y.simplified => Some(x * ExprSimplifier(y))
