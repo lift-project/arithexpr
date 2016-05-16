@@ -472,6 +472,15 @@ class TestExpr {
   }
 
   @Test
+  def bugCIsSmaller(): Unit = {
+    val a = Var("a")
+    val c = Var("c")
+
+    // a * -1 < c   should be unknown
+    assert( ArithExpr.isSmaller(a * -1, c).isEmpty )
+  }
+
+  @Test
   def fractionMultipleOf(): Unit = {
     val n = SizeVar("N")
 
