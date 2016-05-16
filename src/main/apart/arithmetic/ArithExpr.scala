@@ -4,6 +4,8 @@ package arithmetic
 import java.util.concurrent.atomic.AtomicLong
 
 import arithmetic.simplifier._
+import ir.ast.Group
+import opencl.ir.ast.GroupCall
 
 import scala.language.implicitConversions
 
@@ -960,8 +962,8 @@ object ArithExpr {
       case e : Throwable => throw e
     }
 
-    // if we see a fixed var, we cannot say anything
-    if (ae1.isInstanceOf[OpaqueVar] | ae2.isInstanceOf[OpaqueVar])
+    // if we see an opaque var or unknown, we cannot say anything
+    if (ae1.isInstanceOf[OpaqueVar] | ae2.isInstanceOf[OpaqueVar] | ae1 == ? | ae2 == ?)
       return None
 
     //  handling of infinite values
