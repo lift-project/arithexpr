@@ -468,7 +468,7 @@ class TestExpr {
     val n = SizeVar("N")
     val l = Var("l", ContinuousRange(0, 4))
 
-    assertTrue(ArithExpr.isSmaller(l * n/^4, n))
+    assertTrue(ArithExpr.isSmaller(l * n/^4, n).get)
   }
 
   @Test
@@ -508,7 +508,7 @@ class TestExpr {
   def divisionSmallerThan(): Unit = {
     val l = Var("l", GoesToRange(64))
 
-    assertTrue(ArithExpr.isSmaller(l / 16, 8))
+    assertTrue(ArithExpr.isSmaller(l / 16, 8).get)
   }
 
   @Test
