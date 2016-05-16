@@ -2,14 +2,16 @@ package apart
 package arithmetic
 package simplifier
 
+
 /**
- * Simplify binary addition.
+  * Simplify binary addition.
  */
 object SimplifySum {
 
   /**
    * Add a term to a an existing sum.
-   * @param term The term to add.
+    *
+    * @param term The term to add.
    * @param sum An existing Sum object.
    * @return A re-written expression if the term can be optimized with another from the list, a Sum otherwise.
    */
@@ -25,7 +27,8 @@ object SimplifySum {
 
   /**
    * Try to combine a pair of terms.
-   * @param lhs The first term.
+    *
+    * @param lhs The first term.
    * @param rhs The second term.
    * @return An option containing an expression if the terms can be combined, None otherwise
    */
@@ -63,13 +66,18 @@ object SimplifySum {
     case x => None
   }
 
+
   /**
    * Promote the sum to another operation.
-   * @param lhs The left-hand side.
+    *
+    * @param lhs The left-hand side.
    * @param rhs The right-hand side.
    * @return An option containing a different operation if the sum can be re-written, None otherwise
    */
   def simplify(lhs: ArithExpr, rhs: ArithExpr): Option[ArithExpr] = (lhs, rhs) match {
+
+    case (?,_) | (_,?) => Some(?)
+
     // Not a sum
     case (Cst(x), Cst(y)) => Some(Cst(x+y))
     case (Cst(0), _) => Some(rhs)
@@ -96,7 +104,8 @@ object SimplifySum {
 
   /**
    * Try to promote the sum into another expression, then try to combine terms. If all fails the expression is simplified.
-   * @param lhs The left-hand side.
+    *
+    * @param lhs The left-hand side.
    * @param rhs The right-hand side.
    * @return A promoted expression or a simplified sum object.
    */
