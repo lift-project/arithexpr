@@ -955,7 +955,7 @@ object ArithExpr {
       // we check to see if the difference can be evaluated
       val diff = ae2 - ae1
       if (diff.isEvaluable)
-        return Some(diff.evalDbl >= 0)
+        return Some(diff.evalDbl > 0)
     } catch {
       case e: NotEvaluableException =>
       case e : Throwable => throw e

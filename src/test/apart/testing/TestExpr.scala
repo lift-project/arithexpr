@@ -300,6 +300,12 @@ class TestExpr {
     assertEquals(Cst(5), Cst(-1) * Cst(-5))
   }
 
+  @Test def isSmallerTestVar(): Unit = {
+    val n = SizeVar("N")
+
+    assert(ArithExpr.isSmaller(n/^2,n).get)
+  }
+
   @Test def modBug(): Unit = {
     val n = SizeVar("N")
     val l = Var("l", ContinuousRange(0, 4))
@@ -454,12 +460,22 @@ class TestExpr {
   }
 
   @Test
+  def isSmallerTest(): Unit = {
+    val i = Var("i", ContinuousRange(0, 2))
+    val id = Var("id", ContinuousRange(0, 5))
+    assert(!ArithExpr.isSmaller(id + 4*i, 8).getOrElse(false))
+  }
+
+
+  @Test
   def bugAIsSmaller(): Unit = {
     val i = Var("i", ContinuousRange(0, 2))
     val id = Var("id", ContinuousRange(0, 5))
 
+    val expr1 = (id + 4*i) / 8
+
     // 0 <= id + 4*i <= 8 < 9
-    assertNotEquals(Cst(0), (id + 4*i) / 8)
+    assertNotEquals(Cst(0), expr1)
     assertNotEquals(id + 4*i, (id + 4*i) % 8)
   }
 
