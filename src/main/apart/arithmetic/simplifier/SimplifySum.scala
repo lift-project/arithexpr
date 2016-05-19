@@ -16,7 +16,7 @@ object SimplifySum {
    * @return A re-written expression if the term can be optimized with another from the list, a Sum otherwise.
    */
   def addTerm(term: ArithExpr, sum: Sum): ArithExpr = {
-    // Try to combine the new term to each existing terms in the sum, substibute if there is a match
+    // Try to combine the new term to each existing terms in the sum, substitute if there is a match
     sum.terms.foreach(x => combineTerms(term,x) match {
       case Some(newterm) => return sum.withoutTerm(List(x)) + newterm
       case _ =>
@@ -62,6 +62,8 @@ object SimplifySum {
         case s@Sum(sterms) if sterms.contains(slhs) && sterms.contains(srhs) => None
         case other => Some(other * gcd)
       }
+
+    //case ()
 
     case x => None
   }
