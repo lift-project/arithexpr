@@ -57,15 +57,22 @@ class TestExpr {
     assertEquals(Cst(17),result)
   }
 
+  @Test def simplificationDiv(): Unit = {
+    val N = SizeVar("N")
+    val v = Var("v", RangeAdd(0,N,1))
+    val result = v/N
+    assertEquals(result, Cst(0))
+  }
+
   @Test def Division(): Unit = {
     val i = Var("i")
-    val M = Var("M")
+    val M = SizeVar("M")
     assertEquals(i + i % M, i /^ M * M + i % M)
   }
 
   @Test def Fraction(): Unit = {
     val i = Var("i")
-    val M = Var("M")
+    val M = SizeVar("M")
     assertEquals((i / M) * M, (i / M) * M)
   }
 
@@ -76,7 +83,7 @@ class TestExpr {
   }
 
   @Test def modOfVarWithVarRange(): Unit = {
-    val M = Var("M")
+    val M = SizeVar("M")
     val i = Var(GoesToRange(M))
     assertEquals(i, i % M)
   }
@@ -100,12 +107,12 @@ class TestExpr {
   }
 
   @Test def modSameDividendDivisor(): Unit = {
-    val N = Var("N")
+    val N = SizeVar("N")
     assertEquals(Cst(0), N % N)
   }
 
   @Test def modDivisorZero(): Unit = {
-    val N = Var("N")
+    val N = SizeVar("N")
     assertEquals(Cst(0), 0 % N)
   }
 
@@ -114,15 +121,15 @@ class TestExpr {
   }
 
   @Test def prodMultipleOfVar(): Unit = {
-    val N = Var("N")
-    val M = Var("M")
+    val N = SizeVar("N")
+    val M = SizeVar("M")
     assertTrue(ArithExpr.multipleOf(N*M, N))
   }
 
   @Test def prodMultipleOfProd(): Unit = {
-    val N = Var("N")
-    val M = Var("M")
-    val K = Var("K")
+    val N = SizeVar("N")
+    val M = SizeVar("M")
+    val K = SizeVar("K")
     assertTrue(ArithExpr.multipleOf(N*M*K, N*K))
   }
 
@@ -136,32 +143,32 @@ class TestExpr {
   }
 
   @Test def prodDivConstant(): Unit = {
-    val N = Var("N")
+    val N = SizeVar("N")
     assertEquals(Cst(2) * N, Cst(4) * N / Cst(2))
   }
 
   @Test def prodDivProdWithConstants(): Unit = {
-    val N = Var("N")
-    val M = Var("M")
+    val N = SizeVar("N")
+    val M = SizeVar("M")
     assertEquals(Cst(2) * N / M, Cst(4) * N / (Cst(2) * M))
   }
 
   @Test def prodDivProdWithConstants2(): Unit = {
-    val N = Var("N")
-    val M = Var("M")
+    val N = SizeVar("N")
+    val M = SizeVar("M")
     assertEquals(N / (M * Cst(2)), Cst(2) * N / (Cst(4) * M))
   }
 
   @Test def prodDivProdWithConstants3(): Unit = {
-    val N = Var("N")
-    val M = Var("M")
+    val N = SizeVar("N")
+    val M = SizeVar("M")
     assertEquals((N * Cst(2)) / (M * Cst(3)), Cst(2) * N / (Cst(3) * M))
   }
 
   @Test def prodNotMultipleOfProd(): Unit = {
-    val N = Var("N")
-    val M = Var("M")
-    val K = Var("K")
+    val N = SizeVar("N")
+    val M = SizeVar("M")
+    val K = SizeVar("K")
     assertFalse(ArithExpr.multipleOf(N*M, N*K))
   }
 
@@ -177,6 +184,7 @@ class TestExpr {
     val i = Var(RangeAdd(Cst(0), Cst(4), Cst(1)))
     assertEquals(Cst(0), i / Cst(4))
   }
+
 
   @Test def sumVarsDivConstant(): Unit = {
     val i = Var(GoesToRange(Cst(4)))
@@ -214,13 +222,13 @@ class TestExpr {
   }
 
   @Test def modSum(): Unit = {
-    val N = Var("N")
+    val N = SizeVar("N")
     assertEquals(1 % N, (N + 1) % N)
   }
 
   @Test def modProd(): Unit = {
-    val N = Var("N")
-    val M = Var("M")
+    val N = SizeVar("N")
+    val M = SizeVar("M")
     assertEquals(Cst(0), (N * M) % N)
   }
 
@@ -229,12 +237,12 @@ class TestExpr {
   }
 
   @Test def NByN() {
-    val N = Var("N")
+    val N = SizeVar("N")
     assertEquals(Cst(1), N /^ N)
   }
 
   @Test def zeroTimesVar(): Unit = {
-    val N = Var("N")
+    val N = SizeVar("N")
     assertEquals(Cst(0), Cst(0) * N)
   }
 
@@ -247,12 +255,12 @@ class TestExpr {
   }
 
   @Test def simplifySumNMinusN(): Unit ={
-    val N = Var("N")
+    val N = SizeVar("N")
     assertEquals(Cst(0), N - N)
   }
 
   @Test def simplifySumZeroProducts(): Unit ={
-    val N = Var("N")
+    val N = SizeVar("N")
     assertEquals(Cst(0), 4*N - 4*N)
   }
 
@@ -266,7 +274,7 @@ class TestExpr {
   }
 
   @Test def prodEqualsVars(): Unit = {
-    val N = Var("N")
+    val N = SizeVar("N")
     assertEquals(Cst(2) * N, Cst(2) * N)
     assertEquals(N * Cst(2), Cst(2) * N)
   }
@@ -277,13 +285,13 @@ class TestExpr {
   }
 
   @Test def sumEqualsVars(): Unit = {
-    val N = Var("N")
+    val N = SizeVar("N")
     assertEquals(Cst(2) + N, Cst(2) + N)
     assertEquals(N + Cst(2), Cst(2) + N)
   }
 
   @Test def powSimplify(): Unit = {
-    val N = Var("N")
+    val N = SizeVar("N")
     val expr = Pow( 1*1*Pow(2, -1), Log(2, N) + (1  * -1) ) * N
     assertEquals(Cst(2), expr)
   }
@@ -292,8 +300,14 @@ class TestExpr {
     assertEquals(Cst(5), Cst(-1) * Cst(-5))
   }
 
+  @Test def isSmallerTestVar(): Unit = {
+    val n = SizeVar("N")
+
+    assert(ArithExpr.isSmaller(n/^2,n).get)
+  }
+
   @Test def modBug(): Unit = {
-    val n = Var("n")
+    val n = SizeVar("N")
     val l = Var("l", ContinuousRange(0, 4))
     val wg = Var("wg", ContinuousRange(0, n/^4))
 
@@ -372,7 +386,7 @@ class TestExpr {
 
   @Test
   def sumFraction(): Unit = {
-    val n = Var("n")
+    val n = SizeVar("N")
     val i = Var("i", ContinuousRange(0, n))
 
     // N <= i + N <= 2*N - 1 < 2*N
@@ -389,7 +403,7 @@ class TestExpr {
     assertEquals(Cst(-1), Min(Cst(-1),Cst(1)))
     assertEquals(Cst(-2), Min(Cst(-1),Cst(-2)))
 
-    val n = Var("n")
+    val n = SizeVar("N")
     // unknown var1
     assertEquals(Min(n, Cst(0)), Min(n, Cst(0)))
     // unknown var2
@@ -413,7 +427,7 @@ class TestExpr {
     assertEquals(Cst(1), Max(Cst(-1),Cst(1)))
     assertEquals(Cst(-1), Max(Cst(-1),Cst(-2)))
 
-    val n = Var("n")
+    val n = SizeVar("N")
     // unknown var1
     assertEquals(Max(n, Cst(0)), Max(n, Cst(0)))
     // unknown var2
@@ -446,26 +460,45 @@ class TestExpr {
   }
 
   @Test
+  def isSmallerTest(): Unit = {
+    val i = Var("i", ContinuousRange(0, 2))
+    val id = Var("id", ContinuousRange(0, 5))
+    assert(!ArithExpr.isSmaller(id + 4*i, 8).getOrElse(false))
+  }
+
+
+  @Test
   def bugAIsSmaller(): Unit = {
     val i = Var("i", ContinuousRange(0, 2))
     val id = Var("id", ContinuousRange(0, 5))
 
+    val expr1 = (id + 4*i) / 8
+
     // 0 <= id + 4*i <= 8 < 9
-    assertNotEquals(Cst(0), (id + 4*i) / 8)
+    assertNotEquals(Cst(0), expr1)
     assertNotEquals(id + 4*i, (id + 4*i) % 8)
   }
 
   @Test
   def bugBIsSmaller(): Unit = {
-    val n = Var("n")
+    val n = SizeVar("N")
     val l = Var("l", ContinuousRange(0, 4))
 
-    assertTrue(ArithExpr.isSmaller(l * n/^4, n))
+    assertTrue(ArithExpr.isSmaller(l * n/^4, n).get)
+  }
+
+  @Test
+  def bugCIsSmaller(): Unit = {
+    val a = Var("a")
+    val c = Var("c")
+
+    // a * -1 < c   should be unknown
+    assert( ArithExpr.isSmaller(a * -1, c).isEmpty )
   }
 
   @Test
   def fractionMultipleOf(): Unit = {
-    val n = Var("N")
+    val n = SizeVar("N")
 
     assertTrue(ArithExpr.multipleOf(n / 4, n / 8))
     assertTrue(ArithExpr.multipleOf(3 * n / 4, n / 8))
@@ -473,7 +506,7 @@ class TestExpr {
 
   @Test
   def varFractionProductMultipleOf(): Unit = {
-    val n = Var("N")
+    val n = SizeVar("N")
     val i = Var("i")
 
     assertTrue(ArithExpr.multipleOf(i* n / 4, n / 8))
@@ -481,13 +514,13 @@ class TestExpr {
 
   @Test
   def equalMultipleOf(): Unit = {
-    val n = Var("N")
+    val n = SizeVar("N")
     assertTrue(ArithExpr.multipleOf(n, n))
   }
 
   @Test
   def divisionMultipleOf(): Unit = {
-    val n = Var("N")
+    val n = SizeVar("N")
 
     assertTrue(ArithExpr.multipleOf(n /^ 4, n /^ 8))
     assertTrue(ArithExpr.multipleOf(3 * n /^ 4, n /^ 8))
@@ -500,12 +533,12 @@ class TestExpr {
   def divisionSmallerThan(): Unit = {
     val l = Var("l", GoesToRange(64))
 
-    assertTrue(ArithExpr.isSmaller(l / 16, 8))
+    assertTrue(ArithExpr.isSmaller(l / 16, 8).get)
   }
 
   @Test
   def modOfDivisionMultiple(): Unit = {
-    val n = Var("N")
+    val n = SizeVar("N")
 
     assertEquals(Cst(0), (n /^ 4) % (n /^ 8))
 //    assertEquals(n / 8, (n / 8) % (n / 4))
@@ -513,7 +546,7 @@ class TestExpr {
 
   @Test
   def subtractProds(): Unit = {
-    val expr1: ArithExpr = Var("N") * 1 /^ 4
+    val expr1: ArithExpr = SizeVar("N") * 1 /^ 4
     val expr2: ArithExpr = expr1 + 1
 
     assertEquals(Cst(1), expr2 - expr1)

@@ -1,6 +1,7 @@
 package apart.testing
 
 import apart.arithmetic._
+import apart.arithmetic.SizeVar
 import org.junit.Assert._
 import org.junit.Test
 
@@ -71,12 +72,20 @@ class Regressions {
     override lazy val digest: Int =  0x3105f133 ^ range.digest() ^ name.hashCode ^ a.hashCode()
 
     override lazy val toString: String = s"$name($a)"
+
+    override lazy val sign: Sign.Value = Sign.Positive
+
+    override lazy val (min : ArithExpr, max: ArithExpr) = (Cst(0),PosInf)
   }
 
   class func2(a: Int) extends ArithExprFunction("func2") {
     override lazy val digest: Int =  0x3105f133 ^ range.digest() ^ name.hashCode ^ a.hashCode()
 
     override lazy val toString: String = s"$name($a)"
+
+    override lazy val sign: Sign.Value = Sign.Positive
+
+    override lazy val (min : ArithExpr, max: ArithExpr) = (Cst(0),PosInf)
   }
 
   @Test def expr10(): Unit = {
@@ -106,9 +115,9 @@ class Regressions {
 
   @Test
   def expr12(): Unit = {
-    val v_N_0 = Var("v_N_0")
-    val v_wg_id_249 = Var("v_wg_id_249")
-    val v_wg_id_246 = Var("v_wg_id_246", GoesToRange(v_N_0 / 64))
+    val v_N_0 = SizeVar("v_N_0")
+    val v_wg_id_249 = PosVar("v_wg_id_249")
+    val v_wg_id_246 = Var("v_wg_id_246", ContinuousRange(0, v_N_0 / 64))
     assertEquals(64 * v_N_0 * v_wg_id_249 + 7 * v_N_0 + v_N_0 * new func1(1) * 8 + 48 + new func1(0) + 64 * v_wg_id_246,
       (64 * v_N_0 * v_wg_id_249) + (7 * v_N_0) + (v_N_0 * new func1(1) * 8) + (
         ((v_wg_id_246 + (v_N_0 * new func1(1) / 8) + (7 * v_N_0 / 64)) % (v_N_0 / 64))
@@ -119,14 +128,20 @@ class Regressions {
   def expr13(): Unit = {
     assertNotEquals(? / ?, 1)
   }
+    class OclFunction(name: String, range: Range)
+      extends ArithExprFunction(name, range) {
 
+      override lazy val (min : ArithExpr, max: ArithExpr) = (range.min.min, range.max.max)
+      override lazy val sign: Sign.Value = Sign.Positive
+    }
   @Test
   def expr14(): Unit = {
-    val N = Var("N")
-    val get_group_id = ArithExprFunction("get_group_id", RangeAdd(0, 2, 1))
-    val get_num_groups = ArithExprFunction("get_num_groups", RangeUnknown)
+
+    val N = Var("N", StartFromRange(Cst(1)))
+    val get_group_id = new OclFunction("get_group_id", ContinuousRange(0, 2))
+    val get_num_groups = new OclFunction("get_num_groups", ContinuousRange(1, PosInf))
     val wg_id = Var("wg_id", RangeAdd(get_group_id, N/^8, get_num_groups))
-    val get_local_id = ArithExprFunction("get_local_id", RangeAdd(0,2, 1))
+    val get_local_id = new OclFunction("get_local_id", ContinuousRange(0, 2))
 
     val f = (i: ArithExpr) => i / 8 + ((i % 8) * N /^ 8)
     val i = 2 + (4 * get_local_id) + (8 * wg_id)
@@ -134,5 +149,11 @@ class Regressions {
 
     val expected = N /^ 4 + (get_local_id * N /^ 2) + wg_id
     assertEquals(expected, output)
+  }
+
+  @Test
+  def expr15(): Unit = {
+    val get_local_id = new OclFunction("get_local_id", ContinuousRange(0, 2))
+    assertTrue(ArithExpr.isSmaller( 1+(2*get_local_id), 4 ).getOrElse(false))
   }
 }

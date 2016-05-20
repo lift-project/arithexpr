@@ -2,19 +2,21 @@ package apart
 package arithmetic
 package simplifier
 
+
 /**
- * Simplify binary addition.
+  * Simplify binary addition.
  */
 object SimplifySum {
 
   /**
    * Add a term to a an existing sum.
-   * @param term The term to add.
+    *
+    * @param term The term to add.
    * @param sum An existing Sum object.
    * @return A re-written expression if the term can be optimized with another from the list, a Sum otherwise.
    */
   def addTerm(term: ArithExpr, sum: Sum): ArithExpr = {
-    // Try to combine the new term to each existing terms in the sum, substibute if there is a match
+    // Try to combine the new term to each existing terms in the sum, substitute if there is a match
     sum.terms.foreach(x => combineTerms(term,x) match {
       case Some(newterm) => return sum.withoutTerm(List(x)) + newterm
       case _ =>
@@ -25,7 +27,8 @@ object SimplifySum {
 
   /**
    * Try to combine a pair of terms.
-   * @param lhs The first term.
+    *
+    * @param lhs The first term.
    * @param rhs The second term.
    * @return An option containing an expression if the terms can be combined, None otherwise
    */
@@ -41,8 +44,8 @@ object SimplifySum {
     case (x,y) if x == y => Some(2 * x)
 
     // Prune zeroed vars
-    case (x, v:Var) if v.range.max == Cst(1) => Some(x)
-    case (v:Var, x) if v.range.max == Cst(1) => Some(x)
+    case (x, v:Var) if v.max == Cst(0) => Some(x)
+    case (v:Var, x) if v.max == Cst(0) => Some(x)
 
     // Merge products if they only differ by a constant factor
     case (p1:Prod, p2:Prod) if p1.withoutFactor(p1.cstFactor) == p2.withoutFactor(p2.cstFactor) =>
@@ -60,16 +63,23 @@ object SimplifySum {
         case other => Some(other * gcd)
       }
 
+    //case ()
+
     case x => None
   }
 
+
   /**
    * Promote the sum to another operation.
-   * @param lhs The left-hand side.
+    *
+    * @param lhs The left-hand side.
    * @param rhs The right-hand side.
    * @return An option containing a different operation if the sum can be re-written, None otherwise
    */
   def simplify(lhs: ArithExpr, rhs: ArithExpr): Option[ArithExpr] = (lhs, rhs) match {
+
+    case (?,_) | (_,?) => Some(?)
+
     // Not a sum
     case (Cst(x), Cst(y)) => Some(Cst(x+y))
     case (Cst(0), _) => Some(rhs)
@@ -79,9 +89,9 @@ object SimplifySum {
     case (x, y) if !x.simplified => Some(ExprSimplifier(x) + y)
     case (x, y) if !y.simplified => Some(x + ExprSimplifier(y))
 
-    // Prune zeroed vars
-    case (x, v:Var) if v.range.max == Cst(1) => Some(x)
-    case (v:Var, x) if v.range.max == Cst(1) => Some(x)
+    // Prune zeroed vars (a Var with a range that can only be 0 should have been simplified!)
+    case (x, v:Var) if v.max == Cst(0) => Some(x)
+    case (v:Var, x) if v.max == Cst(0) => Some(x)
 
     // Combine Sums: if there are two sums, let the largest absorb the terms of the other one
     case (s1: Sum, s2: Sum) if s1.terms.length >= s2.terms.length => Some(addTerm(s2.terms.head, s1) + s2.withoutTerm(List(s2.terms.head)))
@@ -96,7 +106,8 @@ object SimplifySum {
 
   /**
    * Try to promote the sum into another expression, then try to combine terms. If all fails the expression is simplified.
-   * @param lhs The left-hand side.
+    *
+    * @param lhs The left-hand side.
    * @param rhs The right-hand side.
    * @return A promoted expression or a simplified sum object.
    */
