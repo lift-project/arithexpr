@@ -901,8 +901,7 @@ object ArithExpr {
 
   def collectVars(ae: ArithExpr) : Set[Var] = {
     val vars = new scala.collection.mutable.HashSet[Var]()
-    ArithExpr.visit(ae,
-      _ match {
+    ArithExpr.visit(ae, {
         case v: Var =>
           vars += v
           vars ++= collectVars(v.range.max)
@@ -932,24 +931,11 @@ object ArithExpr {
    */
   def isSmaller(ae1: ArithExpr, ae2: ArithExpr): Option[Boolean] = {
 
-
-
-   /* val diff = ae2-ae1
-    val sign = diff.min.sign
-    sign == Sign.Positive // if the sign of the difference is positive, then ae1 is definitively smaller than ae2*/
-/*
-    val ae1max = if (ae1.max != ?) ae1.max else ae1
-    val ae2min = if (ae2.min != ?) ae2.min else ae2
-    val diff = ae2min - ae1max
-    diff.sign == Sign.Positive // if the sign of the difference is positive, then ae1 is definitively smaller than ae2
-*/
-
     // 1) if ae1 and ae2 constants, return True or False
     // 2) collect all the variables that appears only in ae1 or only in ae2
     // 3) if no unique var, then return : don't know
     // 4) call isSmaller (max(ae1),min(ae2)) by forcing min and max to only set the unique vars (in other word the min or max of all the other var should be the var itself (and not the min or max of its range))
     // this can be achieved probably by rewriting the expression using a special var which wraps the original var, and when the call returns we can unwrap them, this is needed to ensure the min or max of these var is the var itself
-
 
     try {
       // we check to see if the difference can be evaluated
@@ -961,24 +947,36 @@ object ArithExpr {
       case e : Throwable => throw e
     }
 
+    // TODO: Find a more generic solution for these cases
+    (ae1, ae2) match {
+      // a * v /^ b < v (true if a < b)
+      case (Prod(Cst(c1) :: (v1: Var) :: Pow(Cst(c2), Cst(-1)) :: Nil), v2: Var) if v1 == v2 && c1 < c2 =>
+        return Some(true)
+      // v /^ a < v (true if a > 1)
+      case (Prod((v1: Var) :: Pow(Cst(c), Cst(-1)) :: Nil), v2: Var) if v1 == v2 && c > 1 =>
+        return Some(true)
+      // a < b (true if a.max < b)
+      case (v1: Var, v2: Var) if isSmaller(v1.range.max + 1, v2).getOrElse(false) =>
+        return Some(true)
+      case _ =>
+    }
+
     // if we see an opaque var or unknown, we cannot say anything
     if (ae1.isInstanceOf[OpaqueVar] | ae2.isInstanceOf[OpaqueVar] | ae1 == ? | ae2 == ?)
       return None
 
     //  handling of infinite values
-    try {
-      (ae1, ae2) match {
-        case (PosInf, PosInf) => return None
-        case (NegInf, NegInf) => return None
-        case (PosInf, NegInf) => return Some(false)
-        case (NegInf, PosInf) => return Some(true)
-        case (PosInf, _) if ae2.isEvaluable => return Some(false)
-        case (NegInf, _) if ae2.isEvaluable => return Some(true)
-        case (_, NegInf) if ae1.isEvaluable => return Some(false)
-        case (_, PosInf) if ae1.isEvaluable => return Some(true)
+    (ae1, ae2) match {
+      case (PosInf, PosInf) => return None
+      case (NegInf, NegInf) => return None
+      case (PosInf, NegInf) => return Some(false)
+      case (NegInf, PosInf) => return Some(true)
+      case (PosInf, _) if ae2.isEvaluable => return Some(false)
+      case (NegInf, _) if ae2.isEvaluable => return Some(true)
+      case (_, NegInf) if ae1.isEvaluable => return Some(false)
+      case (_, PosInf) if ae1.isEvaluable => return Some(true)
 
-        case _ =>
-      }
+      case _ =>
     }
 
 
@@ -1000,48 +998,6 @@ object ArithExpr {
     val ae1WithFixedVarsMax = ae1WithFixedVars.max
     val ae2WithFixedVarsMin = ae2WithFixedVars.min
     isSmaller(ae1WithFixedVarsMax, ae2WithFixedVarsMin)
-
-
-
-
-    /*try {
-      val atMax = ae1.max
-
-      atMax match {
-        case Prod(factors) if hasDivision(factors) =>
-          val newProd = factors.filter(!isDivision(_)).reduce(_*_)
-          if (newProd == ae2)
-            return true
-        case _ =>
-      }
-
-      if (atMax == ae2 || ae1.atMax(constantMax = true).eval < ae2.eval)
-        return true
-    } catch {
-      case e: NotEvaluableException =>
-    }
-    false*/
-
-
-   //System.err.println(s"${ae1} <?< ${ae2}")
-    /*try {
-      // TODO: Assuming range.max is non-inclusive
-      val atMax = ae1.atMax
-
-      atMax match {
-        case Prod(factors) if hasDivision(factors) =>
-          val newProd = factors.filter(!isDivision(_)).reduce(_*_)
-          if (newProd == ae2)
-            return true
-        case _ =>
-      }
-
-      if (atMax == ae2 || ae1.atMax(constantMax = true).eval < ae2.eval)
-        return true
-    } catch {
-      case e: NotEvaluableException =>
-    }
-    false*/
   }
 
   /**
