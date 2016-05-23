@@ -195,6 +195,8 @@ abstract sealed class ArithExpr {
     */
   private def _minmax() : (ArithExpr, ArithExpr) =
   this match {
+    case Abs(expr) => (ArithExpr.min(abs(expr.min), abs(expr.max)),
+                       ArithExpr.max(abs(expr.min), abs(expr.max)))
     case PosInf => (PosInf, PosInf)
     case NegInf => (NegInf, NegInf)
     case c: Ceiling => (ceil(c.ae.min), ceil(c.ae.max))
@@ -337,6 +339,7 @@ abstract sealed class ArithExpr {
     case (lu1: Lookup, lu2: Lookup) => lu1.table == lu2.table && lu1.index == lu2.index
     case (f1:ArithExprFunction, f2:ArithExprFunction) => f1.name == f2.name
     case (v1:Var, v2:Var) => v1.id == v2.id
+    case (Abs(x), Abs(y)) => x == y
     case _ =>
       System.err.println(s"$this and $that are not equal")
       false
@@ -794,9 +797,13 @@ object ArithExpr {
     val ae1WithFixedVars = ArithExpr.substitute(ae1, replacements.toMap)
     val ae2WithFixedVars = ArithExpr.substitute(ae2, replacements.toMap)
 
-    val ae1WithFixedVarsMax = ae1WithFixedVars.max
-    val ae2WithFixedVarsMin = ae2WithFixedVars.min
-    isSmaller(ae1WithFixedVarsMax, ae2WithFixedVarsMin)
+    try {
+      val ae1WithFixedVarsMax = ae1WithFixedVars.max
+      val ae2WithFixedVarsMin = ae2WithFixedVars.min
+      isSmaller(ae1WithFixedVarsMax, ae2WithFixedVarsMin)
+    } catch {
+      case _: NotEvaluableException => return None
+    }
   }
 
   /**
@@ -835,6 +842,7 @@ object ArithExpr {
       case Var(_,_) |  Cst(_) | ArithExprFunction(_,_) =>
       case x if x.getClass == ?.getClass =>
       case PosInf | NegInf =>
+      case Abs(expr) => visit(expr, f)
       case _ => throw new RuntimeException(s"Cannot visit expression $e")
     }
   }
@@ -863,6 +871,7 @@ object ArithExpr {
         case Var(_,_) |  Cst(_) | IfThenElse(_,_,_) | ArithExprFunction(_,_) => false
         case x if x.getClass == ?.getClass => false
         case PosInf | NegInf => false
+        case Abs(expr) => visitUntil(expr, f)
         case _ => throw new RuntimeException(s"Cannot visit expression $e")
       }
     }
@@ -1437,7 +1446,7 @@ class Var(val name: String, val range : Range = RangeUnknown, fixedId: Option[Lo
 
   override lazy val digest: Int = HashSeed /*^ name.hashCode*/ ^ id.hashCode ^ range.digest()
 
-  override lazy val might_be_negative = false
+  override lazy val might_be_negative = this.sign != Sign.Positive
 
   override lazy val toString = "v_" + name + "_" + id
 

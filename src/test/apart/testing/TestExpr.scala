@@ -84,25 +84,25 @@ class TestExpr {
 
   @Test def modOfVarWithVarRange(): Unit = {
     val M = SizeVar("M")
-    val i = Var(GoesToRange(M))
+    val i = Var(ContinuousRange(0, M))
     assertEquals(i, i % M)
   }
 
   @Test def modOfVarWithConstantRange(): Unit = {
     val c =  Cst(10)
-    val i = Var(GoesToRange(c))
+    val i = Var(ContinuousRange(0,c))
     assertEquals(i, i % c)
   }
 
   @Test def DivModOfVarWithConstantRange(): Unit = {
     val c =  Cst(10)
-    val i = Var(GoesToRange(c))
+    val i = Var(ContinuousRange(0,c))
 
     assertEquals(Cst(0), (i % c) / Cst(20))
   }
 
   @Test def modOfVarWithConstantRange2(): Unit = {
-    val i = Var(GoesToRange(Cst(10)))
+    val i = Var(ContinuousRange(0, Cst(10)))
     assertEquals(i, i % Cst(128))
   }
 
@@ -193,13 +193,13 @@ class TestExpr {
   }
 
   @Test def modNotSimplifying(): Unit = {
-    val v_M_1 = Var("v_M_1")
-    val v_K_2 = Var("v_K_2")
-    val v_wg_id_39 = Var("v_wg_id_39", GoesToRange(v_M_1 /^ 16))
-    val v_l_id_30 = Var("v_l_id_30", GoesToRange(8))
-    val v_l_id_29 = Var("v_l_id_29", GoesToRange(16))
-    val v_i_27 = Var("v_i_27", GoesToRange(1))
-    val v_i_35 = Var("v_i_35", GoesToRange(v_K_2 /^ 8))
+    val v_M_1 = SizeVar("v_M_1")
+    val v_K_2 = SizeVar("v_K_2")
+    val v_wg_id_39 = Var("v_wg_id_39", ContinuousRange(0,v_M_1 /^ 16))
+    val v_l_id_30 = Var("v_l_id_30", ContinuousRange(0,8))
+    val v_l_id_29 = Var("v_l_id_29", ContinuousRange(0,16))
+    val v_i_27 = Var("v_i_27", ContinuousRange(0,1))
+    val v_i_35 = Var("v_i_35", ContinuousRange(0,v_K_2 /^ 8))
 
     val expr = ((((((((v_wg_id_39 * 16) + (((((v_l_id_30 * 16) + (v_l_id_29 * 1) + v_i_27) / 16)
       + ((((v_l_id_30 * 16) + (v_l_id_29 * 1) + v_i_27) % 16) * 8)) / 8)) * 8)
@@ -337,7 +337,7 @@ class TestExpr {
 
   @Test
   def divPlusModMultipliedConstants(): Unit = {
-    val a = Var("a")
+    val a = SizeVar("a")
     val d = Cst(2)
     val x = Cst(8)
 
