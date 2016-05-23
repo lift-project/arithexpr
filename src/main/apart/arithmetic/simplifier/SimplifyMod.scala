@@ -35,7 +35,7 @@ object SimplifyMod {
     case (x, y) if ArithExpr.gcd(x,y) == y => Some(Cst(0))
 
     // Isolate the terms which are multiple of the mod and eliminate
-    case (s@Sum(terms), d) if !s.might_be_negative =>
+    case (s@Sum(terms), d) if !ArithExpr.mightBeNegative(s) =>
       val (multiple, notmultiple) = terms.partition(x => (x, d) match {
         case (Prod(factors1), Prod(factors2)) => factors2 forall (factors1 contains)
         case (Prod(factors), x) if factors.contains(x) => true

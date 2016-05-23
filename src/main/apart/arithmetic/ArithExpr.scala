@@ -101,12 +101,6 @@ abstract sealed class ArithExpr {
    */
   val simplified: Boolean = false
 
-  /**
-   * Flag set if the value might be negative. All variables are considered positive. If an expression contains a subtraction
-   * or a negative constant, compute if the value might be negative.
-   */
-  lazy val might_be_negative: Boolean = true
-
   /* Should be overridden by any class that extends ArithExpr and is outside the arithmetic package */
   lazy val sign: Sign.Value = this match {
     case Ceiling(ae) => ae.sign
@@ -139,11 +133,17 @@ abstract sealed class ArithExpr {
           Sign.Positive
         }
         else {
-          ArithExpr.isSmaller(negTerms.fold(Cst(0))(_ + _), posTerms.fold(Cst(0))(_ + _)) match {
-            case Some(true) => Sign.Positive
-            case Some(false) => Sign.Negative
-            case None => Sign.Unknown
-          }
+          val absSumNegTerms = abs(negTerms.fold(Cst(0))(_ + _))
+          val sumPosTerms = posTerms.fold(Cst(0))(_ + _)
+          val lhsSmaller = ArithExpr.isSmaller(absSumNegTerms, sumPosTerms)
+          val rhsSmaller = ArithExpr.isSmaller(sumPosTerms, absSumNegTerms)
+          if (lhsSmaller == None || rhsSmaller == None)
+            Sign.Unknown
+          else  if (lhsSmaller.get == true && rhsSmaller == false)
+            Sign.Positive
+          else if (lhsSmaller.get == false && rhsSmaller == true)
+            Sign.Negative
+          else Sign.Unknown
         }
       }
 
@@ -507,11 +507,15 @@ object ArithExpr {
   }
 
   def minmax(p: Prod, c: Cst): (ArithExpr, ArithExpr) = {
-    val lb = lowerBound(p)
-    if (lb.isDefined && lb.get >= c.c) return (c, p)
+    try {
+      val lb = lowerBound(p)
+      if (lb.isDefined && lb.get >= c.c) return (c, p)
 
-    val ub = upperBound(p)
-    if (ub.isDefined && ub.get <= c.c) return (p, c)
+      val ub = upperBound(p)
+      if (ub.isDefined && ub.get <= c.c) return (p, c)
+    } catch {
+      case _: IllegalArgumentException =>
+    }
 
     throw NotEvaluable
   }
@@ -716,9 +720,10 @@ object ArithExpr {
     override lazy val sign: Sign.Value = v.sign
 
     override lazy val isEvaluable = false
+  }
 
-    override lazy val might_be_negative: Boolean = v.might_be_negative
-
+  def mightBeNegative(expr: ArithExpr): Boolean = {
+    expr.sign != Sign.Positive
   }
 
   /**
@@ -743,8 +748,7 @@ object ArithExpr {
     }
 
     try {
-      if (ae1.max.eval < ae2.min.eval)
-        return Some(true)
+      return Some(ae1.max.eval < ae2.min.eval)
     } catch {
       case _: NotEvaluableException =>
     }
@@ -912,6 +916,8 @@ object ArithExpr {
     case Floor(expr) => scala.math.floor(evalDouble(expr))
     case Ceiling(expr) => scala.math.ceil(evalDouble(expr))
 
+    case Abs(expr) => scala.math.abs(evalDouble(expr))
+
     case _ => throw NotEvaluable
   }
 
@@ -992,8 +998,6 @@ case object ? extends ArithExpr with SimplifiedExpr {
 
   override val digest: Int = HashSeed
 
-  override lazy val might_be_negative = true
-
   override def ==(that: ArithExpr): Boolean = that.getClass == this.getClass
 
 }
@@ -1004,8 +1008,6 @@ case object PosInf extends ArithExpr with SimplifiedExpr {
 
   override val digest: Int = HashSeed
 
-  override lazy val might_be_negative = false
-
   override lazy val sign = Sign.Positive
 
   override def ==(that: ArithExpr): Boolean = that.getClass == this.getClass
@@ -1015,8 +1017,6 @@ case object NegInf extends ArithExpr with SimplifiedExpr {
   override val HashSeed = 0x4a3e87
 
   override val digest: Int = HashSeed
-
-  override lazy val might_be_negative = true
 
   override lazy val sign = Sign.Negative
 
@@ -1036,8 +1036,6 @@ case class Cst(c: Int) extends ArithExpr with SimplifiedExpr {
   override val HashSeed = Integer.hashCode(c)
 
   override lazy val digest: Int =  Integer.hashCode(c)
-
-  override lazy val might_be_negative = c < 0
 }
 
 
@@ -1054,8 +1052,6 @@ case class IntDiv(numer: ArithExpr, denom: ArithExpr) extends ArithExpr() {
   override val HashSeed = 0xf233de5a
 
   override lazy val digest: Int = HashSeed ^ numer.digest() ^ ~denom.digest()
-
-  override lazy val might_be_negative = numer.might_be_negative || denom.might_be_negative
 }
 
 case class Pow(b: ArithExpr, e: ArithExpr) extends ArithExpr {
@@ -1069,8 +1065,6 @@ case class Pow(b: ArithExpr, e: ArithExpr) extends ArithExpr {
   override val HashSeed = 0x63fcd7c2
 
   override lazy val digest: Int = HashSeed ^ b.digest() ^ e.digest()
-
-  override lazy val might_be_negative = b.might_be_negative
 }
 
 case class Log(b: ArithExpr, x: ArithExpr) extends ArithExpr with SimplifiedExpr {
@@ -1079,9 +1073,6 @@ case class Log(b: ArithExpr, x: ArithExpr) extends ArithExpr with SimplifiedExpr
   override val HashSeed = 0x370285bf
 
   override lazy val digest: Int = HashSeed ^ b.digest() ^ ~x.digest()
-
-  override lazy val might_be_negative = b.might_be_negative
-
 }
 
 
@@ -1157,8 +1148,6 @@ case class Prod private[arithmetic] (factors: List[ArithExpr]) extends ArithExpr
   }
 
   lazy val isNegatedTerm = cstFactor == Cst(-1)
-
-  override lazy val might_be_negative = factors.exists(_.might_be_negative)
 }
 
 
@@ -1215,8 +1204,6 @@ case class Sum private[arithmetic] (terms: List[ArithExpr]) extends ArithExpr {
     if (simplified) terms.find(_.isInstanceOf[Cst]).getOrElse(Cst(0)).asInstanceOf[Cst]
     else Cst(terms.filter(_.isInstanceOf[Cst]).foldLeft[Int](0)(_ + _.asInstanceOf[Cst].c))
   }
-
-  override lazy val might_be_negative = terms.exists(_.might_be_negative)
 }
 
 // this is reall the remainder and not modulo!
@@ -1229,8 +1216,6 @@ case class Mod(dividend: ArithExpr, divisor: ArithExpr) extends ArithExpr {
   override val HashSeed = 0xedf6bb88
 
   override lazy val digest: Int = HashSeed ^ dividend.digest() ^ ~divisor.digest()
-
-  override lazy val might_be_negative = dividend.might_be_negative
 }
 
 case class Abs private[arithmetic] (ae: ArithExpr) extends ArithExpr {
@@ -1242,8 +1227,6 @@ case class Abs private[arithmetic] (ae: ArithExpr) extends ArithExpr {
   override val HashSeed = 0x3570a2ce
 
   override lazy val digest: Int = HashSeed ^ ae.digest()
-
-  override lazy val might_be_negative = false
 }
 
 object abs {
@@ -1265,8 +1248,6 @@ case class Floor private[arithmetic] (ae : ArithExpr) extends ArithExpr {
   override val HashSeed = 0x558052ce
 
   override lazy val digest: Int = HashSeed ^ ae.digest()
-
-  override lazy val might_be_negative = ae.might_be_negative
 }
 
 object floor {
@@ -1308,8 +1289,6 @@ case class Ceiling private[arithmetic] (ae: ArithExpr) extends ArithExpr {
   override val HashSeed = 0xa45d23d0
 
   override lazy val digest: Int = HashSeed ^ ae.digest()
-
-  override lazy val might_be_negative = ae.might_be_negative
 }
 
 object ceil {
@@ -1365,11 +1344,6 @@ case class ArithExprFunction(name: String, range: Range = RangeUnknown) extends 
   override val HashSeed = 0x3105f133
 
   override lazy val toString: String = s"$name($range)"
-
-  /**
-   * TODO(tlutz): This is true for now but probably too restrictive
-   */
-  override lazy val might_be_negative = false
 }
 
 class Lookup private (val table: Seq[ArithExpr], val index: ArithExpr, val id: Int) extends ArithExprFunction("lookup") {
@@ -1445,8 +1419,6 @@ class Var(val name: String, val range : Range = RangeUnknown, fixedId: Option[Lo
   override val HashSeed =  0x54e9bd5e
 
   override lazy val digest: Int = HashSeed /*^ name.hashCode*/ ^ id.hashCode ^ range.digest()
-
-  override lazy val might_be_negative = this.sign != Sign.Positive
 
   override lazy val toString = "v_" + name + "_" + id
 
