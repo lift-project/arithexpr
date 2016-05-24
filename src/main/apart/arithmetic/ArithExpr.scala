@@ -195,7 +195,8 @@ abstract sealed class ArithExpr {
     */
   private def _minmax() : (ArithExpr, ArithExpr) =
   this match {
-    case Abs(expr) => (ArithExpr.min(abs(expr.min), abs(expr.max)),
+    case Abs(expr) =>
+            (ArithExpr.min(abs(expr.min), abs(expr.max)),
                        ArithExpr.max(abs(expr.min), abs(expr.max)))
     case PosInf => (PosInf, PosInf)
     case NegInf => (NegInf, NegInf)
@@ -491,14 +492,14 @@ object ArithExpr {
   def minmax(v: Var, c: Cst): (ArithExpr, ArithExpr) = {
     val m1 = v.range.min match {
       case Cst(min) => if (min >= c.c) Some((c, v)) else None
-      case _ => throw new NotImplementedError()
+      //case _ => throw new NotImplementedError()
     }
 
     if (m1.isDefined) return m1.get
 
     val m2 = v.range.max match {
       case Cst(max) => if (max <= c.c) Some((v, c)) else None
-      case _ => throw new NotImplementedError()
+      //case _ => throw new NotImplementedError()
     }
 
     if (m2.isDefined) return m2.get
@@ -883,6 +884,7 @@ object ArithExpr {
 
   def substitute(e: ArithExpr, substitutions: scala.collection.Map[ArithExpr,ArithExpr]) : ArithExpr =
     substitutions.getOrElse(e, e) match {
+      case Abs(ae) => abs(substitute(ae, substitutions))
       case Pow(l,r) => substitute(l,substitutions) pow substitute(r,substitutions)
       case IntDiv(n, d) => substitute(n, substitutions) / substitute(d, substitutions)
       case Mod(dividend, divisor) => substitute(dividend, substitutions) % substitute(divisor, substitutions)
