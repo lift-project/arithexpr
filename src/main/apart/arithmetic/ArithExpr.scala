@@ -3,193 +3,36 @@ package arithmetic
 
 import java.util.concurrent.atomic.AtomicLong
 
-import apart.arithmetic.simplifier.{SimplifySum, _}
+import apart.arithmetic.simplifier._
 
 import scala.language.implicitConversions
 
-
 /**
- * Sanity checks. These methods are used to check the sanity of simplified expressions as they are built.
- * They can be quite expensive since they traverse the list of terms and factors a few times for sums and prods.
- * If the expression evaluation starts to be noticeably slow, it should be disabled.
- */
-object Debug {
-  val SanityCheck = true
-
-  def Assert(p: Boolean, reason: => String = "no reason"): Unit = {
-    if(!p) throw new RuntimeException(s"Sanity check failed: $reason")
-  }
-
-  def AssertNot(p: Boolean, reason: => String = "no reason"): Unit = {
-    if(p) throw new RuntimeException(s"Sanity check failed: $reason")
-  }
-}
-
-object PerformSimplification {
-  val simplify = System.getenv("APART_NO_ARITH_SIMPL") == null
-  def apply() = simplify
-}
-
-/**
- * Control flow exception used to abort arithmetic expression evaluation on unknown terms.
- */
-final class NotEvaluableException extends Throwable
-
-/**
- * Predicate object. Stores two arithmetic expressions and an operator
- */
-case class Predicate(lhs: ArithExpr, rhs: ArithExpr, op: Predicate.Operator.Operator) {
-  override lazy val toString: String = s"($lhs $op $rhs)"
-
-  sealed class TrueBlock(predicate: Predicate, thenblock: ArithExpr) {
-    def !!(els: ArithExpr) = SimplifyIfThenElse(predicate, thenblock, els)
-  }
-
-  def ??(thenblock: ArithExpr) = new TrueBlock(this, thenblock)
-
-  val digest: Int =  0x7c6736c0 ^ lhs.digest() ^ rhs.digest() ^ op.hashCode()
-}
-
-object Predicate {
-  /**
-   * List of comparison operators
-   */
-  object Operator extends Enumeration {
-    type Operator = Value
-    val < = Value("<")
-    val > = Value(">")
-    val <= = Value("<=")
-    val >= = Value(">=")
-    val != = Value("!=")
-    val == = Value("==")
-  }
-}
-
-object Sign extends Enumeration {
-  type Sign = Value
-  val Positive, Negative, Unknown = Value
-  def reverse(s: Sign) : Sign = {
-    s match {
-      case Sign.Positive => Sign.Negative
-      case Sign.Negative => Sign.Positive
-      case Sign.Unknown =>  Sign.Unknown
-    }
-  }
-}
-
-
-object MinMaxNeed extends Enumeration {
-  type MinMaxNeed = Value
-  val NeedMin, NeedMax = Value
-}
-
-/**
- * Class `ArithExpr` is the base class for arithmetic expression trees.
- *
- * An arithmetic expression is a collection of statements representing algebraic operations (+,-,*,/,...), constants
- * and variables. Precedence is taken care of using Scala's operator precedence.
- *
- * These expressions follow mostly natural arithmetic, with a few exceptions:
- * - Modulo is defined for all integers (like the remainder operator `%` in C)
- * - The division operator `/` performs an integer division (the fractional part is discarded)
- * - The operator `/^` is a division operator in the rational set (using ordinal arithmetic)
- */
+  * Class `ArithExpr` is the base class for arithmetic expression trees.
+  *
+  * An arithmetic expression is a collection of statements representing algebraic operations (+,-,*,/,...), constants
+  * and variables. Precedence is taken care of using Scala's operator precedence.
+  *
+  * These expressions follow mostly natural arithmetic, with a few exceptions:
+  * - Modulo is defined for all integers (like the remainder operator `%` in C)
+  * - The division operator `/` performs an integer division (the fractional part is discarded)
+  * - The operator `/^` is a division operator in the rational set (using ordinal arithmetic)
+  */
 abstract sealed class ArithExpr {
 
   /**
-   * By default the expression is not simplified
-   */
+    * By default the expression is not simplified
+    */
   val simplified: Boolean = false
 
   /* Should be overridden by any class that extends ArithExpr and is outside the arithmetic package */
-  lazy val sign: Sign.Value = this match {
-    case Ceiling(ae) => ae.sign
-    case Floor(ae) => ae.sign
-    case Abs(ae) => Sign.Positive
-    case Cst(c) if c>=0 => Sign.Positive
-    case Cst(c) if c<0 => Sign.Negative
-    case Prod(factors) =>
-      def signProd(factors: List[ArithExpr]) : Sign.Value =
-        factors.foldLeft[Sign.Value](Sign.Positive)((s : Sign.Value, f: ArithExpr) =>
-          s match {
-            case Sign.Positive => f.sign
-            case Sign.Negative => Sign.reverse(f.sign)
-            case Sign.Unknown => return Sign.Unknown
-          })
-      signProd(factors)
-    case Sum(terms) =>
-      val unknownSignTerms = terms.filter(_.sign == Sign.Unknown)
-      if (unknownSignTerms.nonEmpty)
-        Sign.Unknown
-      else {
-        val posTerms = terms.filter(_.sign == Sign.Positive)
-        val negTerms = terms.filter(_.sign == Sign.Negative)
-        if (posTerms.isEmpty) {
-          assert (negTerms.nonEmpty)
-          Sign.Negative
-        }
-        else if (negTerms.isEmpty) {
-          assert (posTerms.nonEmpty)
-          Sign.Positive
-        }
-        else {
-          val absSumNegTerms = abs(negTerms.fold(Cst(0))(_ + _))
-          val sumPosTerms = posTerms.fold(Cst(0))(_ + _)
-          val lhsSmaller = ArithExpr.isSmaller(absSumNegTerms, sumPosTerms)
-          val rhsSmaller = ArithExpr.isSmaller(sumPosTerms, absSumNegTerms)
-          if (lhsSmaller == None || rhsSmaller == None)
-            Sign.Unknown
-          else  if (lhsSmaller.get == true && rhsSmaller == false)
-            Sign.Positive
-          else if (lhsSmaller.get == false && rhsSmaller == true)
-            Sign.Negative
-          else Sign.Unknown
-        }
-      }
-
-    case IntDiv(numer, denom) =>
-      (numer.sign, denom.sign) match {
-        case (Sign.Positive, Sign.Positive) | (Sign.Negative, Sign.Negative) => Sign.Positive
-        case (Sign.Positive, Sign.Negative) | (Sign.Negative, Sign.Positive) => Sign.Negative
-        case _ => Sign.Unknown
-      }
-    case ite : IfThenElse =>
-      if (ite.t.sign == ite.e.sign)
-        ite.t.sign
-      else
-        Sign.Unknown
-    case Log(b,x) =>
-      x.sign match {
-        case Sign.Positive =>
-          (x-1).sign match {
-            case Sign.Positive => Sign.Positive
-            case Sign.Negative => Sign.Negative
-            case Sign.Unknown => Sign.Unknown
-          }
-        // assumes x is always positive
-      }
-    case Mod(dividend, _) =>
-      dividend.sign
-    case Pow(b,e) =>
-      b.sign
-    case Var(_, range) =>
-      if (range.min.sign == Sign.Positive)
-          Sign.Positive
-      else if (range.max.sign == Sign.Negative)
-          Sign.Negative
-      else
-        Sign.Unknown
-    case ? => Sign.Unknown
-  }
+  lazy val sign: Sign.Value = Sign(this)
 
   /**
     * Return the min or max of this arithmetic expression by setting all the variables to their min or max values.
     * Should be overridden by any class that extends ArithExpr and is outside the arithmetic package.
     */
- lazy val (min : ArithExpr, max: ArithExpr) = _minmax()
-
-
-
+  lazy val (min: ArithExpr, max: ArithExpr) = _minmax()
 
   /** This method should only be used internally or in special cases where we want to customise the behaviour based on the variables
     */
@@ -247,11 +90,11 @@ abstract sealed class ArithExpr {
   }
 
   /**
-   * Evaluates an arithmetic expression.
+    * Evaluates an arithmetic expression.
     *
     * @return The Int value of the expression.
-   * @throws NotEvaluableException if the expression cannot be fully evaluated.
-   */
+    * @throws NotEvaluableException if the expression cannot be fully evaluated.
+    */
   lazy val eval: Int = {
     // Evaluating is quite expensive, traverse the tree to check assess evaluability
     if (!isEvaluable)
@@ -264,22 +107,16 @@ abstract sealed class ArithExpr {
 
   lazy val isEvaluable: Boolean = {
     !ArithExpr.visitUntil(this, x => {
-      x==PosInf || x==NegInf||x == ? || x.isInstanceOf[ArithExprFunction] || x.isInstanceOf[Var] || x.isInstanceOf[IfThenElse]
+      x == PosInf || x == NegInf || x == ? || x.isInstanceOf[ArithExprFunction] || x.isInstanceOf[Var] || x.isInstanceOf[IfThenElse]
     })
   }
 
   lazy val evalDbl: Double = ArithExpr.evalDouble(this)
 
-  lazy val atMax: ArithExpr = atMax(constantMax = false)
-
-  def atMax(constantMax: Boolean = false): ArithExpr = {
+  lazy val atMax: ArithExpr = {
     val vars = varList.filter(_.range.max != ?)
     val exprFunctions = ArithExprFunction.getArithExprFuns(this).filter(_.range.max != ?)
-    var maxLens = vars.map(_.range.max) ++ exprFunctions.map(_.range.max)
-
-    if (constantMax && !maxLens.exists(!_.isInstanceOf[Cst]))
-      maxLens = maxLens.map(m => Cst(m.eval - 1))
-
+    val maxLens = vars.map(_.range.max) ++ exprFunctions.map(_.range.max)
     ArithExpr.substitute(this, (vars ++ exprFunctions, maxLens).zipped.toMap)
   }
 
@@ -290,28 +127,27 @@ abstract sealed class ArithExpr {
     ArithExpr.substitute(this, (vars ++ exprFunctions, maxLens).zipped.toMap)
   }
 
-  private def getVars(e: ArithExpr = this, l: Set[Var] = Set[Var]()) : Set[Var] = {
+  lazy val varList = getVars(this)
+
+  private def getVars(e: ArithExpr, l: Set[Var] = Set[Var]()): Set[Var] = {
     e match {
-      case adds: Sum => adds.terms.foldLeft(l)((acc,expr) => getVars(expr, acc))
-      case muls: Prod => muls.factors.foldLeft(l)((acc,expr) => getVars(expr, acc))
-      case Pow(b,oe) => l ++ getVars(b) ++ getVars(oe)
+      case adds: Sum => adds.terms.foldLeft(l)((acc, expr) => getVars(expr, acc))
+      case muls: Prod => muls.factors.foldLeft(l)((acc, expr) => getVars(expr, acc))
+      case Pow(b, oe) => l ++ getVars(b) ++ getVars(oe)
       case v: Var => l + v
       case _ => l
     }
   }
 
-
-  lazy val varList = getVars()
-
   /**
-   * Fast Equality operator.
-   * The function first compares the seeds, then the digests. If they are equal, the trees are compared using the
-   * full equality operator.
+    * Fast Equality operator.
+    * The function first compares the seeds, then the digests. If they are equal, the trees are compared using the
+    * full equality operator.
     *
     * @param that Another expression.
-   * @return True if the two expressions are equal, false otherwise.
-   * @note This operator works only for simplified expressions.
-   */
+    * @return True if the two expressions are equal, false otherwise.
+    * @note This operator works only for simplified expressions.
+    */
   def ==(that: ArithExpr): Boolean = {
     if (this.HashSeed() == that.HashSeed() && digest() == that.digest())
       this === that
@@ -319,18 +155,18 @@ abstract sealed class ArithExpr {
   }
 
   /**
-   * True equality operator. Compare each operands.
+    * True equality operator. Compare each operands.
     *
     * @param that Another expression.
-   * @return True iif the two expressions are equal.
-   * @note This operator works only for simplified expressions.
-   */
+    * @return True iif the two expressions are equal.
+    * @note This operator works only for simplified expressions.
+    */
   def ===(that: ArithExpr): Boolean = (this, that) match {
     case (Cst(x), Cst(y)) => x == y
-    case (IntDiv(x1,y1), IntDiv(x2,y2)) => x1 == x2 && y1 == y2
-    case (Pow(x1,y1), Pow(x2,y2)) => x1 == x2 && y1 == y2
-    case (Log(x1,y1), Log(x2,y2)) => x1 == x2 && y1 == y2
-    case (Mod(x1,y1), Mod(x2,y2)) => x1 == x2 && y1 == y2
+    case (IntDiv(x1, y1), IntDiv(x2, y2)) => x1 == x2 && y1 == y2
+    case (Pow(x1, y1), Pow(x2, y2)) => x1 == x2 && y1 == y2
+    case (Log(x1, y1), Log(x2, y2)) => x1 == x2 && y1 == y2
+    case (Mod(x1, y1), Mod(x2, y2)) => x1 == x2 && y1 == y2
     case (Floor(a), Floor(x)) => a == x
     case (Ceiling(x), Ceiling(y)) => x == y
     case (Sum(a), Sum(b)) => a.length == b.length && (a zip b).forall(x => x._1 == x._2)
@@ -338,8 +174,8 @@ abstract sealed class ArithExpr {
     case (IfThenElse(test1, t1, e1), IfThenElse(test2, t2, e2)) =>
       test1.op == test2.op && test1.lhs == test2.lhs && test1.rhs == test2.rhs && t1 == t2 && e1 == e2
     case (lu1: Lookup, lu2: Lookup) => lu1.table == lu2.table && lu1.index == lu2.index
-    case (f1:ArithExprFunction, f2:ArithExprFunction) => f1.name == f2.name
-    case (v1:Var, v2:Var) => v1.id == v2.id
+    case (f1: ArithExprFunction, f2: ArithExprFunction) => f1.name == f2.name
+    case (v1: Var, v2: Var) => v1.id == v2.id
     case (Abs(x), Abs(y)) => x == y
     case _ =>
       System.err.println(s"$this and $that are not equal")
@@ -350,125 +186,119 @@ abstract sealed class ArithExpr {
   def pow(that: ArithExpr): ArithExpr = SimplifyPow(this, that)
 
   /**
-   * Multiplication operator.
+    * Multiplication operator.
     *
     * @param that Right-hand side.
-   * @return An expression representing the product (not necessarily a Prod object).
-   */
-  def *(that: ArithExpr): ArithExpr = SimplifyProd(this,that)
+    * @return An expression representing the product (not necessarily a Prod object).
+    */
+  def *(that: ArithExpr): ArithExpr = SimplifyProd(this, that)
 
   /**
-   * Addition operator.
+    * Addition operator.
     *
     * @param that Right-hand side.
-   * @return An expression representing the sum (not necessarily a Sum object).
-   */
-  def +(that: ArithExpr): ArithExpr = SimplifySum(this,that)
+    * @return An expression representing the sum (not necessarily a Sum object).
+    */
+  def +(that: ArithExpr): ArithExpr = SimplifySum(this, that)
 
   /**
-   * Division operator in Natural set (ie int div like Scala): `1/2=0`.
+    * Division operator in Natural set (ie int div like Scala): `1/2=0`.
     *
     * @param that Right-hand side (divisor).
-   * @return An IntDiv object wrapping the operands.
-   * @throws ArithmeticException if the right-hand-side is zero.
-   */
+    * @return An IntDiv object wrapping the operands.
+    * @throws ArithmeticException if the right-hand-side is zero.
+    */
   def /(that: ArithExpr) = SimplifyIntDiv(this, that)
 
   /**
-   * Ordinal division operator.
-   * This prevents integer arithmetic simplification through exponentiation.
+    * Ordinal division operator.
+    * This prevents integer arithmetic simplification through exponentiation.
     *
     * @param that Right-hand side (divisor).
-   * @return The expression multiplied by the divisor exponent -1.
-   */
-  def /^(that: ArithExpr) = (this,that) match {
-    case (x,Cst(1)) => x
-    case (Cst(x),Cst(y)) if x % y == 0 => Cst(x/y)
-    case (x,y) if x == y => Cst(1)
-    case (x,y) if x == (y * Cst(-1)) => Cst(-1)
-    case (x,y) => x * (y pow -1)
-  }
+    * @return The expression multiplied by the divisor exponent -1.
+    */
+  def /^(that: ArithExpr) = SimplifyDivision(this, that)
 
   /**
-   * Transform subtraction into sum of product with -1
+    * Transform subtraction into sum of product with -1
     *
     * @param that Right-hand side of the division
-   * @return A Sum object
-   */
+    * @return A Sum object
+    */
   def -(that: ArithExpr) = this + (that * -1)
 
   /**
-   * The % operator yields the remainder from the division of the first expression by the second.
+    * The % operator yields the remainder from the division of the first expression by the second.
     *
     * @param that The right-hand side (divisor)
-   * @return A Mod expression
-   * @throws ArithmeticException if the right-hand-side is zero.
-   * @note This operation is defined for negative number since it computes the remainder of the algebraic quotient
-   *       without fractional part times the divisor, ie (a/b)*b + a%b is equal to a.
-   */
+    * @return A Mod expression
+    * @throws ArithmeticException if the right-hand-side is zero.
+    * @note This operation is defined for negative number since it computes the remainder of the algebraic quotient
+    *       without fractional part times the divisor, ie (a/b)*b + a%b is equal to a.
+    */
   def %(that: ArithExpr) = SimplifyMod(this, that)
 
   /**
-   * Lower than comparison operator.
+    * Lower than comparison operator.
     *
     * @param that Right-hand side of the comparison
-   * @return A Predicate object
-   */
+    * @return A Predicate object
+    */
   def lt(that: ArithExpr) = Predicate(this, that, Predicate.Operator.<)
 
   /**
-   * Greater than comparison operator.
+    * Greater than comparison operator.
     *
     * @param that Right-hand side of the comparison
-   * @return A Predicate object
-   */
+    * @return A Predicate object
+    */
   def gt(that: ArithExpr) = Predicate(this, that, Predicate.Operator.>)
 
   /**
-   * Lower-or-equal comparison operator.
+    * Lower-or-equal comparison operator.
     *
     * @param that Right-hand side of the comparison
-   * @return A Predicate object
-   */
+    * @return A Predicate object
+    */
   def le(that: ArithExpr) = Predicate(this, that, Predicate.Operator.<=)
 
   /**
-   * Greater-or-equal comparison operator.
+    * Greater-or-equal comparison operator.
     *
     * @param that Right-hand side of the comparison
-   * @return A Predicate object
-   */
+    * @return A Predicate object
+    */
   def ge(that: ArithExpr) = Predicate(this, that, Predicate.Operator.>=)
 
   /**
-   * Equality comparison operator.
+    * Equality comparison operator.
     *
     * @note Silently overrides the reference comparison operator `AnyRef.eq`
-   * @param that Right-hand side of the comparison
-   * @return A Predicate object
-   */
+    * @param that Right-hand side of the comparison
+    * @return A Predicate object
+    */
   def eq(that: ArithExpr) = Predicate(this, that, Predicate.Operator.==)
 
   /**
-   * Inequality comparison operator.
+    * Inequality comparison operator.
     *
     * @note Silently overrides the reference comparison operator `AnyRef.ne`
-   * @param that Right-hand side of the comparison
-   * @return A Predicate object
-   */
+    * @param that Right-hand side of the comparison
+    * @return A Predicate object
+    */
   def ne(that: ArithExpr) = Predicate(this, that, Predicate.Operator.!=)
 
   /**
-   * The hash function creates a 32 bit digest of the expression. Each node type has a unique salt and combines
-   * the hashes of the subexpressions using a commutative and associative operator (most likely XOR).
-   *
-   * The probability of a collision is already fairly low, but in order to guarantee equality one should call
-   * visit with a hash comparison function on the sub-tree to guarantee that each node matches. The probability
-   * of a collision is then the probability of a collision of a leaf node, which is zero for constant nodes and zero
-   * for the first 2,147,483,647 variable instances.
+    * The hash function creates a 32 bit digest of the expression. Each node type has a unique salt and combines
+    * the hashes of the subexpressions using a commutative and associative operator (most likely XOR).
+    *
+    * The probability of a collision is already fairly low, but in order to guarantee equality one should call
+    * visit with a hash comparison function on the sub-tree to guarantee that each node matches. The probability
+    * of a collision is then the probability of a collision of a leaf node, which is zero for constant nodes and zero
+    * for the first 2,147,483,647 variable instances.
     *
     * @return A 32 bit digest of the expression.
-   */
+    */
   def digest(): Int
 
   override def hashCode = digest()
@@ -482,12 +312,31 @@ object ArithExpr {
 
   def NotEvaluable = new NotEvaluableException()
 
-  def max(e1: ArithExpr, e2: ArithExpr) : ArithExpr = minmax(e1, e2)._2
-
-  def min(e1: ArithExpr, e2: ArithExpr) : ArithExpr = minmax(e1, e2)._1
-
-  val sort: (ArithExpr,ArithExpr) => Boolean = (x:ArithExpr, y:ArithExpr) =>
+  val sort: (ArithExpr, ArithExpr) => Boolean = (x: ArithExpr, y: ArithExpr) =>
     x.HashSeed() < y.HashSeed() || (x.HashSeed() == y.HashSeed() && x.digest() < y.digest())
+
+  def gcd(a: ArithExpr, b: ArithExpr): ArithExpr = ComputeGCD(a, b)
+
+  def max(e1: ArithExpr, e2: ArithExpr): ArithExpr = minmax(e1, e2)._2
+
+  def min(e1: ArithExpr, e2: ArithExpr): ArithExpr = minmax(e1, e2)._1
+
+  def minmax(e1: ArithExpr, e2: ArithExpr): (ArithExpr, ArithExpr) = {
+    e1 - e2 match {
+      case Cst(c) if c < 0 => (e1, e2) /* e1 is smaller than e2 */
+      case Cst(c) => (e2, e1) /* e2 is smaller than e1*/
+      case _ =>
+        (e1, e2) match {
+          case (v: Var, c: Cst) => minmax(v, c)
+          case (c: Cst, v: Var) => minmax(v, c).swap
+
+          case (p: Prod, c: Cst) => minmax(p, c)
+          case (c: Cst, p: Prod) => minmax(p, c).swap
+
+          case _ => throw NotEvaluable
+        }
+    }
+  }
 
   def minmax(v: Var, c: Cst): (ArithExpr, ArithExpr) = {
     val m1 = v.range.min match {
@@ -522,93 +371,6 @@ object ArithExpr {
     throw NotEvaluable
   }
 
-  /**
-   * Find the Greatest Common Divisor in two expressions.
-    *
-    * @param a The first expression.
-   * @param b The second expression.
-   * @return The greatest common divisor.
-   */
-  def gcd(a: ArithExpr, b: ArithExpr): ArithExpr = {
-    // Factorize a sum: find a factor common to all terms
-    def FactorizeSum(s: Sum): ArithExpr = {
-      assert(s.terms.length > 1)
-      val fac = for {
-        t1 <- s.terms
-        t2 <- s.terms
-        if t1.HashSeed < t2.HashSeed || (t1.HashSeed == t2.HashSeed && t1.digest < t2.digest)
-      } yield gcd(t1,t2)
-
-      if (fac.isEmpty) Cst(1)
-      else fac.reduce( (l, r) => gcd(l, r) )
-    }
-
-    val g: ArithExpr = (a,b) match {
-      // GCD of constants
-      case (Cst(x), Cst(y)) => if(y == 0) scala.math.abs(x) else gcd(scala.math.abs(y), scala.math.abs(x)%y)
-
-      case (i:IntDiv, _) => Cst(1)
-
-      // GCD of two identical things is itself
-      case (x, y) if x == y => x
-
-      // GCD of powers, go through bases and find a match, return smallest exp
-      // TODO: handle negative exp
-      case (Pow(_,Cst(x)), _) if x < 0 => Cst(1)
-      case (_, Pow(_,Cst(x))) if x < 0 => Cst(1)
-      case (x, Pow(ob,e)) if ob == x => x // pow 1 (implicit)
-      case (Pow(b1,e1), Pow(b2,e2)) if b1 == b2 => b1 pow ArithExpr.min(e1, e2)
-      case (Pow(ob,e), Prod(factors)) if factors.contains(ob) => ob // pow 1 (implicit)
-      case (Prod(factors), Pow(ob,e)) if factors.contains(ob) => ob // pow 1 (implicit)
-      case (Pow(ob,e), x) if ob == x => x // pow 1 (implicit)
-      case (x, Pow(ob,e)) if ob == x => x // pow 1 (implicit)
-
-      // GCD of products: find GCD in factor pairs
-      case (Prod(fs1), Prod(fs2)) => (for { f1 <- fs1; f2 <- fs2 } yield gcd(f1,f2)).reduce(_*_)
-      case (Prod(f), c:Cst) => gcd(b,a)
-      case (c:Cst, Prod(f)) => f.find(_.isInstanceOf[Cst]) match {
-        case Some(x) => gcd(c,x)
-        case _ => Cst(1)
-      }
-      case (Prod(f), x) if f.contains(x) && !ArithExpr.hasDivision(f) => x
-      case (x, Prod(f)) if f.contains(x) && !ArithExpr.hasDivision(f) => x
-
-      // GCD of sums: find common factor across all terms
-      case (s1:Sum, s2:Sum) =>
-        // Compute the common factors
-        val fac1 = FactorizeSum(s1)
-        if (fac1 == Cst(1)) return Cst(1)
-        val fac2 = FactorizeSum(s2)
-        if (fac2 == Cst(1)) return Cst(1)
-
-        // The GCD could be either the factor or the remainder, so we compute the intersection
-        val common = List(fac1, s1 /^ fac1).intersect(List(fac2, s2 /^ fac2))
-        if(common.isEmpty) Cst(1)
-        else common.head
-
-      case (x, s:Sum) => gcd(b,a)
-      case (s:Sum, x) =>
-        // compute the common factor
-        val factor = FactorizeSum(s)
-        // If there is none, there is no possible common factor
-        if (factor == Cst(1)) factor
-        // otherwise see if there is a common factor with the sum's terms
-        else gcd(factor, x) match {
-          // If there isn't, we still have a chance with the remainder
-          //case Cst(x) if x == 1 => gcd(x, s /^ factor)
-          case x => x
-        }
-
-      case (x,y) => Cst(1)
-    }
-    // Never factorize by a fraction
-    g match {
-      case Pow(x,Cst(-1)) => Cst(1)
-      case i:IntDiv => Cst(1)
-      case x => x
-    }
-  }
-
   private def upperBound(p: Prod): Option[Int] = {
     Some(Prod(p.factors.map({
       case v: Var => v.range.max match {
@@ -631,43 +393,26 @@ object ArithExpr {
     })).eval)
   }
 
-  def minmax(e1: ArithExpr, e2: ArithExpr): (ArithExpr, ArithExpr) = {
-    e1 - e2 match {
-      case Cst(c) if c < 0 => (e1, e2) /* e1 is smaller than e2 */
-      case Cst(c) => (e2, e1) /* e2 is smaller than e1*/
-      case _ =>
-        (e1, e2) match {
-          case (v: Var, c: Cst) => minmax(v, c)
-          case (c: Cst, v: Var) => minmax(v, c).swap
 
-          case (p: Prod, c: Cst) => minmax(p, c)
-          case (c: Cst, p: Prod) => minmax(p, c).swap
-
-          case _ => throw NotEvaluable
-        }
-    }
-  }
-
-
-  def contains(expr: ArithExpr, elem: ArithExpr) : Boolean = {
-    visit(expr, e => if (e==elem) return true)
+  def contains(expr: ArithExpr, elem: ArithExpr): Boolean = {
+    visit(expr, e => if (e == elem) return true)
     false
   }
 
   /**
-   * Find if an expression is possibly a multiple of another.
+    * Find if an expression is possibly a multiple of another.
     *
     * @param expr The expression.
-   * @param that A possible multiple.
-   * @return True if `that` is a multiple of `expr`, false otherwise
-   */
-  def multipleOf(expr: ArithExpr, that: ArithExpr) : Boolean = (ExprSimplifier(expr), that) match {
+    * @param that A possible multiple.
+    * @return True if `that` is a multiple of `expr`, false otherwise
+    */
+  def multipleOf(expr: ArithExpr, that: ArithExpr): Boolean = (ExprSimplifier(expr), that) match {
 
     // Compare two products, look for inclusion of common denominator
     case (Prod(terms), Prod(otherTerms)) => terms.count(isDivision) == otherTerms.count(isDivision) && otherTerms.map({
-        case pow: Pow => terms.exists(multipleOf(_, pow))
-        case x => terms.contains(x)
-      }).reduce(_&&_)
+      case pow: Pow => terms.exists(multipleOf(_, pow))
+      case x => terms.contains(x)
+    }).reduce(_ && _)
 
     // A constant is a multiple of a product if it is a multiple of its constant factor
     case (Prod(terms), Cst(c)) =>
@@ -688,7 +433,7 @@ object ArithExpr {
     case (Pow(b1, Cst(-1)), Pow(b2, Cst(-1))) => multipleOf(b2, b1)
 
     // Finally, the two expressions are multiple of each other if they are the same
-    case (x,y) => x == y
+    case (x, y) => x == y
   }
 
   private[arithmetic] def hasDivision(factors: List[ArithExpr]): Boolean = {
@@ -701,27 +446,17 @@ object ArithExpr {
   }
 
 
-  def collectVars(ae: ArithExpr) : Set[Var] = {
+  def collectVars(ae: ArithExpr): Set[Var] = {
     val vars = new scala.collection.mutable.HashSet[Var]()
     ArithExpr.visit(ae, {
-        case v: Var =>
-          vars += v
-          vars ++= collectVars(v.range.max)
-          vars ++= collectVars(v.range.min)
-        case _ =>
-      }
+      case v: Var =>
+        vars += v
+        vars ++= collectVars(v.range.max)
+        vars ++= collectVars(v.range.min)
+      case _ =>
+    }
     )
     vars.toSet
-  }
-
-  private class OpaqueVar(val v : Var, r: Range = RangeUnknown, fixedId: Option[Long] = None) extends Var("", r, fixedId) {
-
-    override def copy(r: Range) = new OpaqueVar(v, r, Some(this.id))
-
-    override lazy val (min : ArithExpr, max: ArithExpr) = (this,this)
-    override lazy val sign: Sign.Value = v.sign
-
-    override lazy val isEvaluable = false
   }
 
   def mightBeNegative(expr: ArithExpr): Boolean = {
@@ -731,7 +466,7 @@ object ArithExpr {
   /**
     * Return true if ae1 is definitively smaller than ae2.
     * Return false if this cannot be proven (this does not mean that ae1 is always larger than ae2)
-   */
+    */
   def isSmaller(ae1: ArithExpr, ae2: ArithExpr): Option[Boolean] = {
 
     // 1) if ae1 and ae2 constants, return True or False
@@ -793,8 +528,8 @@ object ArithExpr {
     }
 
 
-    val ae1Vars = collectVars(ae1).filter(_ match {case _: OpaqueVar => false case _ => true})
-    val ae2Vars = collectVars(ae2).filter(_ match {case _: OpaqueVar => false case _ => true})
+    val ae1Vars = collectVars(ae1).filter(_ match { case _: OpaqueVar => false case _ => true })
+    val ae2Vars = collectVars(ae2).filter(_ match { case _: OpaqueVar => false case _ => true })
     val commonVars = ae1Vars & ae2Vars
 
     val varsOnlyInae1 = ae1Vars -- commonVars
@@ -804,7 +539,7 @@ object ArithExpr {
     if (varsOnlyInae1orae2.isEmpty)
       return None
 
-    val replacements = commonVars.map(v => (v,new OpaqueVar(v))).toMap
+    val replacements = commonVars.map(v => (v, new OpaqueVar(v))).toMap
     val ae1WithFixedVars = ArithExpr.substitute(ae1, replacements.toMap)
     val ae2WithFixedVars = ArithExpr.substitute(ae2, replacements.toMap)
 
@@ -813,17 +548,14 @@ object ArithExpr {
       val ae2WithFixedVarsMin = ae2WithFixedVars.min
       isSmaller(ae1WithFixedVarsMax, ae2WithFixedVarsMin)
     } catch {
-      case _: NotEvaluableException => return None
+      case _: NotEvaluableException => None
     }
   }
 
   /**
     * Warning, this function does not visit the range inside the var (maybe we wants this?)
-    *
-    * @param e
-    * @param f
     */
-  def visit(e: ArithExpr, f: (ArithExpr) => Unit) : Unit = {
+  def visit(e: ArithExpr, f: (ArithExpr) => Unit): Unit = {
     f(e)
     e match {
       case Pow(base, exp) =>
@@ -835,31 +567,30 @@ object ArithExpr {
       case Mod(dividend, divisor) =>
         visit(dividend, f)
         visit(divisor, f)
-      case Log(b,x) =>
+      case Log(b, x) =>
         visit(b, f)
         visit(x, f)
       case Floor(expr) => visit(expr, f)
       case Ceiling(expr) => visit(expr, f)
       case Sum(terms) => terms.foreach(t => visit(t, f))
       case Prod(terms) => terms.foreach(t => visit(t, f))
-      case IfThenElse(test, t, e) =>
+      case IfThenElse(test, thenE, elseE) =>
         visit(test.lhs, f)
         visit(test.rhs, f)
-        visit(t, f)
-        visit(e, f)
+        visit(thenE, f)
+        visit(elseE, f)
       case lu: Lookup =>
         visit(lu.index, f)
         lu.table.foreach(t => visit(t, f))
-      case Var(_,_) |  Cst(_) | ArithExprFunction(_,_) =>
+      case Var(_, _) | Cst(_) | ArithExprFunction(_, _) =>
       case x if x.getClass == ?.getClass =>
       case PosInf | NegInf =>
       case Abs(expr) => visit(expr, f)
-      case _ => throw new RuntimeException(s"Cannot visit expression $e")
     }
   }
 
-  def visitUntil(e: ArithExpr, f: (ArithExpr) => Boolean) : Boolean = {
-    if(f(e)) true
+  def visitUntil(e: ArithExpr, f: (ArithExpr) => Boolean): Boolean = {
+    if (f(e)) true
     else {
       e match {
         case Pow(base, exp) =>
@@ -868,7 +599,7 @@ object ArithExpr {
           visitUntil(n, f) || visitUntil(d, f)
         case Mod(dividend, divisor) =>
           visitUntil(dividend, f) || visitUntil(divisor, f)
-        case Log(b,x) =>
+        case Log(b, x) =>
           visitUntil(b, f) || visitUntil(x, f)
         case Floor(expr) => visitUntil(expr, f)
         case Ceiling(expr) => visitUntil(expr, f)
@@ -878,55 +609,62 @@ object ArithExpr {
         case Prod(terms) =>
           terms.foreach(t => if (visitUntil(t, f)) return true)
           false
-        case gc:Lookup => visitUntil(gc.index, f)
-        case Var(_,_) |  Cst(_) | IfThenElse(_,_,_) | ArithExprFunction(_,_) => false
+        case gc: Lookup => visitUntil(gc.index, f)
+        case Var(_, _) | Cst(_) | IfThenElse(_, _, _) | ArithExprFunction(_, _) => false
         case x if x.getClass == ?.getClass => false
         case PosInf | NegInf => false
         case Abs(expr) => visitUntil(expr, f)
-        case _ => throw new RuntimeException(s"Cannot visit expression $e")
       }
     }
   }
 
-  def substitute(e: ArithExpr, substitutions: scala.collection.Map[ArithExpr,ArithExpr]) : ArithExpr =
+  // TODO: needs to substitute range of functions (get_local_id for instance)  (the copy method is currently borken since it will generate a new id for the var)
+  def substitute(e: ArithExpr, substitutions: scala.collection.Map[ArithExpr, ArithExpr]): ArithExpr =
     substitutions.getOrElse(e, e) match {
+      case Pow(l, r) => substitute(l, substitutions) pow substitute(r, substitutions)
       case Abs(ae) => abs(substitute(ae, substitutions))
-      case Pow(l,r) => substitute(l,substitutions) pow substitute(r,substitutions)
       case IntDiv(n, d) => substitute(n, substitutions) / substitute(d, substitutions)
       case Mod(dividend, divisor) => substitute(dividend, substitutions) % substitute(divisor, substitutions)
-      case Log(b,x) => Log(substitute(b, substitutions), substitute(x, substitutions))
-      case IfThenElse(i, t, e) =>
+      case Log(b, x) => Log(substitute(b, substitutions), substitute(x, substitutions))
+      case IfThenElse(i, thenE, elseE) =>
         val cond = Predicate(substitute(i.lhs, substitutions), substitute(i.rhs, substitutions), i.op)
-        cond ?? substitute(t, substitutions) !! substitute(e, substitutions)
+        cond ?? substitute(thenE, substitutions) !! substitute(elseE, substitutions)
       case Floor(expr) => Floor(substitute(expr, substitutions))
       case Ceiling(expr) => Ceiling(substitute(expr, substitutions))
-      case adds: Sum => adds.terms.map(t => substitute(t, substitutions)).reduce(_+_)
-      case muls: Prod => muls.factors.map(t => substitute(t, substitutions)).reduce(_*_)
-      case lu: Lookup => Lookup.simplify(lu.table, substitute(lu.index, substitutions), lu.id)
+      case adds: Sum => adds.terms.map(t => substitute(t, substitutions)).reduce(_ + _)
+      case muls: Prod => muls.factors.map(t => substitute(t, substitutions)).reduce(_ * _)
+      case lu: Lookup => SimplifyLookup(lu.table, substitute(lu.index, substitutions), lu.id)
       case v: Var => v.copy(Range.substitute(v.range, substitutions))
-        // TODO: needs to substitute range of functions (get_local_id for instance)  (the copy method is currently borken since it will generate a new id for the var)
-      case x => x
+      case ? => ?
+      case f: ArithExprFunction => f
+      case c: Cst => c
+      case NegInf => NegInf
+      case PosInf => PosInf
+      case x: SimplifiedExpr => x
     }
 
-  private def evalDouble(e: ArithExpr) : Double = e match {
+  private def evalDouble(e: ArithExpr): Double = e match {
     case Cst(c) => c
 
     case IntDiv(n, d) => scala.math.floor(evalDouble(n) / evalDouble(d))
 
-    case Pow(base,exp) => scala.math.pow(evalDouble(base),evalDouble(exp))
-    case Log(b,x) => scala.math.log(evalDouble(x)) / scala.math.log(evalDouble(b))
+
+    case Pow(base, exp) => scala.math.pow(evalDouble(base), evalDouble(exp))
+    case Log(b, x) => scala.math.log(evalDouble(x)) / scala.math.log(evalDouble(b))
 
     case Mod(dividend, divisor) => dividend.eval % divisor.eval
 
-    case Sum(terms) => terms.foldLeft(0.0)((result,expr) => result+evalDouble(expr))
-    case Prod(terms) => terms.foldLeft(1.0)((result,expr) => result*evalDouble(expr))
+    case Sum(terms) => terms.foldLeft(0.0)((result, expr) => result + evalDouble(expr))
+    case Prod(terms) => terms.foldLeft(1.0)((result, expr) => result * evalDouble(expr))
 
     case Floor(expr) => scala.math.floor(evalDouble(expr))
     case Ceiling(expr) => scala.math.ceil(evalDouble(expr))
 
     case Abs(expr) => scala.math.abs(evalDouble(expr))
 
-    case _ => throw NotEvaluable
+    case IfThenElse(_, _, _) => throw NotEvaluable
+
+    case ? | NegInf | PosInf | Var(_) | ArithExprFunction(_, _) => throw NotEvaluable
   }
 
 
@@ -937,23 +675,23 @@ object ArithExpr {
 
 
   def asCst(e: ArithExpr) = ExprSimplifier(e) match {
-    case c:Cst => c
+    case c: Cst => c
     case _ => throw new IllegalArgumentException
   }
 
 
   /**
-   * Math operations derived from the basic operations
-   */
+    * Math operations derived from the basic operations
+    */
   object Math {
 
     /**
-     * Computes the minimal value between the two argument
+      * Computes the minimal value between the two argument
       *
       * @param x The first value
-     * @param y The second value
-     * @return The minimum between x and y
-     */
+      * @param y The second value
+      * @return The minimum between x and y
+      */
     def Min(x: ArithExpr, y: ArithExpr) = {
       // Since Min duplicates the expression, we simplify it in place to point to the same node
       val sx = ExprSimplifier(x)
@@ -962,12 +700,12 @@ object ArithExpr {
     }
 
     /**
-     * Computes the maximal value between the two argument
+      * Computes the maximal value between the two argument
       *
       * @param x The first value
-     * @param y The second value
-     * @return The maximum between x and y
-     */
+      * @param y The second value
+      * @return The maximum between x and y
+      */
     def Max(x: ArithExpr, y: ArithExpr) = {
       // Since Max duplicates the expression, we simplify it in place to point to the same node
       val sx = ExprSimplifier(x)
@@ -976,30 +714,34 @@ object ArithExpr {
     }
 
     /**
-     * Clamps a value to a given range
+      * Clamps a value to a given range
       *
-      * @param x The input value
-     * @param min Lower bound of the range
-     * @param max Upper bound of the range
-     * @return The value x clamped to the interval [min,max]
-     */
-    def Clamp(x: ArithExpr, min: ArithExpr, max: ArithExpr) = Min(Max(x,min),max)
+      * @param x   The input value
+      * @param min Lower bound of the range
+      * @param max Upper bound of the range
+      * @return The value x clamped to the interval [min,max]
+      */
+    def Clamp(x: ArithExpr, min: ArithExpr, max: ArithExpr) = Min(Max(x, min), max)
 
     /**
-     * Computes the absolute value of the argument
+      * Computes the absolute value of the argument
       *
       * @param x The input value
-     * @return |x|
-     */
-    def Abs(x: ArithExpr) = (x lt Cst(0)) ?? (Cst(0)-x) !! x
+      * @return |x|
+      */
+    def Abs(x: ArithExpr) = (x lt Cst(0)) ?? (Cst(0) - x) !! x
   }
 
   def cardinal_id = 0
 }
 
+trait SimplifiedExpr extends ArithExpr {
+  override val simplified = true
+}
+
 /**
- * ? represents an unknown value.
- */
+  * ? represents an unknown value.
+  */
 case object ? extends ArithExpr with SimplifiedExpr {
 
   override val HashSeed = 0x3fac31
@@ -1035,26 +777,25 @@ case object NegInf extends ArithExpr with SimplifiedExpr {
 case class Cst(c: Int) extends ArithExpr with SimplifiedExpr {
 
   /**
-   * Lower and upper bounds of a constant are itself.
-   */
+    * Lower and upper bounds of a constant are itself.
+    */
   //override lazy val (min,max): (ArithExpr, ArithExpr) = (this, this)
 
   override lazy val toString = c.toString
 
   override val HashSeed = Integer.hashCode(c)
 
-  override lazy val digest: Int =  Integer.hashCode(c)
+  override lazy val digest: Int = Integer.hashCode(c)
 }
 
 
 case class IntDiv(numer: ArithExpr, denom: ArithExpr) extends ArithExpr() {
 
   // Check that the denominator is not 0
-  if(denom == Cst(0))
+  if (denom == Cst(0))
     throw new ArithmeticException()
 
   override def toString: String = s"($numer) / ($denom)"
-
 
 
   override val HashSeed = 0xf233de5a
@@ -1065,9 +806,9 @@ case class IntDiv(numer: ArithExpr, denom: ArithExpr) extends ArithExpr() {
 case class Pow(b: ArithExpr, e: ArithExpr) extends ArithExpr {
 
 
-  override def toString : String = e match {
-    case Cst(-1) => "1/^("+b+")"
-    case _ => "pow("+b+","+e+")"
+  override def toString: String = e match {
+    case Cst(-1) => "1/^(" + b + ")"
+    case _ => "pow(" + b + "," + e + ")"
   }
 
   override val HashSeed = 0x63fcd7c2
@@ -1076,7 +817,7 @@ case class Pow(b: ArithExpr, e: ArithExpr) extends ArithExpr {
 }
 
 case class Log(b: ArithExpr, x: ArithExpr) extends ArithExpr with SimplifiedExpr {
-  override def toString: String = "log"+b+"("+x+")"
+  override def toString: String = "log" + b + "(" + x + ")"
 
   override val HashSeed = 0x370285bf
 
@@ -1084,16 +825,15 @@ case class Log(b: ArithExpr, x: ArithExpr) extends ArithExpr with SimplifiedExpr
 }
 
 
-
 /**
- * Represent a product of two or more expressions.
+  * Represent a product of two or more expressions.
   *
   * @param factors The list of factors. The list should contain at least 2 operands and should not contain other products.
- */
-case class Prod private[arithmetic] (factors: List[ArithExpr]) extends ArithExpr {
+  */
+case class Prod private[arithmetic](factors: List[ArithExpr]) extends ArithExpr {
 
   if (Debug.SanityCheck && simplified) {
-    Debug.Assert(factors.view.zip(factors.tail).forall(x => ArithExpr.sort(x._1,x._2)), "Factors should be sorted")
+    Debug.Assert(factors.view.zip(factors.tail).forall(x => ArithExpr.sort(x._1, x._2)), "Factors should be sorted")
     Debug.Assert(factors.length > 1, s"Factors should have at least two terms in $toString")
     factors.foreach(x => {
       Debug.AssertNot(x.isInstanceOf[Prod], s"Prod cannot contain a Prod in $toString")
@@ -1101,36 +841,30 @@ case class Prod private[arithmetic] (factors: List[ArithExpr]) extends ArithExpr
     })
   }
 
-  // Refine the equality operator to compare factors
-  // TODO: Has false positives!!
-//  override def ==(that: ArithExpr): Boolean = that match {
-//    case Prod(otherfactors) =>
-//      if(otherfactors.length != factors.length) return false
-//      factors.map(_.digest()).sortWith(_<_) == otherfactors.map(_.digest()).sortWith(_<_)
-//    case _ => false
-//  }
-
 
   override def equals(that: Any) = that match {
     case p: Prod => factors.length == p.factors.length && factors.intersect(p.factors).length == factors.length
     case _ => false
   }
 
-  override lazy val toString : String = {
-    val m = if (factors.nonEmpty) factors.mkString("*") else {""}
-    "(" + m +")"
+  override lazy val toString: String = {
+    val m = if (factors.nonEmpty) factors.mkString("*")
+    else {
+      ""
+    }
+    "(" + m + ")"
   }
 
   def contains(e: ArithExpr): Boolean = factors.contains(e)
 
-  override lazy val digest: Int = factors.foldRight(HashSeed)((x,hash) => hash ^ x.digest())
+  override lazy val digest: Int = factors.foldRight(HashSeed)((x, hash) => hash ^ x.digest())
 
   override val HashSeed = 0x286be17e
 
   /**
-   * Remove a single factor from the list of factors and return either a Product of the factor left.
-   * Removing a factor does not create new optimization opportunity, therefore the resulting prod is still simplified.
-   */
+    * Remove a single factor from the list of factors and return either a Product of the factor left.
+    * Removing a factor does not create new optimization opportunity, therefore the resulting prod is still simplified.
+    */
   def withoutFactors(list: List[ArithExpr]): ArithExpr = {
     assert(simplified, "This function only works on simplified products")
     val rest = factors.diff(list)
@@ -1143,13 +877,13 @@ case class Prod private[arithmetic] (factors: List[ArithExpr]) extends ArithExpr
   }
 
   /**
-   * Short-hand to remove a single factor
-   */
+    * Short-hand to remove a single factor
+    */
   def withoutFactor(factor: ArithExpr): ArithExpr = withoutFactors(List(factor))
 
   /**
-   * The constant factor of the product
-   */
+    * The constant factor of the product
+    */
   lazy val cstFactor: Cst = {
     if (simplified) factors.find(_.isInstanceOf[Cst]).getOrElse(Cst(1)).asInstanceOf[Cst]
     else Cst(factors.filter(_.isInstanceOf[Cst]).foldLeft[Int](1)(_ + _.asInstanceOf[Cst].c))
@@ -1159,28 +893,15 @@ case class Prod private[arithmetic] (factors: List[ArithExpr]) extends ArithExpr
 }
 
 
-
-
-
-case class Sum private[arithmetic] (terms: List[ArithExpr]) extends ArithExpr {
+case class Sum private[arithmetic](terms: List[ArithExpr]) extends ArithExpr {
 
   if (Debug.SanityCheck && simplified) {
-    Debug.Assert(terms.view.zip(terms.tail).forall(x => ArithExpr.sort(x._1,x._2)), "Terms should be sorted")
+    Debug.Assert(terms.view.zip(terms.tail).forall(x => ArithExpr.sort(x._1, x._2)), "Terms should be sorted")
     Debug.Assert(terms.length > 1, s"Terms should have at least two terms in $toString")
     terms.foreach(x => {
       Debug.AssertNot(x.isInstanceOf[Sum], "Sum cannot contain a Sum")
     })
   }
-
-  // Refine the equality operator to compare terms
-  // TODO: Has false positives!!
-//  override def ==(that: ArithExpr): Boolean = that match {
-//    case Sum(otherterms) =>
-//      if(otherterms.length != terms.length) return false
-//      terms.map(_.digest()).sortWith(_<_) == otherterms.map(_.digest()).sortWith(_<_)
-//    case _ => false
-//  }
-
 
   override def equals(that: Any) = that match {
     case s: Sum => terms.length == s.terms.length && terms.intersect(s.terms).length == terms.length
@@ -1188,14 +909,17 @@ case class Sum private[arithmetic] (terms: List[ArithExpr]) extends ArithExpr {
   }
 
   override lazy val toString: String = {
-    val m = if (terms.nonEmpty) terms.mkString("+") else {""}
-    "(" + m +")"
+    val m = if (terms.nonEmpty) terms.mkString("+")
+    else {
+      ""
+    }
+    "(" + m + ")"
   }
 
   /**
-   * Remove a single factor from the list of factors and return either a Sum of the only term left.
-   * Removing a term does not create new optimization opportunity, therefore the resulting sum is still simplified.
-   */
+    * Remove a single factor from the list of factors and return either a Sum of the only term left.
+    * Removing a term does not create new optimization opportunity, therefore the resulting sum is still simplified.
+    */
   def withoutTerm(list: List[ArithExpr]): ArithExpr = {
     assert(simplified, "This function only works on simplified products")
     val rest = terms.diff(list)
@@ -1206,7 +930,7 @@ case class Sum private[arithmetic] (terms: List[ArithExpr]) extends ArithExpr {
 
   override val HashSeed = 0x8e535130
 
-  override lazy val digest: Int = terms.foldRight(HashSeed)((x,hash) => hash ^ x.digest())
+  override lazy val digest: Int = terms.foldRight(HashSeed)((x, hash) => hash ^ x.digest())
 
   lazy val cstTerm: Cst = {
     if (simplified) terms.find(_.isInstanceOf[Cst]).getOrElse(Cst(0)).asInstanceOf[Cst]
@@ -1214,10 +938,8 @@ case class Sum private[arithmetic] (terms: List[ArithExpr]) extends ArithExpr {
   }
 }
 
-// this is reall the remainder and not modulo!
-// TODO: rename this class as Remainder
+// this is really the remainder and not modulo! (I.e. it implements the C semantics of modulo)
 case class Mod(dividend: ArithExpr, divisor: ArithExpr) extends ArithExpr {
-
 
   override lazy val toString: String = s"($dividend % ($divisor))"
 
@@ -1226,9 +948,7 @@ case class Mod(dividend: ArithExpr, divisor: ArithExpr) extends ArithExpr {
   override lazy val digest: Int = HashSeed ^ dividend.digest() ^ ~divisor.digest()
 }
 
-case class Abs private[arithmetic] (ae: ArithExpr) extends ArithExpr {
-
-  //override lazy val (min : ArithExpr, max: ArithExpr) = (?,?) // if we have an Abs function, it means the sign of ae is unknown and it is not possible to infer the min or max (would need to use ifthenelse ?:)
+case class Abs private[arithmetic](ae: ArithExpr) extends ArithExpr {
 
   override lazy val toString: String = "Abs(" + ae + ")"
 
@@ -1238,18 +958,10 @@ case class Abs private[arithmetic] (ae: ArithExpr) extends ArithExpr {
 }
 
 object abs {
-  def apply(ae: ArithExpr) : ArithExpr = {
-    ae.sign match {
-      case Sign.Positive => ae
-      case Sign.Negative => -1 * ae
-      case Sign.Unknown => new Abs(ae) with SimplifiedExpr
-    }
-  }
+  def apply(ae: ArithExpr): ArithExpr = SimplifyAbs(ae)
 }
 
-case class Floor private[arithmetic] (ae : ArithExpr) extends ArithExpr {
-  //override lazy val min: ArithExpr = floor(ae.min)
-  //override lazy val max: ArithExpr = floor(ae.max)
+case class Floor private[arithmetic](ae: ArithExpr) extends ArithExpr {
 
   override lazy val toString: String = "Floor(" + ae + ")"
 
@@ -1259,38 +971,10 @@ case class Floor private[arithmetic] (ae : ArithExpr) extends ArithExpr {
 }
 
 object floor {
-  def apply(ae: ArithExpr): ArithExpr = {
-    ae match {
-      case c: Cst => c
-      case _ =>
-        try {
-          val d = new Floor(ae).evalDbl
-          assert (d.isValidInt)
-          new Cst(d.toInt)
-        } catch {
-          case _:NotEvaluableException =>
-            // ok let's try to evaluate floor of min and max
-            try {
-              val min = new Floor(ae.min).evalDbl
-              val max = new Floor(ae.max).evalDbl
-              if (min == max) {
-                assert (min.isValidInt)
-                return new Cst(min.toInt)
-              }
-            } catch {
-              case _: NotEvaluableException => new Floor(ae) with SimplifiedExpr
-              case e => throw e
-            }
-            new Floor(ae) with SimplifiedExpr
-          case e => throw e
-        }
-    }
-  }
+  def apply(ae: ArithExpr): ArithExpr = SimplifyFloor(ae)
 }
 
-case class Ceiling private[arithmetic] (ae: ArithExpr) extends ArithExpr {
-  //override lazy val min: ArithExpr = ceil(ae.min)
-  //override lazy val max: ArithExpr = ceil(ae.max)
+case class Ceiling private[arithmetic](ae: ArithExpr) extends ArithExpr {
 
   override lazy val toString: String = "Ceiling(" + ae + ")"
 
@@ -1300,43 +984,17 @@ case class Ceiling private[arithmetic] (ae: ArithExpr) extends ArithExpr {
 }
 
 object ceil {
-  def apply(ae: ArithExpr): ArithExpr = {
-    ae match {
-      case c: Cst => c
-      case _ =>
-        try {
-          val d = new Ceiling(ae).evalDbl
-          assert (d.isValidInt)
-          new Cst(d.toInt)
-        } catch {
-          case _:NotEvaluableException =>
-            // ok let's try to evaluate ceiling of min and max
-            try {
-              val min = new Ceiling(ae.min).evalDbl
-              val max = new Ceiling(ae.max).evalDbl
-              if (min == max) {
-                assert (min.isValidInt)
-                return new Cst(min.toInt)
-              }
-            } catch {
-              case _: NotEvaluableException => new Ceiling(ae) with SimplifiedExpr
-              case e => throw e
-            }
-            new Ceiling(ae) with SimplifiedExpr
-          case e => throw e
-        }
-    }
-  }
+  def apply(ae: ArithExpr): ArithExpr = SimplifyCeiling(ae)
 }
 
 /**
- * Conditional operator. Behaves like the `?:` operator in C.
+  * Conditional operator. Behaves like the `?:` operator in C.
   *
   * @param test A Predicate object.
- * @param t The 'then' block.
- * @param e The 'else block.
- */
-case class IfThenElse(test: Predicate, t : ArithExpr, e : ArithExpr) extends ArithExpr {
+  * @param t    The 'then' block.
+  * @param e    The 'else block.
+  */
+case class IfThenElse(test: Predicate, t: ArithExpr, e: ArithExpr) extends ArithExpr {
   override lazy val toString: String = s"( $test ? $t : $e )"
 
   override val HashSeed = 0x32c3d095
@@ -1354,9 +1012,22 @@ case class ArithExprFunction(name: String, range: Range = RangeUnknown) extends 
   override lazy val toString: String = s"$name($range)"
 }
 
-class Lookup private (val table: Seq[ArithExpr], val index: ArithExpr, val id: Int) extends ArithExprFunction("lookup") {
+object ArithExprFunction {
+
+  def getArithExprFuns(expr: ArithExpr): Set[ArithExprFunction] = {
+    val exprFunctions = scala.collection.mutable.HashSet[ArithExprFunction]()
+    ArithExpr.visit(expr, {
+      case function: ArithExprFunction => exprFunctions += function
+      case _ =>
+    })
+    exprFunctions.toSet
+  }
+}
+
+class Lookup private[arithmetic](val table: Seq[ArithExpr], val index: ArithExpr, val id: Int) extends ArithExprFunction("lookup") {
 
   override lazy val toString: String = "lookup" + id + "(" + index + ")"
+
   override lazy val digest: Int = HashSeed ^ table.hashCode ^ index.digest() ^ id.hashCode()
 
   override def equals(that: Any) = that match {
@@ -1367,40 +1038,20 @@ class Lookup private (val table: Seq[ArithExpr], val index: ArithExpr, val id: I
 }
 
 object Lookup {
-  def apply(table: Seq[ArithExpr], index: ArithExpr, id: Int): ArithExpr = simplify(table, index, id)
-
-  def simplify(table: Seq[ArithExpr], index: ArithExpr, id: Int): ArithExpr = {
-    index match {
-      case c: Cst =>
-        table.apply(c.eval)
-      case _ => new Lookup(table, index, id)
-    }
-  }
+  def apply(table: Seq[ArithExpr], index: ArithExpr, id: Int): ArithExpr = SimplifyLookup(table, index, id)
 }
 
-object ArithExprFunction {
-
-  def getArithExprFuns(expr: ArithExpr) : Set[ArithExprFunction] = {
-    val exprFunctions = scala.collection.mutable.HashSet[ArithExprFunction]()
-    ArithExpr.visit(expr, {
-      case function: ArithExprFunction => exprFunctions += function
-      case _ =>
-    })
-    exprFunctions.toSet
-  }
-}
-
-  /**
-    * Represents a variable in the expression. A variable is an unknown term which is immutable within the expression
- * but its value may change between expression, like a variable in C (cf sequence point).
+/**
+  * Represents a variable in the expression. A variable is an unknown term which is immutable within the expression
+  * but its value may change between expression, like a variable in C (cf sequence point).
   *
-  * @param name Identifier for the variable. Might be empty, in which case a name will be generated.
- * @param range Range of possible values for the variable.
- * @note The uniqueness of the variable name is not enforced since there is no notion of scope.
- *       Also note that the name is purely decorative during partial evaluation: the variable is actually tracked
- *       using an instance counter, hence multiple instances sharing the same name will not be simplified.
- */
-class Var(val name: String, val range : Range = RangeUnknown, fixedId: Option[Long] = None) extends ArithExpr with SimplifiedExpr {
+  * @param name  Identifier for the variable. Might be empty, in which case a name will be generated.
+  * @param range Range of possible values for the variable.
+  * @note The uniqueness of the variable name is not enforced since there is no notion of scope.
+  *       Also note that the name is purely decorative during partial evaluation: the variable is actually tracked
+  *       using an instance counter, hence multiple instances sharing the same name will not be simplified.
+  */
+class Var(val name: String, val range: Range = RangeUnknown, fixedId: Option[Long] = None) extends ArithExpr with SimplifiedExpr {
 
   /** Unique identifier. */
   val id: Long = {
@@ -1424,7 +1075,7 @@ class Var(val name: String, val range : Range = RangeUnknown, fixedId: Option[Lo
 
   override lazy val hashCode = 8 * 79 + id.hashCode
 
-  override val HashSeed =  0x54e9bd5e
+  override val HashSeed = 0x54e9bd5e
 
   override lazy val digest: Int = HashSeed /*^ name.hashCode*/ ^ id.hashCode ^ range.digest()
 
@@ -1432,37 +1083,32 @@ class Var(val name: String, val range : Range = RangeUnknown, fixedId: Option[Lo
 
   /**
     * Needs to be overriden by all subclasses (needed for substitution)
-   */
+    */
   def copy(r: Range) = new Var(name, r, Some(this.id))
 
 }
 
-
-
-/* ==  Companion objects == */
-
-
 object Var {
   /**
-   * Instance counter
-   */
+    * Instance counter
+    */
   private val cnt = new AtomicLong(-1)
 
-  def apply(name: String = "") : Var = {
+  def apply(name: String = ""): Var = {
     new Var(name)
   }
 
-  def apply(name: String, range : Range) : ArithExpr = {
+  def apply(name: String, range: Range): ArithExpr = {
     if (range.min == range.max)
       return range.min
-    new Var(name,range)
+    new Var(name, range)
   }
 
 
-  def apply(range : Range) : ArithExpr = {
+  def apply(range: Range): ArithExpr = {
     if (range.min == range.max)
       return range.min
-    new Var("",range)
+    new Var("", range)
   }
 
   def unapply(v: Var): Option[(String, Range)] = Some((v.name, v.range))
@@ -1477,6 +1123,13 @@ object SizeVar {
   def apply(name: String): Var = new Var(name, StartFromRange(Cst(1)))
 }
 
-trait SimplifiedExpr extends ArithExpr {
-  override val simplified = true
+class OpaqueVar(val v: Var, r: Range = RangeUnknown, fixedId: Option[Long] = None) extends Var("", r, fixedId) {
+
+  override def copy(r: Range) = new OpaqueVar(v, r, Some(this.id))
+
+  override lazy val (min: ArithExpr, max: ArithExpr) = (this, this)
+  override lazy val sign: Sign.Value = v.sign
+
+  override lazy val isEvaluable = false
 }
+
