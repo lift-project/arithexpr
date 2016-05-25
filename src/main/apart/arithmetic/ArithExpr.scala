@@ -3,7 +3,7 @@ package arithmetic
 
 import java.util.concurrent.atomic.AtomicLong
 
-import apart.arithmetic.simplifier._
+import apart.arithmetic.simplifier.{SimplifySum, _}
 
 import scala.language.implicitConversions
 
@@ -197,7 +197,7 @@ abstract sealed class ArithExpr {
   this match {
     case Abs(expr) =>
             (ArithExpr.min(abs(expr.min), abs(expr.max)),
-                       ArithExpr.max(abs(expr.min), abs(expr.max)))
+             ArithExpr.max(abs(expr.min), abs(expr.max)))
     case PosInf => (PosInf, PosInf)
     case NegInf => (NegInf, NegInf)
     case c: Ceiling => (ceil(c.ae.min), ceil(c.ae.max))
@@ -764,6 +764,11 @@ object ArithExpr {
         return Some(true)
       // a < b (true if a.max < b)
       case (v1: Var, v2: Var) if isSmaller(v1.range.max + 1, v2).getOrElse(false) =>
+        return Some(true)
+      // Abs(a + x) < n true if (a + x) < n and -1(a + x) < n
+      case (Abs(Sum(Cst(a) :: (x: Var) :: Nil)), n: Var) if
+          isSmaller(Sum(a :: x.range.max :: Nil), n).getOrElse(false) &&
+          isSmaller(Prod(Cst(-1) :: Sum(a :: x.range.min :: Nil) :: Nil), n).getOrElse(false) =>
         return Some(true)
       case _ =>
     }
