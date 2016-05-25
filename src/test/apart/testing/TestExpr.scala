@@ -3,6 +3,7 @@ package apart.testing
 import apart.arithmetic._
 import org.junit.Assert._
 import org.junit.{Ignore, Test}
+import opencl.generator.{get_global_id, get_global_size}
 
 import scala.util.Random
 
@@ -86,6 +87,32 @@ class TestExpr {
     val M = SizeVar("M")
     val i = Var(ContinuousRange(0, M))
     assertEquals(i, i % M)
+  }
+
+  @Test def modVarSubtract(): Unit = {
+    val c = Cst(-1)
+    val n = Var("n", StartFromRange(2))
+    val x = Var("x", ContinuousRange(0, n))
+
+    assertEquals(c + x, (c + x) % n)
+  }
+
+  @Test def unnecessaryMod(): Unit = {
+    val c = Cst(-1)
+    val n = Var("n", StartFromRange(2))
+    val gl_id = Var("x", ContinuousRange(0, n))
+
+    assertEquals((c + n + gl_id) % n,(((c + gl_id) % n) + n) % n)
+  }
+
+  @Test def unnecessaryModDifferentRange(): Unit = {
+    val c = Cst(-1)
+    val n = Var("n", StartFromRange(2))
+    val start = get_global_id(0, RangeAdd(0,get_global_size(0, RangeAdd(1,PosInf,1)),1))
+    val step = get_global_size(0, RangeAdd(1,PosInf,1))
+    val gl_id = Var("x", RangeAdd(start, n, step))
+
+    assertEquals((c + n + gl_id) % n,(((c + gl_id) % n) + n) % n)
   }
 
   @Test def modOfVarWithConstantRange(): Unit = {

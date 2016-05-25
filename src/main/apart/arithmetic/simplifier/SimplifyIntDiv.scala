@@ -23,13 +23,28 @@ object SimplifyIntDiv {
 
   /**
    * Try to replace the expression with an equivalent simplified expression.
-   * @param numer The numerator.
+    *
+    * @param numer The numerator.
    * @param denom The denominator.
    * @return An option set a to an expression if a simpler form exists, or `None` if there is no simplification.
    */
   private def simplify(numer: ArithExpr, denom: ArithExpr): Option[ArithExpr] = (numer, denom) match {
 
     case (?,_) | (_,?) => Some(?)
+
+    case (PosInf, PosInf) | (NegInf, NegInf) | (PosInf, NegInf) | (NegInf, PosInf)  => Some(?)
+    case (_, PosInf) => Some(0)
+    case (_, NegInf) => Some(0)
+    case (PosInf, y) => y.sign match {
+      case Sign.Unknown => Some(?)
+      case Sign.Positive => Some(PosInf)
+      case Sign.Negative => Some(NegInf)
+    }
+    case (NegInf, y) =>  y.sign match {
+      case Sign.Unknown => Some(?)
+      case Sign.Positive => Some(NegInf)
+      case Sign.Negative => Some(PosInf)
+    }
 
     // Simplify operands
     case (x, y) if !x.simplified => Some(ExprSimplifier(x) / y)

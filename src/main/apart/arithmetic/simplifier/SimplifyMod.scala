@@ -22,8 +22,9 @@ object SimplifyMod {
     case (Cst(x), Cst(y)) => Some(Cst(x % y))
 
     case (x, y) if x == y => Some(Cst(0))
-    //case (x, y) if !x.might_be_negative && ArithExpr.isSmaller(x, y).getOrElse(false) => Some(x)
+
     case (x, y) if ArithExpr.isSmaller(abs(x), abs(y)).getOrElse(false) => Some(x)
+
     case (x, y) if ArithExpr.multipleOf(x, y) => Some(Cst(0))
     case (m: Mod, divisor) if m.divisor == divisor => Some(m)
 
@@ -42,7 +43,8 @@ object SimplifyMod {
         case (x, y) if ArithExpr.multipleOf(x, y) => true
         case (x, y) => ArithExpr.gcd(x, y) == y
       })
-      if (multiple.nonEmpty) Some(s.withoutTerm(multiple) % d)
+      val shorterSum = s.withoutTerm(multiple)
+    if (multiple.nonEmpty && !ArithExpr.mightBeNegative(shorterSum)) Some(shorterSum % d)
       else None
 
     case _ => None

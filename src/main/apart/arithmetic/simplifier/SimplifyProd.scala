@@ -57,6 +57,30 @@ object SimplifyProd {
 
     case (?,_) | (_,?) => Some(?)
 
+    case (PosInf, NegInf) | (NegInf, PosInf)  => Some(NegInf)
+    case (PosInf, PosInf) | (NegInf, NegInf)  => Some(PosInf)
+    case (PosInf, y) => y.sign match {
+      case Sign.Unknown => Some(?)
+      case Sign.Positive => Some(PosInf)
+      case Sign.Negative => Some(NegInf)
+    }
+    case (x, PosInf) =>  x.sign match {
+      case Sign.Unknown => Some(?)
+      case Sign.Positive => Some(PosInf)
+      case Sign.Negative => Some(NegInf)
+    }
+    case (NegInf, y) =>  y.sign match {
+      case Sign.Unknown => Some(?)
+      case Sign.Positive => Some(NegInf)
+      case Sign.Negative => Some(PosInf)
+    }
+    case (x, NegInf) =>  x.sign match {
+      case Sign.Unknown => Some(?)
+      case Sign.Positive => Some(NegInf)
+      case Sign.Negative => Some(PosInf)
+    }
+
+
     // Factor simplification
     case (x, y) if !x.simplified => Some(ExprSimplifier(x) * y)
     case (x, y) if !y.simplified => Some(x * ExprSimplifier(y))

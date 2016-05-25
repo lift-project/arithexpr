@@ -80,6 +80,10 @@ object SimplifySum {
 
     case (?,_) | (_,?) => Some(?)
 
+    case (PosInf, NegInf) | (NegInf, PosInf) => Some(?)
+    case (PosInf, _) | (_, PosInf) => Some(PosInf)
+    case (NegInf, _) | (_, NegInf) => Some(NegInf)
+
     // Not a sum
     case (Cst(x), Cst(y)) => Some(Cst(x+y))
     case (Cst(0), _) => Some(rhs)
