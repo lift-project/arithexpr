@@ -88,6 +88,23 @@ class TestExpr {
     assertEquals(i, i % M)
   }
 
+  @Test def modVarSubtract(): Unit = {
+    val c = Cst(-1)
+    val n = SizeVar("n")
+    val x = Var("x", ContinuousRange(0, n))
+
+    //assertEquals(c+n, x.max)
+    //assertEquals(-2+n, (c+x).max)
+    //assertEquals(-2+n, abs(c+x).max)
+    assertEquals(c + x, (c + x) % n)
+  }
+
+  @Test def maxMinGreaterMaxAbs(): Unit = {
+    val n = SizeVar("n")
+    val a = abs(Cst(-2) + n)
+    assertTrue(ArithExpr.isSmaller(a.min, a.max).getOrElse(false))
+  }
+
   @Test def modOfVarWithConstantRange(): Unit = {
     val c =  Cst(10)
     val i = Var(ContinuousRange(0,c))
