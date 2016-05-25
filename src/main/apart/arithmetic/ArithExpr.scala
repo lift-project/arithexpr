@@ -627,7 +627,7 @@ object ArithExpr {
       case muls: Prod => muls.factors.map(t => substitute(t, substitutions)).reduce(_ * _)
       case lu: Lookup => SimplifyLookup(lu.table, substitute(lu.index, substitutions), lu.id)
       case v: Var => v.copy(Range.substitute(v.range, substitutions))
-      case Abs(ae) => abs(substitute(ae, substitutions))
+      case Abs(ae) => Abs(ae)
       case ? => ?
       case f: ArithExprFunction => f
       case c: Cst => c
