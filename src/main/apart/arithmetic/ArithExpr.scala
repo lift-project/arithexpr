@@ -492,14 +492,15 @@ object ArithExpr {
   def minmax(v: Var, c: Cst): (ArithExpr, ArithExpr) = {
     val m1 = v.range.min match {
       case Cst(min) => if (min >= c.c) Some((c, v)) else None
-      //case _ => throw new NotImplementedError()
+      case ? => throw new NotEvaluableException()
+      case _ => throw new NotImplementedError()
     }
 
     if (m1.isDefined) return m1.get
 
     val m2 = v.range.max match {
       case Cst(max) => if (max <= c.c) Some((v, c)) else None
-      //case _ => throw new NotImplementedError()
+      case _ => throw new NotImplementedError()
     }
 
     if (m2.isDefined) return m2.get
