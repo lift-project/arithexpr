@@ -22,6 +22,8 @@ libraryDependencies += "org.scala-lang.modules" % "scala-xml_2.11" % "1.0.4"
 
 libraryDependencies += "junit" % "junit" % "4.11"
 
+libraryDependencies += "org.scalacheck" %% "scalacheck" % "1.13.0" % "test"
+
 libraryDependencies += "com.novocode" % "junit-interface" % "0.11" % "test"
 
 libraryDependencies += "org.clapper" %% "argot" % "1.0.3"

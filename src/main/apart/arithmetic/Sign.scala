@@ -31,6 +31,7 @@ object Sign extends Enumeration {
       case Pow(b, e) => b.sign
       case Var(_, range) => signVar(range)
       case ? => Sign.Unknown
+      case _: ArithExprFunction => Sign.Unknown
     }
   }
 
