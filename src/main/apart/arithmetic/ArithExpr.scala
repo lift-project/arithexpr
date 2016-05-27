@@ -87,6 +87,7 @@ abstract sealed class ArithExpr {
       }
     case v: Var => (v.range.min.min: ArithExpr, v.range.max.max: ArithExpr)
     case ? => (?,?)
+    case _ => (?,?)
   }
 
   /**
@@ -1079,7 +1080,7 @@ class Var(val name: String, val range: Range = RangeUnknown, fixedId: Option[Lon
 
   override lazy val digest: Int = HashSeed /*^ name.hashCode*/ ^ id.hashCode ^ range.digest()
 
-  override lazy val toString = "v_" + name + "_" + id
+  override lazy val toString = s"v_${name}_id[${range.toString}]"
 
   /**
     * Needs to be overriden by all subclasses (needed for substitution)

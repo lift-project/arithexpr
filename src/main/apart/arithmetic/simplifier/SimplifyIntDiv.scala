@@ -62,7 +62,7 @@ object SimplifyIntDiv {
       Some((x/^fac) / (y/^fac))
 
     // Compute for constants
-    case (Cst(x), Cst(y)) => Some(Cst(x / y))
+    case (Cst(x), Cst(y)) if y != 0 => Some(Cst(x / y))
 
     // Return zero if the denominator is smaller than the numerator
     case (x, y) if ArithExpr.isSmaller(x, y).getOrElse(false) => Some(Cst(0))

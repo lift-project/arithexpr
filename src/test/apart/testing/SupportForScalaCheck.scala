@@ -8,7 +8,7 @@ import Arbitrary.arbitrary
 
 object SupportForScalaCheck {
   val maxSizeOfSumsAndProducts = 10
-  val maxNestingDepth = 10
+  val maxNestingDepth = 5
 
   // Predicate
   def genPredicateOperator: Gen[Predicate.Operator.Value] =
@@ -33,20 +33,23 @@ object SupportForScalaCheck {
 
   def genGoesToRange(level: Int): Gen[GoesToRange] = for {
     end <- genArithExprTree(level)
+    if end.sign == Sign.Positive
   } yield GoesToRange(end)
 
   def genRangeAdd(level: Int): Gen[RangeAdd] = for {
     start <- genArithExprTree(level)
     stop <- genArithExprTree(level)
     step <- genArithExprTree(level)
-    if step.sign == Sign.Positive
-    if stop.sign == Sign.Positive | start.sign == Sign.Positive
+    if step.sign == Sign.Positive && ArithExpr.isSmaller(start, stop).getOrElse(false)
+    if stop.sign == Sign.Positive || start.sign == Sign.Positive
   } yield RangeAdd(start, stop, step)
 
   def genRangeMul(level: Int): Gen[RangeMul] = for {
     start <- genArithExprTree(level)
     stop <- genArithExprTree(level)
     mul <- genArithExprTree(level)
+    if mul.sign == Sign.Positive && ArithExpr.isSmaller(start, stop).getOrElse(false)
+    if mul.isEvaluable && mul.eval != 0
   } yield RangeMul(start, stop, mul)
 
   def genRangeUnknown: Gen[RangeUnknown.type] = const(RangeUnknown)
@@ -56,7 +59,7 @@ object SupportForScalaCheck {
       genStartFromRange(level),
       genGoesToRange(level),
       genRangeAdd(level),
-      genRangeMul(level),
+//      genRangeMul(level),
       genRangeUnknown)
 
   // ArithExpr
@@ -68,14 +71,17 @@ object SupportForScalaCheck {
   def genNegInf = const(NegInf)
 
   def genCst = for {
-    c <- arbitrary[Int]
+    c <- Gen.choose(-128, 128)
   } yield Cst(c)
+
+  implicit val cstArithExpr: Arbitrary[Cst] = Arbitrary(genCst)
 
   def leafes = Gen.oneOf(`gen?`, genPosInf, genNegInf, genCst, genPosVar, genSizeVar)
 
   def genIntDiv(level: Int) = Gen.lzy(for {
     numer <- genArithExprTree(level)
     denom <- genArithExprTree(level)
+    if denom.isEvaluable && denom.eval != 0
   } yield SimplifyIntDiv(numer, denom))
 
   def genPow(level: Int) = Gen.lzy(for {
@@ -86,6 +92,7 @@ object SupportForScalaCheck {
   def genLog(level: Int) = Gen.lzy(for {
     b <- genArithExprTree(level)
     x <- genArithExprTree(level)
+    if x.sign == Sign.Positive
   } yield Log(b, x))
 
   def genProd(level: Int) = Gen.lzy(
@@ -122,44 +129,38 @@ object SupportForScalaCheck {
   } yield SimplifyIfThenElse(test, t, e))
 
   def genArithExprFunction(level: Int) = Gen.lzy(for {
-    name <- arbitrary[String]
     range <- genRange(level)
-  } yield ArithExprFunction(name, range))
+  } yield ArithExprFunction("fun", range))
 
   def genLookup(level: Int) = Gen.lzy(for {
     id <- arbitrary[Int]
-    table <- Gen.sized { size => Gen.listOfN(size, genArithExprTree(level)) }
+    table <- Gen.choose(2, 4) flatMap { size => Gen.listOfN(size, genArithExprTree(level)) }
     index <- genArithExprTree(level)
-    if id < table.length
+    if ArithExpr.isSmaller(index, table.length).getOrElse(false)
   } yield Lookup(table, index, id))
 
   def genRandomVar(level: Int) = Gen.lzy(for {
-    name <- arbitrary[String]
     range <- genRange(level)
-  } yield Var(name, range))
+  } yield Var("", range))
 
-  def genPosVar = for {
-    name <- arbitrary[String]
-  } yield PosVar(name)
+  def genPosVar = const(PosVar(""))
 
-  def genSizeVar = for {
-    name <- arbitrary[String]
-  } yield SizeVar(name)
+  def genSizeVar = const(SizeVar(""))
 
   def genNode(level: Int): Gen[ArithExpr] = Gen.lzy(Gen.oneOf(
-    genIntDiv(level),
-    genPow(level),
-    genLog(level),
-    genProd(level),
-    genSum(level),
-    genMod(level),
-    genAbs(level),
-    genFloor(level),
-    genCeiling(level),
-    genIfThenElse(level),
-    genArithExprFunction(level),
-    genLookup(level),
-    genRandomVar(level)
+     genProd(level)
+    ,genSum(level)
+    ,genRandomVar(level)
+    ,genIntDiv(level)
+    ,genPow(level)
+//    ,genLog(level)
+//    ,genMod(level)
+//    ,genAbs(level)
+//    ,genFloor(level)
+//    ,genCeiling(level)
+//    ,genIfThenElse(level)
+//    ,genArithExprFunction(level)
+//    ,genLookup(level)
   ))
 
   def genArithExprTree(level: Int) : Gen[ArithExpr] = {

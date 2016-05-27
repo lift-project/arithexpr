@@ -585,4 +585,8 @@ class TestExpr {
     val expr2 = Cst(2)*a + Cst(2)*b
     assertEquals(expr1, expr2)
   }
+
+  @Test def foo1(): Unit = {
+    ceil(NegInf) % ?
+  }
 }
