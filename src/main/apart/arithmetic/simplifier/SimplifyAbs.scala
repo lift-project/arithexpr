@@ -8,7 +8,7 @@ object SimplifyAbs {
     ae.sign match {
       case Sign.Positive => ae
       case Sign.Negative => -1 * ae
-      case Sign.Unknown => new Abs(ae) with SimplifiedExpr
+      case Sign.Unknown => new AbsFunction(ae) with SimplifiedExpr
     }
   }
 
