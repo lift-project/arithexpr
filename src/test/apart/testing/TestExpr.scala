@@ -3,9 +3,66 @@ package apart.testing
 import apart.arithmetic._
 import org.junit.Assert._
 import org.junit.{Ignore, Test}
-import opencl.generator.{get_global_id, get_global_size}
 
 import scala.util.Random
+
+class OclTestFunction private(name: String, range: Range)
+  extends ArithExprFunction(name, range) {
+
+  lazy val toOCLString = s"$name()"
+  override lazy val digest: Int = HashSeed ^ /*range.digest() ^*/ name.hashCode
+  override val HashSeed = 0x31111111
+  override def equals(that: Any) = that match {
+    case f: OclTestFunction => this.name.equals(f.name)
+    case _ => false
+  }
+  override lazy val (min : ArithExpr, max: ArithExpr) = (range.min.min, range.max.max)
+  override lazy val sign: Sign.Value = Sign.Positive
+}
+
+object OclTestFunction {
+  def apply(name: String, range: Range = RangeUnknown) : OclTestFunction =
+    new OclTestFunction(name, range)
+}
+
+object get_num_groups {
+  def apply(range : Range = ContinuousRange(1, PosInf)) =
+    OclTestFunction("get_num_groups", range)
+}
+
+object get_global_size {
+  def apply(range : Range = ContinuousRange(1, PosInf)) =
+    OclTestFunction("get_global_size", range)
+}
+
+object get_local_size {
+  def apply(range : Range = ContinuousRange(1, PosInf)) =
+    OclTestFunction("get_local_size", range)
+}
+
+object get_local_id {
+  def apply(range : Range) =
+    OclTestFunction("get_local_id", range)
+
+  def apply() =
+    OclTestFunction("get_local_id", ContinuousRange(0, get_local_size()))
+}
+
+object get_global_id {
+  def apply(range : Range) =
+    OclTestFunction("get_global_id", range)
+
+  def apply() =
+    OclTestFunction("get_global_id", ContinuousRange(0, get_global_size()))
+}
+
+object get_group_id {
+  def apply(range : Range) =
+    OclTestFunction("get_group_id", range)
+
+  def apply() =
+    OclTestFunction("get_group_id", ContinuousRange(0, get_num_groups()))
+}
 
 class TestExpr {
 
@@ -108,8 +165,8 @@ class TestExpr {
   @Test def unnecessaryModDifferentRange(): Unit = {
     val c = Cst(-1)
     val n = Var("n", StartFromRange(2))
-    val start = get_global_id(0, RangeAdd(0,get_global_size(0, RangeAdd(1,PosInf,1)),1))
-    val step = get_global_size(0, RangeAdd(1,PosInf,1))
+    val start = get_global_id()
+    val step = get_global_size()
     val gl_id = Var("x", RangeAdd(start, n, step))
 
     assertEquals((c + n + gl_id) % n,(((c + gl_id) % n) + n) % n)
