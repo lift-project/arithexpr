@@ -172,6 +172,89 @@ class TestExpr {
     assertEquals((c + n + gl_id) % n,(((c + gl_id) % n) + n) % n)
   }
 
+  @Test def modMultipleOf(): Unit = {
+    val M = SizeVar("M")
+    val N = SizeVar("N")
+    val j = Var("j", ContinuousRange(0, N))
+    val i = Var("i", ContinuousRange(0, M + 2))
+
+    //           =     (j * (M + 2) + i) % (M + 2) = i
+    val actual = ((M * j) + (2 * j) + i) % (2 + M)
+    assertEquals(i, actual)
+  }
+
+  @Test def modMultipleOfReverse(): Unit = {
+    val M = SizeVar("M")
+    val N = SizeVar("N")
+    val j = Var("j", ContinuousRange(0, N))
+    val i = Var("i", ContinuousRange(0, M + 2))
+
+    //            =     (j * (M + 2) + i) % (M + 2) = i
+    val actual =  (i + (j * 2) + (M * j)) % (2 + M)
+    assertEquals(i, actual)
+  }
+
+  @Test def divFactorizeAndSimplifyFraction(): Unit = {
+    val M = SizeVar("M")
+    val N = SizeVar("N")
+    val j = Var("j", ContinuousRange(0, N))
+    val i = Var("i", ContinuousRange(0, M + 2))
+
+    val actual = ((M * j) + (2 * j) + i) / (2 + M)
+    assertEquals(j, actual)
+  }
+
+  @Test def modTransposeTwicePadColumnValue(): Unit = {
+    val M = SizeVar("M")
+    val N = SizeVar("N")
+    val j = Var("j", ContinuousRange(0, N))
+    val i = Var("i", ContinuousRange(0, M + 2))
+
+    val actual = (((((M * j) + (2 * j) + i) % (2 + M)) + ((((M * j) + (2 * j) + i) / (2 + M)) * 2) +
+                 ((((M * j) + (2 * j) + i) / (2 + M)) * M)) / (2 + M)) % N
+    assertEquals(j, actual)
+  }
+
+  @Test def modTransposeTwicePadRowValue(): Unit = {
+    val M = SizeVar("M")
+    val N = SizeVar("N")
+    val j = Var("j", ContinuousRange(0, N))
+    val i = Var("i", ContinuousRange(0, M + 2))
+
+    val actual = (((((M * j) + (2 * j) + i) % (2 + M)) + ((((M * j) + (2 * j) + i) / (2 + M)) * 2) +
+      ((((M * j) + (2 * j) + i) / (2 + M)) * M)) % (2 + M)) +
+      (((((M * j) + (2 * j) + i) % (2 + M)) + ((((M * j) + (2 * j) + i) / (2 + M)) * 2) +
+        ((((M * j) + (2 * j) + i) / (2 + M)) * M)) / ((N * M) + (2 * N)))
+    assertEquals(i, actual)
+  }
+
+  @Test def modTransposeTwicePadFull(): Unit = {
+    val M = SizeVar("M")
+    val N = SizeVar("N")
+    val j = Var("j", ContinuousRange(0, N))
+    val i = Var("i", ContinuousRange(0, M + 2))
+
+    val actual = (((((((M * j) + (2 * j) + i) % (2 + M)) + ((((M * j) + (2 * j) + i) / (2 + M)) * 2) + ((((M * j) +
+      (2 * j) + i) / (2 + M)) * M)) / (2 + M)) % N) +
+      ((((((((((M * j) + (2 * j) + i) % (2 + M)) + ((((M * j) + (2 * j) + i) / (2 + M)) * 2) + ((((M * j) +
+        (2 * j) + i) / (2 + M)) * M)) % (2 + M)) + (((((M * j) + (2 * j) + i) % (2 +     M)) +
+        ((((M * j) + (2 * j) + i) / (2 + M)) * 2) + ((((M * j) + (2 * j) + i) / (2 + M)) * M)) / ((N * M) +
+        (2 * N))) + -1) % M) + M) % M) * N))
+    val gold = (((((-1 + i) % M) + M) % M) * N) + j
+    assertEquals(gold, actual)
+  }
+
+  @Test def modTransposePadTransposePadPart(): Unit = {
+    val M = SizeVar("M")
+    val N = SizeVar("N")
+    val j = Var("j", ContinuousRange(0, N))
+    val i = Var("i", ContinuousRange(0, M + 2))
+
+    val actual = (((((2 * i) + (i * N) + j) / (2 + N)) + ((((2 * i) + (i * N) + j) % (2 + N)) * 2) +
+      ((((2 * i) + (i * N) + j) % (2 + N)) * M)) % (2 + M))
+    assertEquals(i, actual)
+  }
+
   @Test def modOfVarWithConstantRange(): Unit = {
     val c =  Cst(10)
     val i = Var(ContinuousRange(0,c))

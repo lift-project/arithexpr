@@ -73,6 +73,24 @@ object SimplifyIntDiv {
     // Flip fractions in the denominator
     case (numer, Pow(base, Cst(-1))) => Some(numer * base)
 
+    // special cases //todo combine cases which only differ in order of args
+    case (Sum(
+             Prod(Cst(c1) :: (j2:Var) :: Nil) ::
+             Prod((j1:Var) :: (m1: Var) :: Nil) ::
+             (i:Var) :: Nil),
+         Sum(Cst(c2) :: (m2: Var) :: Nil))
+     if m1 == m2 && j1 == j2 && c1 == c2 && ArithExpr.isSmaller(i, m1+2).getOrElse(false) =>
+      Some(j1)
+
+    // ((M * j) + (2 * j) + i) / (2 + M) == j + i/(M+2) == j true if i < (M+2)
+    case (Sum(
+             Prod((m1: Var) :: (j1:Var) :: Nil) ::
+             Prod(Cst(c1) :: (j2:Var) :: Nil) ::
+             (i:Var) :: Nil),
+         Sum(Cst(c2) :: (m2: Var) :: Nil))
+     if m1 == m2 && j1 == j2 && c1 == c2 && ArithExpr.isSmaller(i, m1+2).getOrElse(false) =>
+      Some(j1)
+
     // Simplify common factors in the numerator and the denominator
     case (Sum(terms), denom) =>
       val (multiples,newTerms) = terms.partition(ArithExpr.multipleOf(_, denom))

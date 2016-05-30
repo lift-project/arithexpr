@@ -12,6 +12,31 @@ object SimplifyMod {
     case (x, y) if !x.simplified => Some(ExprSimplifier(x) % y)
     case (x, y) if !y.simplified => Some(x % ExprSimplifier(y))
 
+     // special cases: todo combine the cases which only differ in order
+    case (Sum(
+              Prod(Cst(c1) :: (a2:ArithExpr) :: Nil) ::
+              Prod((a1:ArithExpr) :: (m1: Var) :: Nil) ::
+              (e:ArithExpr) ::
+              Nil),
+          Sum(Cst(c2) :: (m2: Var) :: Nil))
+      if m1 == m2 && a1 == a2 && c1 == c2 =>
+      Some(Mod(e, Sum(Cst(c1) :: m1 :: Nil)))
+
+    case (Sum(
+              (e:ArithExpr) ::
+              Prod((m1: Var) :: (a1:ArithExpr) :: Nil) ::
+              Prod(Cst(c1) :: (a2:ArithExpr) :: Nil) ::
+              Nil),
+          Sum(Cst(c2) :: (m2: Var) :: Nil))
+      if m1 == m2 && a1 == a2 && c1 == c2 =>
+      Some(SimplifyMod(e, Sum(Cst(c1) :: m1 :: Nil)))
+
+    // (((M * j) + (2 * j) + i) % (2 + M))  == (j * (M + 2) + i) % (M + 2) == i % (M + 2)
+    case (Sum(Prod((m1: Var) :: (j1:Var) :: Nil) ::
+              Prod(Cst(c1) :: (j2:Var) :: Nil) ::
+              (i:Var) :: Nil), Sum(Cst(c2) :: (m2: Var) :: Nil)) if m1 == m2 && j1 == j2 && c1 == c2 =>
+     Some(SimplifyMod(i, Sum(m1 :: Cst(c1) :: Nil)))
+
     // Modulo 1
     case (_, Cst(1)) => Some(Cst(0))
 
@@ -44,7 +69,7 @@ object SimplifyMod {
         case (x, y) => ArithExpr.gcd(x, y) == y
       })
       val shorterSum = s.withoutTerm(multiple)
-    if (multiple.nonEmpty && !ArithExpr.mightBeNegative(shorterSum)) Some(shorterSum % d)
+      if (multiple.nonEmpty && !ArithExpr.mightBeNegative(shorterSum)) Some(shorterSum % d)
       else None
 
     case _ => None
