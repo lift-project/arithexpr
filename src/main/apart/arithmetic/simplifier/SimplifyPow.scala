@@ -15,19 +15,19 @@ object SimplifyPow {
   def simplify(base: ArithExpr, exp: ArithExpr): Option[ArithExpr] = (base, exp) match {
 
     // Power of zero
-    case (base, Cst(0)) => Some(Cst(1))
+    case (_, Cst(0)) => Some(Cst(1))
 
     // Power of one
-    case (base, Cst(1)) => Some(base)
+    case (b, Cst(1)) => Some(b)
 
     // 0 or 1 to any power
     case (Cst(x), _) if x == 0 || x == 1 => Some(base)
 
     // Distribute product: x^(m+n) => x^m * x^n
-    case (base, Sum(terms)) => Some(terms.map(base pow).reduce(_*_))
+    case (b, Sum(terms)) => Some(terms.map(b pow).reduce(_*_))
 
     // Power of a product: (x*y)^(n) => x^n * y^n
-    case (Prod(terms), exp) => Some(terms.map(_ pow exp).reduce(_*_))
+    case (Prod(terms), e) => Some(terms.map(_ pow e).reduce(_*_))
 
     // Constant positive exponent
     case (Cst(b), Cst(e)) if e > 1 => Some(Cst(scala.math.pow(b,e).toInt))

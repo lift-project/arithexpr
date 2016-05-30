@@ -24,11 +24,11 @@ object SimplifyIntDiv {
   /**
    * Try to replace the expression with an equivalent simplified expression.
     *
-    * @param numer The numerator.
-   * @param denom The denominator.
+    * @param numerator The numerator.
+   * @param denominator The denominator.
    * @return An option set a to an expression if a simpler form exists, or `None` if there is no simplification.
    */
-  private def simplify(numer: ArithExpr, denom: ArithExpr): Option[ArithExpr] = (numer, denom) match {
+  private def simplify(numerator: ArithExpr, denominator: ArithExpr): Option[ArithExpr] = (numerator, denominator) match {
 
     case (?,_) | (_,?) => Some(?)
 

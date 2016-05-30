@@ -1,7 +1,7 @@
 package apart
 package arithmetic
 
-import arithmetic.simplifier.ExprSimplifier
+import apart.arithmetic.simplifier.ExprSimplifier
 
 sealed abstract class Range {
   // default impl
