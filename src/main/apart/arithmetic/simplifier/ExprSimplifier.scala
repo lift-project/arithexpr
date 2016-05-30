@@ -20,6 +20,7 @@ object ExprSimplifier {
     case Mod(a,b) => SimplifyMod(a,b)
     case IntDiv(a,b) => SimplifyIntDiv(a,b)
     case IfThenElse(test,t,el) => SimplifyIfThenElse(test,t,el)
+    case Abs(e) => SimplifyAbs(e)
     case _ => throw new RuntimeException(s"Simplify cannot handle the expression $expr")
   }
 
