@@ -38,13 +38,13 @@ abstract sealed class ArithExpr {
     */
   private def _minmax() : (ArithExpr, ArithExpr) =
   this match {
-    case Abs(expr) =>
+    case AbsFunction(expr) =>
             (ArithExpr.min(abs(expr.min), abs(expr.max)),
              ArithExpr.max(abs(expr.min), abs(expr.max)))
     case PosInf => (PosInf, PosInf)
     case NegInf => (NegInf, NegInf)
-    case c: Ceiling => (ceil(c.ae.min), ceil(c.ae.max))
-    case f: Floor => (floor(f.ae.min), floor(f.ae.max))
+    case c: CeilingFunction => (ceil(c.ae.min), ceil(c.ae.max))
+    case f: FloorFunction => (floor(f.ae.min), floor(f.ae.max))
     case c: Cst => (c,c)
     case Prod(factors) =>
       this.sign match {
@@ -168,8 +168,8 @@ abstract sealed class ArithExpr {
     case (Pow(x1, y1), Pow(x2, y2)) => x1 == x2 && y1 == y2
     case (Log(x1, y1), Log(x2, y2)) => x1 == x2 && y1 == y2
     case (Mod(x1, y1), Mod(x2, y2)) => x1 == x2 && y1 == y2
-    case (Floor(a), Floor(x)) => a == x
-    case (Ceiling(x), Ceiling(y)) => x == y
+    case (FloorFunction(a), FloorFunction(x)) => a == x
+    case (CeilingFunction(x), CeilingFunction(y)) => x == y
     case (Sum(a), Sum(b)) => a.length == b.length && (a zip b).forall(x => x._1 == x._2)
     case (Prod(a), Prod(b)) => a.length == b.length && (a zip b).forall(x => x._1 == x._2)
     case (IfThenElse(test1, t1, e1), IfThenElse(test2, t2, e2)) =>
@@ -177,7 +177,7 @@ abstract sealed class ArithExpr {
     case (lu1: Lookup, lu2: Lookup) => lu1.table == lu2.table && lu1.index == lu2.index
     case (f1: ArithExprFunction, f2: ArithExprFunction) => f1.name == f2.name
     case (v1: Var, v2: Var) => v1.id == v2.id
-    case (Abs(x), Abs(y)) => x == y
+    case (AbsFunction(x), AbsFunction(y)) => x == y
     case _ =>
       System.err.println(s"$this and $that are not equal")
       false
@@ -503,7 +503,7 @@ object ArithExpr {
       case (v1: Var, v2: Var) if isSmaller(v1.range.max + 1, v2).getOrElse(false) =>
         return Some(true)
       // Abs(a + x) < n true if (a + x) < n and -1(a + x) < n
-      case (Abs(Sum(Cst(a) :: (x: Var) :: Nil)), n: Var) if
+      case (AbsFunction(Sum(Cst(a) :: (x: Var) :: Nil)), n: Var) if
           isSmaller(Sum(a :: x.range.max :: Nil), n).getOrElse(false) &&
           isSmaller(Prod(Cst(-1) :: Sum(a :: x.range.min :: Nil) :: Nil), n).getOrElse(false) =>
         return Some(true)
@@ -571,8 +571,8 @@ object ArithExpr {
       case Log(b, x) =>
         visit(b, f)
         visit(x, f)
-      case Floor(expr) => visit(expr, f)
-      case Ceiling(expr) => visit(expr, f)
+      case FloorFunction(expr) => visit(expr, f)
+      case CeilingFunction(expr) => visit(expr, f)
       case Sum(terms) => terms.foreach(t => visit(t, f))
       case Prod(terms) => terms.foreach(t => visit(t, f))
       case IfThenElse(test, thenE, elseE) =>
@@ -586,7 +586,7 @@ object ArithExpr {
       case Var(_, _) | Cst(_) | ArithExprFunction(_, _) =>
       case x if x.getClass == ?.getClass =>
       case PosInf | NegInf =>
-      case Abs(expr) => visit(expr, f)
+      case AbsFunction(expr) => visit(expr, f)
     }
   }
 
@@ -602,8 +602,8 @@ object ArithExpr {
           visitUntil(dividend, f) || visitUntil(divisor, f)
         case Log(b, x) =>
           visitUntil(b, f) || visitUntil(x, f)
-        case Floor(expr) => visitUntil(expr, f)
-        case Ceiling(expr) => visitUntil(expr, f)
+        case FloorFunction(expr) => visitUntil(expr, f)
+        case CeilingFunction(expr) => visitUntil(expr, f)
         case Sum(terms) =>
           terms.foreach(t => if (visitUntil(t, f)) return true)
           false
@@ -614,7 +614,7 @@ object ArithExpr {
         case Var(_, _) | Cst(_) | IfThenElse(_, _, _) | ArithExprFunction(_, _) => false
         case x if x.getClass == ?.getClass => false
         case PosInf | NegInf => false
-        case Abs(expr) => visitUntil(expr, f)
+        case AbsFunction(expr) => visitUntil(expr, f)
       }
     }
   }
@@ -623,15 +623,15 @@ object ArithExpr {
   def substitute(e: ArithExpr, substitutions: scala.collection.Map[ArithExpr, ArithExpr]): ArithExpr =
     substitutions.getOrElse(e, e) match {
       case Pow(l, r) => substitute(l, substitutions) pow substitute(r, substitutions)
-      case Abs(ae) => abs(substitute(ae, substitutions))
+      case AbsFunction(ae) => abs(substitute(ae, substitutions))
       case IntDiv(n, d) => substitute(n, substitutions) / substitute(d, substitutions)
       case Mod(dividend, divisor) => substitute(dividend, substitutions) % substitute(divisor, substitutions)
       case Log(b, x) => Log(substitute(b, substitutions), substitute(x, substitutions))
       case IfThenElse(i, thenE, elseE) =>
         val cond = Predicate(substitute(i.lhs, substitutions), substitute(i.rhs, substitutions), i.op)
         cond ?? substitute(thenE, substitutions) !! substitute(elseE, substitutions)
-      case Floor(expr) => Floor(substitute(expr, substitutions))
-      case Ceiling(expr) => Ceiling(substitute(expr, substitutions))
+      case FloorFunction(expr) => FloorFunction(substitute(expr, substitutions))
+      case CeilingFunction(expr) => CeilingFunction(substitute(expr, substitutions))
       case adds: Sum => adds.terms.map(t => substitute(t, substitutions)).reduce(_ + _)
       case muls: Prod => muls.factors.map(t => substitute(t, substitutions)).reduce(_ * _)
       case lu: Lookup => SimplifyLookup(lu.table, substitute(lu.index, substitutions), lu.id)
@@ -658,10 +658,10 @@ object ArithExpr {
     case Sum(terms) => terms.foldLeft(0.0)((result, expr) => result + evalDouble(expr))
     case Prod(terms) => terms.foldLeft(1.0)((result, expr) => result * evalDouble(expr))
 
-    case Floor(expr) => scala.math.floor(evalDouble(expr))
-    case Ceiling(expr) => scala.math.ceil(evalDouble(expr))
+    case FloorFunction(expr) => scala.math.floor(evalDouble(expr))
+    case CeilingFunction(expr) => scala.math.ceil(evalDouble(expr))
 
-    case Abs(expr) => scala.math.abs(evalDouble(expr))
+    case AbsFunction(expr) => scala.math.abs(evalDouble(expr))
 
     case IfThenElse(_, _, _) => throw NotEvaluable
 
@@ -790,7 +790,7 @@ case class Cst(c: Int) extends ArithExpr with SimplifiedExpr {
 }
 
 
-case class IntDiv(numer: ArithExpr, denom: ArithExpr) extends ArithExpr() {
+case class IntDiv private[arithmetic](numer: ArithExpr, denom: ArithExpr) extends ArithExpr() {
 
   // Check that the denominator is not 0
   if (denom == Cst(0))
@@ -804,7 +804,7 @@ case class IntDiv(numer: ArithExpr, denom: ArithExpr) extends ArithExpr() {
   override lazy val digest: Int = HashSeed ^ numer.digest() ^ ~denom.digest()
 }
 
-case class Pow(b: ArithExpr, e: ArithExpr) extends ArithExpr {
+case class Pow private[arithmetic](b: ArithExpr, e: ArithExpr) extends ArithExpr {
 
 
   override def toString: String = e match {
@@ -817,7 +817,7 @@ case class Pow(b: ArithExpr, e: ArithExpr) extends ArithExpr {
   override lazy val digest: Int = HashSeed ^ b.digest() ^ e.digest()
 }
 
-case class Log(b: ArithExpr, x: ArithExpr) extends ArithExpr with SimplifiedExpr {
+case class Log private[arithmetic](b: ArithExpr, x: ArithExpr) extends ArithExpr with SimplifiedExpr {
   override def toString: String = "log" + b + "(" + x + ")"
 
   override val HashSeed = 0x370285bf
@@ -940,7 +940,7 @@ case class Sum private[arithmetic](terms: List[ArithExpr]) extends ArithExpr {
 }
 
 // this is really the remainder and not modulo! (I.e. it implements the C semantics of modulo)
-case class Mod(dividend: ArithExpr, divisor: ArithExpr) extends ArithExpr {
+case class Mod private[arithmetic](dividend: ArithExpr, divisor: ArithExpr) extends ArithExpr {
 
   override lazy val toString: String = s"($dividend % ($divisor))"
 
@@ -949,7 +949,7 @@ case class Mod(dividend: ArithExpr, divisor: ArithExpr) extends ArithExpr {
   override lazy val digest: Int = HashSeed ^ dividend.digest() ^ ~divisor.digest()
 }
 
-case class Abs private[arithmetic](ae: ArithExpr) extends ArithExpr {
+case class AbsFunction private[arithmetic](ae: ArithExpr) extends ArithExpr {
 
   override lazy val toString: String = "Abs(" + ae + ")"
 
@@ -962,7 +962,7 @@ object abs {
   def apply(ae: ArithExpr): ArithExpr = SimplifyAbs(ae)
 }
 
-case class Floor private[arithmetic](ae: ArithExpr) extends ArithExpr {
+case class FloorFunction private[arithmetic](ae: ArithExpr) extends ArithExpr {
 
   override lazy val toString: String = "Floor(" + ae + ")"
 
@@ -975,7 +975,7 @@ object floor {
   def apply(ae: ArithExpr): ArithExpr = SimplifyFloor(ae)
 }
 
-case class Ceiling private[arithmetic](ae: ArithExpr) extends ArithExpr {
+case class CeilingFunction private[arithmetic](ae: ArithExpr) extends ArithExpr {
 
   override lazy val toString: String = "Ceiling(" + ae + ")"
 
@@ -995,7 +995,7 @@ object ceil {
   * @param t    The 'then' block.
   * @param e    The 'else block.
   */
-case class IfThenElse(test: Predicate, t: ArithExpr, e: ArithExpr) extends ArithExpr {
+case class IfThenElse private[arithmetic](test: Predicate, t: ArithExpr, e: ArithExpr) extends ArithExpr {
   override lazy val toString: String = s"( $test ? $t : $e )"
 
   override val HashSeed = 0x32c3d095
@@ -1080,7 +1080,9 @@ class Var(val name: String, val range: Range = RangeUnknown, fixedId: Option[Lon
 
   override lazy val digest: Int = HashSeed /*^ name.hashCode*/ ^ id.hashCode ^ range.digest()
 
-  override lazy val toString = s"v_${name}_id[${range.toString}]"
+  override lazy val toString = s"v_${name}_$id"
+
+  lazy val toStringWithRange = s"$toString[${range.toString}]"
 
   /**
     * Needs to be overriden by all subclasses (needed for substitution)

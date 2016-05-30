@@ -17,9 +17,9 @@ object Sign extends Enumeration {
 
   private[arithmetic] def apply(ae: ArithExpr): Value = {
     ae match {
-      case Ceiling(e) => e.sign
-      case Floor(e) => e.sign
-      case Abs(_) => Sign.Positive
+      case CeilingFunction(e) => e.sign
+      case FloorFunction(e) => e.sign
+      case AbsFunction(_) => Sign.Positive
       case Cst(c) if c >= 0 => Sign.Positive
       case Cst(c) if c < 0 => Sign.Negative
       case Prod(factors) => signProd(factors)

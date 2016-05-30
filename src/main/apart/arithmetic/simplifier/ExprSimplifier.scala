@@ -20,9 +20,9 @@ object ExprSimplifier {
     case Mod(a,b) => SimplifyMod(a,b)
     case IntDiv(a,b) => SimplifyIntDiv(a,b)
     case IfThenElse(test,t,el) => SimplifyIfThenElse(test,t,el)
-    case Abs(ae) => SimplifyAbs(ae)
-    case Floor(ae) => SimplifyFloor(ae)
-    case Ceiling(ae) => SimplifyCeiling(ae)
+    case AbsFunction(ae) => SimplifyAbs(ae)
+    case FloorFunction(ae) => SimplifyFloor(ae)
+    case CeilingFunction(ae) => SimplifyCeiling(ae)
   }
 
 }
