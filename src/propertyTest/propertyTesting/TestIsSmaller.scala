@@ -1,8 +1,8 @@
-package apart.testing
+package propertyTesting
 
 import apart.arithmetic._
+import org.scalacheck.Prop.{BooleanOperators, forAll}
 import org.scalacheck.Properties
-import org.scalacheck.Prop.{forAll, BooleanOperators}
 
 import scala.language.implicitConversions
 

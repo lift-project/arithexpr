@@ -643,6 +643,7 @@ class TestExpr {
     assertEquals(expr1, expr2)
   }
 
+  @Ignore
   @Test def foo1(): Unit = {
     ceil(NegInf) % ?
   }

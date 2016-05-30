@@ -1,10 +1,10 @@
-package apart.testing
+package propertyTesting
 
 import apart.arithmetic._
 import apart.arithmetic.simplifier._
+import org.scalacheck.Arbitrary.arbitrary
+import org.scalacheck.Gen._
 import org.scalacheck._
-import Gen._
-import Arbitrary.arbitrary
 
 object SupportForScalaCheck {
   val maxSizeOfSumsAndProducts = 10
