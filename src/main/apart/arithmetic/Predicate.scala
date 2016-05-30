@@ -10,12 +10,11 @@ case class Predicate(lhs: ArithExpr, rhs: ArithExpr, op: Predicate.Operator.Oper
 
   override lazy val toString: String = s"($lhs $op $rhs)"
 
-  def ??(thenblock: ArithExpr) = {
-    val predicate = this
-    new {
-      def !!(els: ArithExpr) = SimplifyIfThenElse(predicate, thenblock, els)
-    }
+  sealed class IfWithoutElse(predicate: Predicate, thenBlock: ArithExpr) {
+    def !!(elseBlock: ArithExpr) = SimplifyIfThenElse(predicate, thenBlock, elseBlock)
   }
+
+  def ??(thenBlock: ArithExpr) = new IfWithoutElse(this, thenBlock)
 
   val digest: Int = 0x7c6736c0 ^ lhs.digest() ^ rhs.digest() ^ op.hashCode()
 }

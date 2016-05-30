@@ -4,6 +4,8 @@ version := "1.0"
 
 scalaVersion := "2.11.8"
 
+scalacOptions ++= Seq("-Xmax-classfile-name", "100", "-unchecked", "-deprecation", "-feature")
+
 scalaSource in Compile <<= baseDirectory(_ / "src/main")
 
 scalaSource in Test <<= baseDirectory(_ / "src/test")

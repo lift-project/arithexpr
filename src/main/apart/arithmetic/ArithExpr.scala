@@ -665,7 +665,7 @@ object ArithExpr {
 
     case IfThenElse(_, _, _) => throw NotEvaluable
 
-    case ? | NegInf | PosInf | Var(_) | ArithExprFunction(_, _) => throw NotEvaluable
+    case ? | NegInf | PosInf | _: Var | _: ArithExprFunction | _: SimplifiedExpr => throw NotEvaluable
   }
 
 
