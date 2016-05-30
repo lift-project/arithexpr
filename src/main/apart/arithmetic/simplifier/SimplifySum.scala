@@ -78,7 +78,7 @@ object SimplifySum {
    */
   def simplify(lhs: ArithExpr, rhs: ArithExpr): Option[ArithExpr] = (lhs, rhs) match {
 
-    case (?,_) | (_,?) => Some(?)
+    case (apart.arithmetic.?,_) | (_,apart.arithmetic.?) => Some( apart.arithmetic.? )
 
     case (PosInf, NegInf) | (NegInf, PosInf) => Some(?)
     case (PosInf, _) | (_, PosInf) => Some(PosInf)

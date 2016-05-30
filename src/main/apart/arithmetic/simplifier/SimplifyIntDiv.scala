@@ -4,22 +4,22 @@ package simplifier
 
 object SimplifyIntDiv {
 
-  private def simplifyIntDivConstants(factors: List[ArithExpr], denomFactors: List[ArithExpr]): Option[ArithExpr] = {
-    val (numerConstant, numerother) = factors.partition(_.isInstanceOf[Cst])
-    val (denomConstant, demonother) = denomFactors.partition(_.isInstanceOf[Cst])
-
-    if (denomConstant.nonEmpty && numerConstant.nonEmpty)
-      ExprSimplifier(numerConstant.head /^ denomConstant.head) match {
-        case Pow(b, e) =>
-          Some((e * Cst(-1) :: numerother).reduce(_*_) / (b :: demonother).reduce(_*_))
-        case c: Cst =>
-          val numer = if(numerother.nonEmpty) (c :: numerother).reduce(_*_) else c
-          val denom = if(demonother.nonEmpty) demonother.reduce(_*_) else Cst(1)
-          Some(numer / denom)
-        case _ => None
-      }
-    else None
-  }
+//  private def simplifyIntDivConstants(factors: List[ArithExpr], denomFactors: List[ArithExpr]): Option[ArithExpr] = {
+//    val (numerConstant, numerother) = factors.partition(_.isInstanceOf[Cst])
+//    val (denomConstant, demonother) = denomFactors.partition(_.isInstanceOf[Cst])
+//
+//    if (denomConstant.nonEmpty && numerConstant.nonEmpty)
+//      ExprSimplifier(numerConstant.head /^ denomConstant.head) match {
+//        case Pow(b, e) =>
+//          Some((e * Cst(-1) :: numerother).reduce(_*_) / (b :: demonother).reduce(_*_))
+//        case c: Cst =>
+//          val numer = if(numerother.nonEmpty) (c :: numerother).reduce(_*_) else c
+//          val denom = if(demonother.nonEmpty) demonother.reduce(_*_) else Cst(1)
+//          Some(numer / denom)
+//        case _ => None
+//      }
+//    else None
+//  }
 
   /**
    * Try to replace the expression with an equivalent simplified expression.
@@ -30,7 +30,7 @@ object SimplifyIntDiv {
    */
   private def simplify(numerator: ArithExpr, denominator: ArithExpr): Option[ArithExpr] = (numerator, denominator) match {
 
-    case (?,_) | (_,?) => Some(?)
+    case (apart.arithmetic.?,_) | (_,apart.arithmetic.?) => Some( apart.arithmetic.? )
 
     case (PosInf, PosInf) | (NegInf, NegInf) | (PosInf, NegInf) | (NegInf, PosInf)  => Some(?)
     case (_, PosInf) => Some(0)
