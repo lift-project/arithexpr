@@ -90,7 +90,7 @@ class TestExpr {
     }
   }
 
-  @Test def testRandom() {
+  @Test def testRandom(): Unit = {
 
     for (a <- 1 to 10) {
       val re = rndExpr(3)
@@ -104,7 +104,7 @@ class TestExpr {
     }
   }
 
-  @Test def testSimplification() {
+  @Test def testSimplification(): Unit = {
 
     val c0 = Cst(0)
     val c1 = Cst(1)
@@ -119,7 +119,7 @@ class TestExpr {
     val N = SizeVar("N")
     val v = Var("v", RangeAdd(0,N,1))
     val result = v/N
-    assertEquals(result, Cst(0))
+    assertEquals(Cst(0), result)
   }
 
   @Test def Division(): Unit = {
@@ -228,6 +228,7 @@ class TestExpr {
     assertEquals(i, actual)
   }
 
+  //noinspection ScalaUnnecessaryParentheses
   @Test def modTransposeTwicePadFull(): Unit = {
     val M = SizeVar("M")
     val N = SizeVar("N")
@@ -244,6 +245,7 @@ class TestExpr {
     assertEquals(gold, actual)
   }
 
+  //noinspection ScalaUnnecessaryParentheses
   @Test def modTransposePadTransposePadPart(): Unit = {
     val M = SizeVar("M")
     val N = SizeVar("N")
@@ -399,11 +401,11 @@ class TestExpr {
     assertEquals(Cst(0), (N * M) % N)
   }
 
-  @Test def OneByOne() {
+  @Test def OneByOne(): Unit = {
     assertEquals(Cst(1), Cst(1) /^ Cst(1))
   }
 
-  @Test def NByN() {
+  @Test def NByN(): Unit = {
     val N = SizeVar("N")
     assertEquals(Cst(1), N /^ N)
   }
@@ -467,7 +469,7 @@ class TestExpr {
     assertEquals(Cst(5), Cst(-1) * Cst(-5))
   }
 
-  @Test def isSmallerTestVar(): Unit = {
+  @Test def testIsSmallerVar(): Unit = {
     val n = SizeVar("N")
 
     assert(ArithExpr.isSmaller(n/^2,n).get)
@@ -562,7 +564,7 @@ class TestExpr {
 
   @Test
   def minFunction(): Unit = {
-    import ArithExpr.Math._
+    import apart.arithmetic.ArithExpr.Math._
 
     // comparing 0 and 1
     assertEquals(Cst(0), Min(Cst(0),Cst(1)))
@@ -586,7 +588,7 @@ class TestExpr {
 
   @Test
   def maxFunction(): Unit = {
-    import ArithExpr.Math._
+    import apart.arithmetic.ArithExpr.Math._
 
     // comparing 0 and 1
     assertEquals(Cst(1), Max(Cst(0),Cst(1)))
@@ -627,7 +629,7 @@ class TestExpr {
   }
 
   @Test
-  def isSmallerTest(): Unit = {
+  def testIsSmaller(): Unit = {
     val i = Var("i", ContinuousRange(0, 2))
     val id = Var("id", ContinuousRange(0, 5))
     assert(!ArithExpr.isSmaller(id + 4*i, 8).getOrElse(false))

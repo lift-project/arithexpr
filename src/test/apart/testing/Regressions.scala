@@ -8,6 +8,7 @@ import org.junit.Test
 /**
  * Contains the generated expression failing the C cross validation
  */
+//noinspection ScalaUnnecessaryParentheses
 class Regressions {
   val a = Var("a")
   val b = Var("b")
@@ -44,7 +45,7 @@ class Regressions {
   }
 
   @Test def expr5(): Unit = {
-    val expr = (a pow 2) + (3*1/ 32 *1/ 5 *1/ 13 *a)
+    (a pow 2) + (3*1/ 32 *1/ 5 *1/ 13 *a)
   }
 
   @Test def expr6(): Unit = {
@@ -54,7 +55,7 @@ class Regressions {
   }
 
   @Test def expr7(): Unit = {
-    val expr = (3*a*b)
+    (3*a*b)
     assertEquals(a*b*11, a*b*6 + a*b*5)
     assertNotEquals(a*b*11, a*b*6 + a*5)
   }
@@ -96,8 +97,8 @@ class Regressions {
   }
 
   @Test def expr11(): Unit = {
-    val v_l_id_8 = new Var("a")
-    val v_l_id_7 = new Var("b")
+    val v_l_id_8 = Var("a")
+    val v_l_id_7 = Var("b")
 
     assertNotEquals(v_l_id_7 % 8, (((v_l_id_8 * 4) + v_l_id_7) % 8) * 1)
     assertEquals((v_l_id_8 * 4) + v_l_id_7, 0 + ((((v_l_id_8 * 4) + v_l_id_7) / 8) * 8 * 1) + ((((v_l_id_8 * 4) + v_l_id_7) % 8) * 1))
@@ -107,7 +108,6 @@ class Regressions {
   def divPlusModOfSumMultipliedConstants(): Unit = {
     val a = Var("a")
     val b = Var("b")
-    val d = Cst(2)
     val x = Cst(8)
 
     assertEquals(x * Cst(4) * (a+b), x * (Cst(4) * (a + b) / Cst(16)) * Cst(16) + x * (Cst(4) * (a + b) % Cst(16)))
