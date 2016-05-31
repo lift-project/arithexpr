@@ -105,8 +105,8 @@ object SimplifyMod {
   def apply(dividend: ArithExpr, divisor: ArithExpr): ArithExpr = {
     val simplificationResult = if (PerformSimplification()) simplify(dividend, divisor) else None
     simplificationResult match {
-      case Some(toReturn) => toReturn
-      case None => new Mod(dividend, divisor) with SimplifiedExpr
+      case Some(toReturn) => println(s"$dividend % $divisor simplified to $toReturn"); toReturn
+      case None => println(s"$dividend % $divisor not simplified"); new Mod(dividend, divisor) with SimplifiedExpr
     }
   }
 }

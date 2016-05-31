@@ -247,7 +247,7 @@ class TestExpr {
   @Test def modTransposePadTransposePadPart(): Unit = {
     val M = SizeVar("M")
     val N = SizeVar("N")
-    val j = Var("j", ContinuousRange(0, N))
+    val j = Var("j", ContinuousRange(0, N + 2))
     val i = Var("i", ContinuousRange(0, M + 2))
 
     val actual = (((((2 * i) + (i * N) + j) / (2 + N)) + ((((2 * i) + (i * N) + j) % (2 + N)) * 2) +
@@ -259,7 +259,7 @@ class TestExpr {
   @Test def divTransposePadTransposePadPart1(): Unit = {
     val M = SizeVar("M")
     val N = SizeVar("N")
-    val j = Var("j", ContinuousRange(0, N))
+    val j = Var("j", ContinuousRange(0, N + 2))
     val i = Var("i", ContinuousRange(0, M + 2))
 
     val actual = (((((2 * i) + (i * N) + j) / (2 + N)) + ((((2 * i) + (i * N) + j) % (2 + N)) * 2) + ((((2 * i) +
@@ -270,7 +270,7 @@ class TestExpr {
   @Test def divTransposePadTransposePadPart2(): Unit = {
     val M = SizeVar("M")
     val N = SizeVar("N")
-    val j = Var("j", ContinuousRange(0, N))
+    val j = Var("j", ContinuousRange(0, N + 2))
     val i = Var("i", ContinuousRange(0, M + 2))
 
     val actual = (((((((2 * i) + (i * N) + j) / (2 + N)) + ((((2 * i) + (i * N) + j) % (2 + N)) * 2) + ((((2 * i) +
@@ -286,7 +286,7 @@ class TestExpr {
   @Test def divTransposePadTransposePadPart3(): Unit = {
     val M = SizeVar("M")
     val N = SizeVar("N")
-    val j = Var("j", ContinuousRange(0, N))
+    val j = Var("j", ContinuousRange(0, N + 2))
     val i = Var("i", ContinuousRange(0, M + 2))
 
     val actual = (((((((((2 * i) + (i * N) + j) / (2 + N)) + ((((2 * i) + (i * N) + j) % (2 + N)) * 2) + ((((2 * i) +
@@ -298,7 +298,7 @@ class TestExpr {
   @Test def divTransposePadTransposePadPart4(): Unit = {
     val M = SizeVar("M")
     val N = SizeVar("N")
-    val j = Var("j", ContinuousRange(0, N))
+    val j = Var("j", ContinuousRange(0, N + 2))
     val i = Var("i", ContinuousRange(0, M + 2))
 
     val actual = ((((((-1 + j) % N) + N) % N) + ((((((((-1 + j) % N) + N) % N) * 2) +
@@ -309,7 +309,7 @@ class TestExpr {
   @Test def divTransposePadTransposePadPart5(): Unit = {
     val M = SizeVar("M")
     val N = SizeVar("N")
-    val j = Var("j", ContinuousRange(0, N))
+    val j = Var("j", ContinuousRange(0, N + 2))
     val i = Var("i", ContinuousRange(0, M + 2))
     val actual = (((((((-1 + j) % N) + N) % N) * 2) + (((((-1 + j) % N) + N) % N) * M) + i) % (2 + M))
     assertEquals(i, actual)
@@ -318,7 +318,7 @@ class TestExpr {
   @Test def divTransposePadTransposePadPart6(): Unit = {
     val M = SizeVar("M")
     val N = SizeVar("N")
-    val j = Var("j", ContinuousRange(0, N))
+    val j = Var("j", ContinuousRange(0, N + 2))
     val i = Var("i", ContinuousRange(0, M + 2))
     val actual = ((((((-1 + j) % N) + N) % N) + (i * N)) % N)
     assertEquals((((j-1) % N) + N) % N, actual)
@@ -327,7 +327,7 @@ class TestExpr {
   @Test def divTransposePadTransposePadPart7(): Unit = {
     val M = SizeVar("M")
     val N = SizeVar("N")
-    val j = Var("j", ContinuousRange(0, N))
+    val j = Var("j", ContinuousRange(0, N + 2))
     val i = Var("i", ContinuousRange(0, M + 2))
     val actual = (((((-1 + j) % N) + N) % N) / N)
     assertEquals(Cst(0), actual)
@@ -336,7 +336,7 @@ class TestExpr {
   @Test def divTransposePadTransposePadPart8(): Unit = {
     val M = SizeVar("M")
     val N = SizeVar("N")
-    val j = Var("j", ContinuousRange(0, N))
+    val j = Var("j", ContinuousRange(0, N + 2))
     val i = Var("i", ContinuousRange(0, M + 2))
     val actual = ((((((((j-1) % N )+ N) % N) * M) + (((((j-1) % N) + N) % N)*2)+i)) / (((M*N)+(2*N))))
     assertEquals(Cst(0), actual)
@@ -345,7 +345,7 @@ class TestExpr {
   @Test def divTransposePadTransposePadPart9(): Unit = {
     val M = SizeVar("M")
     val N = SizeVar("N")
-    val j = Var("j", ContinuousRange(0, N))
+    val j = Var("j", ContinuousRange(0, N + 2))
     val i = Var("i", ContinuousRange(0, M + 2))
     val actual = (((M * j) + (4 * j) + i) / (4 + M))
     assertEquals(j, actual)
@@ -354,7 +354,7 @@ class TestExpr {
   @Test def divTransposePadTransposePadPart10(): Unit = {
     val M = SizeVar("M")
     val N = SizeVar("N")
-    val j = Var("j", ContinuousRange(0, N))
+    val j = Var("j", ContinuousRange(0, N + 2))
     val i = Var("i", ContinuousRange(0, M + 2))
     val actual = (((4*i)+(i*N)+j)) / ((4+N))
     assertEquals(i, actual)
@@ -363,7 +363,7 @@ class TestExpr {
   @Test def divTransposePadTransposePadPart11(): Unit = {
     val M = SizeVar("M")
     val N = SizeVar("N")
-    val j = Var("j", ContinuousRange(0, N))
+    val j = Var("j", ContinuousRange(0, N + 2))
     val i = Var("i", ContinuousRange(0, M + 2))
     val actual = (((((((-2 + j) % N) + N) % N) * 4) + (((((-2 + j) % N) + N) % N) * M) + i)) / ((4 + M))
     assertEquals((((j-2) % N) + N) % N, actual)
@@ -372,7 +372,7 @@ class TestExpr {
   @Test def divTransposePadTransposePadPartFull(): Unit = {
     val M = SizeVar("M")
     val N = SizeVar("N")
-    val j = Var("j", ContinuousRange(0, N))
+    val j = Var("j", ContinuousRange(0, N + 2))
     val i = Var("i", ContinuousRange(0, M + 2))
     val actual = ((((((((((2 * i) + (i * N) + j) / (2 + N)) + ((((2 * i) + (i * N) + j) % (2 + N)) * 2) + ((((2 * i) +
       (i * N) + j) % (2 + N)) * M)) % (2 + M)) + ((((((((((2 * i) + (i * N) + j) / (2 + N)) + ((((2 * i) + (i * N) +

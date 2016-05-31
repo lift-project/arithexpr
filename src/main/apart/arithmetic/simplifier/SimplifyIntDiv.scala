@@ -88,6 +88,17 @@ object SimplifyIntDiv {
         ArithExpr.isSmaller(ae3, Prod(Sum(m1 :: Cst(c1) :: Nil) :: n1 :: Nil)).getOrElse(false) =>
       Some(Cst(0))
 
+      case (Sum(
+              Prod(Mod((ae2: ArithExpr), (n2:Var)) :: Cst(c1) :: Nil) ::
+              Prod(Mod((ae1: ArithExpr), (n1:Var)) :: (m1:Var) :: Nil) ::
+              (ae3: ArithExpr) :: Nil),
+          Sum(
+              Prod((m2:Var) :: (n3:Var) :: Nil) ::
+              Prod(Cst(c2) :: (n4: Var) :: Nil) :: Nil))
+      if m1 == m2 && n1 == n2 && n1 == n3 && n1 == n4 && c1 == c2 &&
+        ArithExpr.isSmaller(ae3, Prod(Sum(m1 :: Cst(c1) :: Nil) :: n1 :: Nil)).getOrElse(false) =>
+      Some(Cst(0))
+
     // (j * (c + m) + i) / (c + m) = j true if i < (4+M)
     case (Sum(
               Prod((m1: Var) :: (j1: ArithExpr) :: Nil) ::
