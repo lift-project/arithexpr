@@ -13,6 +13,29 @@ object SimplifyMod {
     case (x, y) if !y.simplified => Some(x % ExprSimplifier(y))
 
      // special cases: todo combine the cases which only differ in order
+      // Ni + nk + 2i + 2k + j % 2+N = (N+2)(i+k)+j % 2+N = j%(2+N)
+    case (Sum(
+              Prod(Cst(c1) :: (i2:Var) :: Nil) ::
+              Prod((i1:Var) :: (n1:Var) :: Nil) ::
+              Prod((n2:Var) :: (k1:Var) :: Nil) ::
+              Prod(Cst(c2) :: (k2:Var) :: Nil) ::
+              (j:Var) ::
+              Nil),
+          Sum(Cst(c3) :: (n3:Var) :: Nil))
+      if n1 == n2 && n1 == n3 && i1 == i2 && k1 == k2 && c1 == c2 && c1 == c3 =>
+      Some(SimplifyMod(j, Sum(Cst(c3) :: (n3:Var) :: Nil)))
+
+    case (Sum(
+              Prod((n1:Var) :: (i1:Var) :: Nil) ::
+              Prod((n2:Var) :: (k1:Var) :: Nil) ::
+              Prod(Cst(c1) :: (i2:Var) :: Nil) ::
+              Prod(Cst(c2) :: (k2:Var) :: Nil) ::
+              (j:Var) ::
+              Nil),
+          Sum(Cst(c3) :: (n3:Var) :: Nil))
+      if n1 == n2 && n1 == n3 && i1 == i2 && k1 == k2 && c1 == c2 && c1 == c3 =>
+      Some(SimplifyMod(j, Sum(Cst(c3) :: (n3:Var) :: Nil)))
+
     case (Sum(
               Prod(Cst(c1) :: (a2:ArithExpr) :: Nil) ::
               Prod((a1:ArithExpr) :: (m1: Var) :: Nil) ::
@@ -48,6 +71,17 @@ object SimplifyMod {
           Sum(Cst(c2) :: (m2: Var) :: Nil))
       if m1 == m2 && a1 == a2 && c1 == c2 =>
       Some(SimplifyMod(e, Sum(Cst(c1) :: m1 :: Nil)))
+
+    // j(2+m) + k + i % 2+m = i+k % 2+m
+    case (Sum(
+              Prod(Cst(c1) :: (a2:ArithExpr) :: Nil) ::
+              Prod((a1:ArithExpr) :: (m1: Var) :: Nil) ::
+              (k:ArithExpr) ::
+              (i:ArithExpr) ::
+              Nil),
+          Sum(Cst(c2) :: (m2: Var) :: Nil))
+      if m1 == m2 && a1 == a2 && c1 == c2 =>
+      Some(SimplifyMod(Sum(k :: i :: Nil), Sum(Cst(c1) :: m1 :: Nil)))
 
       // (AE1 % N + AE2 * N) % N = AE1 % N
     case (Sum(

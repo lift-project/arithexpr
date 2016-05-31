@@ -77,6 +77,32 @@ object SimplifyIntDiv {
     case (Mod(ae1:ArithExpr, div1: ArithExpr), (div2: ArithExpr)) if (div1 == div2) => Some(Cst(0))
 
     // special cases //todo combine cases which only differ in order of args
+    // Ni + nk + 2i + 2k + j % 2+N = (i+k) true if j < N+2
+    case (Sum(
+              Prod((Cst(c1)) :: (i2:Var) :: Nil) ::
+              Prod((i1:Var) :: (n1:Var) :: Nil) ::
+              Prod((n2:Var) :: (k1:Var) :: Nil) ::
+              Prod((Cst(c2)) :: (k2:Var) :: Nil) ::
+              (j:Var) ::
+              Nil),
+         Sum((Cst(c3)) :: (n3:Var) :: Nil))
+      if n1 == n2 && n1 == n3 && i1 == i2 && k1 == k2 && c1 == c2 && c1 == c3 &&
+          ArithExpr.isSmaller(j,Sum(Cst(c3) :: (n3:Var) :: Nil)).getOrElse(false) =>
+      Some(Sum((i1:Var) :: (k1:Var) :: Nil))
+
+    case (Sum(
+              Prod((n1:Var) :: (i1:Var) :: Nil) ::
+              Prod((n2:Var) :: (k1:Var) :: Nil) ::
+              Prod((Cst(c1)) :: (i2:Var) :: Nil) ::
+              Prod((Cst(c2)) :: (k2:Var) :: Nil) ::
+              (j:Var) ::
+              Nil),
+         Sum(Cst(c3) :: (n3:Var) :: Nil))
+      if n1 == n2 && n1 == n3 && i1 == i2 && k1 == k2 && c1 == c2 && c1 == c3 &&
+          ArithExpr.isSmaller(j,Sum(Cst(c3) :: (n3:Var) :: Nil)).getOrElse(false) =>
+      Some(Sum((i1:Var) :: (k1:Var) :: Nil))
+
+
      case (Sum(
               Prod(Mod((ae1: ArithExpr), (n1:Var)) :: (m1:Var) :: Nil) ::
               Prod(Mod((ae2: ArithExpr), (n2:Var)) :: Cst(c1) :: Nil) ::
