@@ -20,7 +20,25 @@ object SimplifyMod {
               Nil),
           Sum(Cst(c2) :: (m2: Var) :: Nil))
       if m1 == m2 && a1 == a2 && c1 == c2 =>
-      Some(Mod(e, Sum(Cst(c1) :: m1 :: Nil)))
+      Some(SimplifyMod(e, Sum(Cst(c1) :: m1 :: Nil)))
+
+    case (Sum(
+              Prod((a2:ArithExpr) :: Cst(c1) :: Nil) ::
+              Prod((a1:ArithExpr) :: (m1: Var) :: Nil) ::
+              (e:ArithExpr) ::
+              Nil),
+          Sum(Cst(c2) :: (m2: Var) :: Nil))
+      if m1 == m2 && a1 == a2 && c1 == c2 =>
+      Some(SimplifyMod(e, Sum(Cst(c1) :: m1 :: Nil)))
+
+    case (Sum(
+              Prod((a1:ArithExpr) :: (m1: Var) :: Nil) ::
+              Prod((a2:ArithExpr) :: Cst(c1) :: Nil) ::
+              (e:ArithExpr) ::
+              Nil),
+          Sum(Cst(c2) :: (m2: Var) :: Nil))
+      if m1 == m2 && a1 == a2 && c1 == c2 =>
+      Some(SimplifyMod(e, Sum(Cst(c1) :: m1 :: Nil)))
 
     case (Sum(
               (e:ArithExpr) ::
@@ -30,6 +48,15 @@ object SimplifyMod {
           Sum(Cst(c2) :: (m2: Var) :: Nil))
       if m1 == m2 && a1 == a2 && c1 == c2 =>
       Some(SimplifyMod(e, Sum(Cst(c1) :: m1 :: Nil)))
+
+      // (AE1 % N + AE2 * N) % N = AE1 % N
+    case (Sum(
+              (Mod(ae1, n1)) ::
+              Prod((ae2: ArithExpr) :: (n2:Var) :: Nil) ::
+              Nil),
+          (n3:Var))
+      if n1 == n2 && n1 == n3 =>
+      Some(SimplifyMod(ae1, n1))
 
     // (((M * j) + (2 * j) + i) % (2 + M))  == (j * (M + 2) + i) % (M + 2) == i % (M + 2)
     case (Sum(Prod((m1: Var) :: (j1:Var) :: Nil) ::
@@ -49,8 +76,6 @@ object SimplifyMod {
     case (x, y) if x == y => Some(Cst(0))
 
     case (x, y) if ArithExpr.isSmaller(abs(x), abs(y)).getOrElse(false) => Some(x)
-
-    case (x, y) if ArithExpr.multipleOf(x, y) => Some(Cst(0))
     case (m: Mod, divisor) if m.divisor == divisor => Some(m)
 
     // If the divident is a product, try to find the divisor. Finding the GCD below should make this redundant, but the
@@ -72,14 +97,16 @@ object SimplifyMod {
       if (multiple.nonEmpty && !ArithExpr.mightBeNegative(shorterSum)) Some(shorterSum % d)
       else None
 
+    case (x, y) if ArithExpr.multipleOf(x, y) => Some(Cst(0))
+
     case _ => None
   }
 
   def apply(dividend: ArithExpr, divisor: ArithExpr): ArithExpr = {
     val simplificationResult = if (PerformSimplification()) simplify(dividend, divisor) else None
     simplificationResult match {
-      case Some(toReturn) => toReturn
-      case None => new Mod(dividend, divisor) with SimplifiedExpr
+      case Some(toReturn) => println(s"$dividend % $divisor simplified to $toReturn"); toReturn
+      case None => println(s"$dividend % $divisor not simplified"); new Mod(dividend, divisor) with SimplifiedExpr
     }
   }
 }

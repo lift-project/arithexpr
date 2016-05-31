@@ -255,6 +255,129 @@ class TestExpr {
     assertEquals(i, actual)
   }
 
+
+  @Test def divTransposePadTransposePadPart1(): Unit = {
+    val M = SizeVar("M")
+    val N = SizeVar("N")
+    val j = Var("j", ContinuousRange(0, N))
+    val i = Var("i", ContinuousRange(0, M + 2))
+
+    val actual = (((((2 * i) + (i * N) + j) / (2 + N)) + ((((2 * i) + (i * N) + j) % (2 + N)) * 2) + ((((2 * i) +
+      (i * N) + j) % (2 + N)) * M)) / (2 + M))
+    assertEquals(j, actual)
+  }
+
+  @Test def divTransposePadTransposePadPart2(): Unit = {
+    val M = SizeVar("M")
+    val N = SizeVar("N")
+    val j = Var("j", ContinuousRange(0, N))
+    val i = Var("i", ContinuousRange(0, M + 2))
+
+    val actual = (((((((2 * i) + (i * N) + j) / (2 + N)) + ((((2 * i) + (i * N) + j) % (2 + N)) * 2) + ((((2 * i) +
+      (i * N) + j) % (2 + N)) * M)) % (2 + M)) + ((((((((((2 * i) + (i * N) + j) / (2 + N)) + ((((2 * i) + (i * N) +
+      j) % (2 + N)) * 2) + ((((2 * i) + (i * N) + j) % (2 + N)) * M)) / (2 + M)) + -1)     % (((N * M) + (2 * N)) /
+      (2 + M))) + (((N * M) + (2 * N)) / (2 + M))) % (((N * M) + (2 * N)) / (2 + M))) * M) + ((((((((((2 * i) +
+      (i * N) + j) / (2     + N)) + ((((2 * i) + (i * N) + j) % (2 + N)) * 2) + ((((2 * i) + (i * N) + j) % (2 + N)) *
+      M)) / (2 + M)) + -1) % (((N * M) + (2 * N)) / (2 + M))) + (((N * M) + (2 * N)) / (2 + M))) % (((N * M) +
+      (2 * N)) / (2 + M))) * 2)) / (2 + M))
+    assertEquals((((j-1) % N) + N) % N, actual)
+  }
+
+  @Test def divTransposePadTransposePadPart3(): Unit = {
+    val M = SizeVar("M")
+    val N = SizeVar("N")
+    val j = Var("j", ContinuousRange(0, N))
+    val i = Var("i", ContinuousRange(0, M + 2))
+
+    val actual = (((((((((2 * i) + (i * N) + j) / (2 + N)) + ((((2 * i) + (i * N) + j) % (2 + N)) * 2) + ((((2 * i) +
+      (i * N) + j) % (2 + N)) * M)) / (2 + M)) + -1) % (((N * M) + (2 * N)) / (2 + M))) + (((N * M) + (2 * N)) /
+      (2 + M))) % (((N * M) + (2 * N)) / (2 + M)))
+    assertEquals((((j-1) % N) + N) % N, actual)
+  }
+
+  @Test def divTransposePadTransposePadPart4(): Unit = {
+    val M = SizeVar("M")
+    val N = SizeVar("N")
+    val j = Var("j", ContinuousRange(0, N))
+    val i = Var("i", ContinuousRange(0, M + 2))
+
+    val actual = ((((((-1 + j) % N) + N) % N) + ((((((((-1 + j) % N) + N) % N) * 2) +
+      (((((-1 + j) % N) + N) % N) * M) + i) % (2 + M)) * N)) % N)
+    assertEquals((((j-1) % N) + N) % N, actual)
+  }
+
+  @Test def divTransposePadTransposePadPart5(): Unit = {
+    val M = SizeVar("M")
+    val N = SizeVar("N")
+    val j = Var("j", ContinuousRange(0, N))
+    val i = Var("i", ContinuousRange(0, M + 2))
+    val actual = (((((((-1 + j) % N) + N) % N) * 2) + (((((-1 + j) % N) + N) % N) * M) + i) % (2 + M))
+    assertEquals(i, actual)
+  }
+
+  @Test def divTransposePadTransposePadPart6(): Unit = {
+    val M = SizeVar("M")
+    val N = SizeVar("N")
+    val j = Var("j", ContinuousRange(0, N))
+    val i = Var("i", ContinuousRange(0, M + 2))
+    val actual = ((((((-1 + j) % N) + N) % N) + (i * N)) % N)
+    assertEquals((((j-1) % N) + N) % N, actual)
+  }
+
+  @Test def divTransposePadTransposePadPart7(): Unit = {
+    val M = SizeVar("M")
+    val N = SizeVar("N")
+    val j = Var("j", ContinuousRange(0, N))
+    val i = Var("i", ContinuousRange(0, M + 2))
+    val actual = (((((-1 + j) % N) + N) % N) / N)
+    assertEquals(Cst(0), actual)
+  }
+
+  @Test def divTransposePadTransposePadPart8(): Unit = {
+    val M = SizeVar("M")
+    val N = SizeVar("N")
+    val j = Var("j", ContinuousRange(0, N))
+    val i = Var("i", ContinuousRange(0, M + 2))
+    val actual = ((((((((j-1) % N )+ N) % N) * M) + (((((j-1) % N) + N) % N)*2)+i)) / (((M*N)+(2*N))))
+    assertEquals(Cst(0), actual)
+  }
+
+  @Test def divTransposePadTransposePadPartFull(): Unit = {
+    val M = SizeVar("M")
+    val N = SizeVar("N")
+    val j = Var("j", ContinuousRange(0, N))
+    val i = Var("i", ContinuousRange(0, M + 2))
+    val actual = ((((((((((2 * i) + (i * N) + j) / (2 + N)) + ((((2 * i) + (i * N) + j) % (2 + N)) * 2) + ((((2 * i) +
+      (i * N) + j) % (2 + N)) * M)) % (2 + M)) + ((((((((((2 * i) + (i * N) + j) / (2 + N)) + ((((2 * i) + (i * N) +
+      j) % (2 + N)) * 2) + ((((2 * i) + (i * N) + j) % (2 + N)) * M)) / (2 + M)) + -1) % (((N * M) + (2 * N)) /
+      (2 + M))) + (((N * M) + (2 * N)) / (2 + M))) % (((N * M) + (2 * N)) / (2 + M))) * M) + ((((((((((2 * i) +
+      (i * N) + j) / (2 + N)    ) + ((((2 * i) + (i * N) + j) % (2 + N)) * 2) + ((((2 * i) + (i * N) + j) % (2 + N)) *
+      M)) / (2 + M)) + -1) % (((N * M) + (2 * N)) / (2 + M))) + (((N * M) + (2 * N)) / (2 + M))) % (((N * M) +
+      (2 * N)) / (2 + M))) * 2)) / (2 + M)) + ((((((((2 * i) + (i * N) + j) / (2 + N)) + ((((2 * i) + (i * N) + j) %
+      (2 + N)) * 2) + ((((2 * i) + (i * N) + j) % (2 + N)) * M)) % (2 + M)) + ((((((((((2 * i) + (i * N) + j) /
+      (2 + N)) + ((((2 * i) + (i * N) + j) % (2 + N)) * 2) + ((((2 * i) + (i * N) + j) % (2 + N)) * M)) / (2 + M)) +
+      -1) % (((N * M) + (2 * N)) / (2 + M))) + (((N * M) + (2 * N)) / (2 + M))) % (((N * M) + (2 * N)) / (2 + M))) *
+      M) + ((((((((((2 * i) + (i * N) + j) / (2 + N)) + ((((2 * i) + (i * N) + j) % (2 + N)) * 2) + ((((2 * i) +
+      (i * N) + j) % (2 + N)) * M)) / (2 + M)) + -1) % (((N * M) + (2 * N)) / (2 + M))) + (((N * M) + (2 * N)) /
+      (2 + M))) % (((N * M) + (2 * N)) / (2 + M))) * 2)) % (2 + M)) * N)) % N) + ((((((((((((2 * i) + (i * N) + j) /
+      (2 + N)) + ((((2 * i) + (i * N) + j) % (2 + N)) * 2) + ((((2 * i) + (i * N) + j) % (2 + N)) * M)) % (2 + M)) +
+      ((((((((((2 * i) + (i * N) + j) / (2 + N)) + ((((2 * i) + (i * N) + j) % (2 + N)) * 2) + ((((2 * i) +
+      (i * N) + j) % (2 + N)) * M)) / (2 + M)) + -1) % (((N * M) + (2 * N)) / (2 + M))) + (((N * M) + (2 * N)) /
+      (2 + M))) % (((N * M) + (2 * N)) / (2 + M))) * M) + ((((((((((2 * i) + (i * N) + j) / (2 + N)) + ((((2 * i) +
+      (i * N) + j) % (2 + N)) * 2) + ((((2 * i) + (i * N) + j) % (2 + N)) * M)) / (2 + M)) + -1) % (((N * M) +
+      (2 * N)) / (2 + M))) + (((N * M) + (2 * N)) / (2 + M))) % (((N * M) + (2 * N)) / (2 + M))) * 2)) % (2 + M)) +
+      (((((((2 * i) + (i * N) + j) / (2 + N)) + ((((2 * i) + (i * N) + j) % (2 + N)) * 2) + ((((2 * i) + (i * N) +
+      j) % (2 + N)) * M)) % (2 + M)) + ((((((((((2 * i) + (i * N) + j) / (2 + N)) + ((((2 * i) + (i * N) + j) %
+      (2 + N)) * 2) + ((((2 * i) + (i * N) + j) % (2 + N)) * M)) / (2 + M)) + -1) % (((N * M) + (2 * N)) /
+      (2 + M))) + (((N * M    ) + (2 * N)) / (2 + M))) % (((N * M) + (2 * N)) / (2 + M))) * M) + ((((((((((2 * i) +
+      (i * N) + j) / (2 + N)) + ((((2 * i) + (i * N) + j) % (2 + N)) * 2) + ((((2 * i) + (i * N) + j) % (2 + N)) *
+      M)) / (2 + M)) + -1) % (((N * M) + (2 * N)) / (2 + M))) + (((N * M) + (2 * N)) / (2 + M))) % (((N * M) +
+      (2 * N)) / (2 + M))) * 2)) / ((N * M) + (2 * N))) + -1) % M) + M) % M) * N))
+    val gold = (((((-1 + j) % N) + N) % N) + (((((-1 + i) % M) + M) % M) * N))
+    assertEquals(gold, actual)
+
+  }
+
   @Test def modOfVarWithConstantRange(): Unit = {
     val c =  Cst(10)
     val i = Var(ContinuousRange(0,c))
