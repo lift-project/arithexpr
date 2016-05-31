@@ -88,6 +88,34 @@ object SimplifyIntDiv {
         ArithExpr.isSmaller(ae3, Prod(Sum(m1 :: Cst(c1) :: Nil) :: n1 :: Nil)).getOrElse(false) =>
       Some(Cst(0))
 
+    // (j * (c + m) + i) / (c + m) = j true if i < (4+M)
+    case (Sum(
+              Prod((m1: Var) :: (j1: ArithExpr) :: Nil) ::
+              Prod(Cst(c1) :: (j2: ArithExpr) :: Nil) ::
+              (i:Var) ::
+              Nil),
+          Sum(Cst(c2) :: (m2: Var) :: Nil))
+      if m1 == m2 && j1 == j2 && c1 == c2 && ArithExpr.isSmaller(i, Sum(Cst(c2) :: (m2: Var) :: Nil)).getOrElse(false) =>
+      Some(j1)
+
+    case (Sum(
+              Prod((i1: ArithExpr) :: Cst(c1) :: Nil) ::
+              Prod((i2: ArithExpr) :: (n1: Var) :: Nil) ::
+              (j:Var) ::
+              Nil),
+          Sum(Cst(c2) :: (n2: Var) :: Nil))
+      if n1 == n2 && i1 == i2 && c1 == c2 && ArithExpr.isSmaller(j, Sum(Cst(c2) :: (n2: Var) :: Nil)).getOrElse(false) =>
+      Some(i1)
+
+    case (Sum(
+              Prod(Cst(c1) :: (i1: ArithExpr) :: Nil) ::
+              Prod((i2: ArithExpr) :: (n1: Var) :: Nil) ::
+              (j:Var) ::
+              Nil),
+          Sum(Cst(c2) :: (n2: Var) :: Nil))
+      if n1 == n2 && i1 == i2 && c1 == c2 && ArithExpr.isSmaller(j, Sum(Cst(c2) :: (n2: Var) :: Nil)).getOrElse(false) =>
+      Some(i1)
+
     // recreate ((2+M) * (2+N)) / (2+M) = 2+N
     case (Sum(
               Cst(c1) ::

@@ -342,6 +342,33 @@ class TestExpr {
     assertEquals(Cst(0), actual)
   }
 
+  @Test def divTransposePadTransposePadPart9(): Unit = {
+    val M = SizeVar("M")
+    val N = SizeVar("N")
+    val j = Var("j", ContinuousRange(0, N))
+    val i = Var("i", ContinuousRange(0, M + 2))
+    val actual = (((M * j) + (4 * j) + i) / (4 + M))
+    assertEquals(j, actual)
+  }
+
+  @Test def divTransposePadTransposePadPart10(): Unit = {
+    val M = SizeVar("M")
+    val N = SizeVar("N")
+    val j = Var("j", ContinuousRange(0, N))
+    val i = Var("i", ContinuousRange(0, M + 2))
+    val actual = (((4*i)+(i*N)+j)) / ((4+N))
+    assertEquals(i, actual)
+  }
+
+  @Test def divTransposePadTransposePadPart11(): Unit = {
+    val M = SizeVar("M")
+    val N = SizeVar("N")
+    val j = Var("j", ContinuousRange(0, N))
+    val i = Var("i", ContinuousRange(0, M + 2))
+    val actual = (((((((-2 + j) % N) + N) % N) * 4) + (((((-2 + j) % N) + N) % N) * M) + i)) / ((4 + M))
+    assertEquals((((j-2) % N) + N) % N, actual)
+  }
+
   @Test def divTransposePadTransposePadPartFull(): Unit = {
     val M = SizeVar("M")
     val N = SizeVar("N")
