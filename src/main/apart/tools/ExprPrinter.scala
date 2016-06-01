@@ -37,10 +37,10 @@ object ExprPrinter {
         dump(divisor,depth+1)
       case Prod(factors) =>
         println("Prod")
-        factors.map(dump(_, depth+1))
+        factors.foreach(dump(_, depth+1))
       case Sum(terms) =>
         println("Sum")
-        terms.map(dump(_, depth+1))
+        terms.foreach(dump(_, depth+1))
       case IntDiv(n, d) =>
         println("IntDiv")
         dump(n,depth+1)
@@ -89,13 +89,13 @@ object ExprPrinter {
       node
     }
 
-    def addEdge(from: Int, to: Int) = {
+    def addEdge(from: Int, to: Int): Unit = {
       edges = (from,to) :: edges
     }
 
     def isSubgraph = subgraph
 
-    override def toString(): String = {
+    override def toString: String = {
       var str =
         if (!subgraph)
           """digraph G {

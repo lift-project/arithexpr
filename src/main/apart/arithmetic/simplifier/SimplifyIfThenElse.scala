@@ -12,7 +12,7 @@ object SimplifyIfThenElse {
       ExprSimplifier(test.lhs - test.rhs) match {
         case Cst(v) =>
           val op = test.op
-          import Predicate.Operator
+          import apart.arithmetic.Predicate.Operator
           // true predicate
           if ((v > 0 && (op == Operator.> || op == Operator.>=)) ||
             (v < 0 && (op == Operator.< || op == Operator.<=)) ||

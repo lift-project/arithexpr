@@ -34,7 +34,8 @@ abstract sealed class ArithExpr {
     */
   lazy val (min: ArithExpr, max: ArithExpr) = _minmax()
 
-  /** This method should only be used internally or in special cases where we want to customise the behaviour based on the variables
+  /** This method should only be used internally or in special cases where we want to customise the behaviour
+    * based on the variables
     */
   private def _minmax() : (ArithExpr, ArithExpr) =
   this match {
@@ -108,7 +109,8 @@ abstract sealed class ArithExpr {
 
   lazy val isEvaluable: Boolean = {
     !ArithExpr.visitUntil(this, x => {
-      x == PosInf || x == NegInf || x == ? || x.isInstanceOf[ArithExprFunction] || x.isInstanceOf[Var] || x.isInstanceOf[IfThenElse]
+      x == PosInf || x == NegInf || x == ? ||
+        x.isInstanceOf[ArithExprFunction] || x.isInstanceOf[Var] || x.isInstanceOf[IfThenElse]
     })
   }
 
@@ -619,7 +621,8 @@ object ArithExpr {
     }
   }
 
-  // TODO: needs to substitute range of functions (get_local_id for instance)  (the copy method is currently borken since it will generate a new id for the var)
+  // TODO: needs to substitute range of functions (get_local_id for instance)
+  // (the copy method is currently borken since it will generate a new id for the var)
   def substitute(e: ArithExpr, substitutions: scala.collection.Map[ArithExpr, ArithExpr]): ArithExpr =
     substitutions.getOrElse(e, e) match {
       case Pow(l, r) => substitute(l, substitutions) pow substitute(r, substitutions)
@@ -685,7 +688,6 @@ object ArithExpr {
     * Math operations derived from the basic operations
     */
   object Math {
-
     /**
       * Computes the minimal value between the two argument
       *
@@ -723,36 +725,23 @@ object ArithExpr {
       * @return The value x clamped to the interval [min,max]
       */
     def Clamp(x: ArithExpr, min: ArithExpr, max: ArithExpr) = Min(Max(x, min), max)
-
-    /**
-      * Computes the absolute value of the argument
-      *
-      * @param x The input value
-      * @return |x|
-      */
-    def Abs(x: ArithExpr) = (x lt Cst(0)) ?? (Cst(0) - x) !! x
   }
-
-  def cardinal_id = 0
 }
 
 trait SimplifiedExpr extends ArithExpr {
   override val simplified = true
 }
 
-/**
-  * ? represents an unknown value.
-  */
+/* ? represents an unknown value. */
 case object ? extends ArithExpr with SimplifiedExpr {
-
   override val HashSeed = 0x3fac31
 
   override val digest: Int = HashSeed
 
+  override lazy val sign = Sign.Unknown
+
   override def ==(that: ArithExpr): Boolean = that.getClass == this.getClass
-
 }
-
 
 case object PosInf extends ArithExpr with SimplifiedExpr {
   override val HashSeed = 0x4a3e87
@@ -774,57 +763,43 @@ case object NegInf extends ArithExpr with SimplifiedExpr {
   override def ==(that: ArithExpr): Boolean = that.getClass == this.getClass
 }
 
-
-case class Cst(c: Int) extends ArithExpr with SimplifiedExpr {
-
-  /**
-    * Lower and upper bounds of a constant are itself.
-    */
-  //override lazy val (min,max): (ArithExpr, ArithExpr) = (this, this)
-
-  override lazy val toString = c.toString
-
+case class Cst private[arithmetic](c: Int) extends ArithExpr with SimplifiedExpr {
   override val HashSeed = Integer.hashCode(c)
 
   override lazy val digest: Int = Integer.hashCode(c)
+
+  override lazy val toString = c.toString
 }
 
-
 case class IntDiv private[arithmetic](numer: ArithExpr, denom: ArithExpr) extends ArithExpr() {
-
-  // Check that the denominator is not 0
   if (denom == Cst(0))
     throw new ArithmeticException()
-
-  override def toString: String = s"($numer) / ($denom)"
-
 
   override val HashSeed = 0xf233de5a
 
   override lazy val digest: Int = HashSeed ^ numer.digest() ^ ~denom.digest()
+
+  override def toString: String = s"($numer) / ($denom)"
 }
 
 case class Pow private[arithmetic](b: ArithExpr, e: ArithExpr) extends ArithExpr {
+  override val HashSeed = 0x63fcd7c2
 
+  override lazy val digest: Int = HashSeed ^ b.digest() ^ e.digest()
 
   override def toString: String = e match {
     case Cst(-1) => "1/^(" + b + ")"
     case _ => "pow(" + b + "," + e + ")"
   }
-
-  override val HashSeed = 0x63fcd7c2
-
-  override lazy val digest: Int = HashSeed ^ b.digest() ^ e.digest()
 }
 
 case class Log private[arithmetic](b: ArithExpr, x: ArithExpr) extends ArithExpr with SimplifiedExpr {
-  override def toString: String = "log" + b + "(" + x + ")"
-
   override val HashSeed = 0x370285bf
 
   override lazy val digest: Int = HashSeed ^ b.digest() ^ ~x.digest()
-}
 
+  override def toString: String = "log" + b + "(" + x + ")"
+}
 
 /**
   * Represent a product of two or more expressions.
@@ -842,6 +817,9 @@ case class Prod private[arithmetic](factors: List[ArithExpr]) extends ArithExpr 
     })
   }
 
+  override val HashSeed = 0x286be17e
+
+  override lazy val digest: Int = factors.foldRight(HashSeed)((x, hash) => hash ^ x.digest())
 
   override def equals(that: Any) = that match {
     case p: Prod => factors.length == p.factors.length && factors.intersect(p.factors).length == factors.length
@@ -849,26 +827,20 @@ case class Prod private[arithmetic](factors: List[ArithExpr]) extends ArithExpr 
   }
 
   override lazy val toString: String = {
-    val m = if (factors.nonEmpty) factors.mkString("*")
-    else {
-      ""
-    }
+    val m = if (factors.nonEmpty) factors.mkString("*") else ""
     "(" + m + ")"
   }
 
   def contains(e: ArithExpr): Boolean = factors.contains(e)
 
-  override lazy val digest: Int = factors.foldRight(HashSeed)((x, hash) => hash ^ x.digest())
-
-  override val HashSeed = 0x286be17e
-
   /**
-    * Remove a single factor from the list of factors and return either a Product of the factor left.
-    * Removing a factor does not create new optimization opportunity, therefore the resulting prod is still simplified.
+    * Remove a list of factors from the factors of the product and return either a Product with the remaining factors,
+    * the only factors left or 1 in the case of removing all factors.
+    * Removing factors does not create new optimization opportunity, therefore the resulting prod is still simplified.
     */
   def withoutFactors(list: List[ArithExpr]): ArithExpr = {
     assert(simplified, "This function only works on simplified products")
-    val rest = factors.diff(list)
+    val rest: List[ArithExpr] = factors.diff(list)
     // If we took all the elements out, return neutral (1 for product)
     if (rest.isEmpty) Cst(1)
     // If there is only one left, return it
@@ -877,20 +849,12 @@ case class Prod private[arithmetic](factors: List[ArithExpr]) extends ArithExpr 
     else new Prod(rest) with SimplifiedExpr
   }
 
-  /**
-    * Short-hand to remove a single factor
-    */
   def withoutFactor(factor: ArithExpr): ArithExpr = withoutFactors(List(factor))
 
-  /**
-    * The constant factor of the product
-    */
   lazy val cstFactor: Cst = {
     if (simplified) factors.find(_.isInstanceOf[Cst]).getOrElse(Cst(1)).asInstanceOf[Cst]
     else Cst(factors.filter(_.isInstanceOf[Cst]).foldLeft[Int](1)(_ + _.asInstanceOf[Cst].c))
   }
-
-  lazy val isNegatedTerm = cstFactor == Cst(-1)
 }
 
 
@@ -904,34 +868,32 @@ case class Sum private[arithmetic](terms: List[ArithExpr]) extends ArithExpr {
     })
   }
 
+  override val HashSeed = 0x8e535130
+
+  override lazy val digest: Int = terms.foldRight(HashSeed)((x, hash) => hash ^ x.digest())
+
   override def equals(that: Any) = that match {
     case s: Sum => terms.length == s.terms.length && terms.intersect(s.terms).length == terms.length
     case _ => false
   }
 
   override lazy val toString: String = {
-    val m = if (terms.nonEmpty) terms.mkString("+")
-    else {
-      ""
-    }
+    val m = if (terms.nonEmpty) terms.mkString("+") else ""
     "(" + m + ")"
   }
 
   /**
-    * Remove a single factor from the list of factors and return either a Sum of the only term left.
-    * Removing a term does not create new optimization opportunity, therefore the resulting sum is still simplified.
+    * Remove a list of terms from the terms of the sum and returns either a Sum of the remaining terms or the only term
+    * left.
+    * Removing terms does not create new optimization opportunity, therefore the resulting sum is still simplified.
     */
   def withoutTerm(list: List[ArithExpr]): ArithExpr = {
     assert(simplified, "This function only works on simplified products")
-    val rest = terms.diff(list)
+    val rest: List[ArithExpr] = terms.diff(list)
     assert(rest.nonEmpty, "Cannot remove all factors from a product")
     if (rest.length == 1) rest.head
     else new Sum(rest) with SimplifiedExpr
   }
-
-  override val HashSeed = 0x8e535130
-
-  override lazy val digest: Int = terms.foldRight(HashSeed)((x, hash) => hash ^ x.digest())
 
   lazy val cstTerm: Cst = {
     if (simplified) terms.find(_.isInstanceOf[Cst]).getOrElse(Cst(0)).asInstanceOf[Cst]
@@ -941,21 +903,19 @@ case class Sum private[arithmetic](terms: List[ArithExpr]) extends ArithExpr {
 
 // this is really the remainder and not modulo! (I.e. it implements the C semantics of modulo)
 case class Mod private[arithmetic](dividend: ArithExpr, divisor: ArithExpr) extends ArithExpr {
-
-  override lazy val toString: String = s"($dividend % ($divisor))"
-
   override val HashSeed = 0xedf6bb88
 
   override lazy val digest: Int = HashSeed ^ dividend.digest() ^ ~divisor.digest()
+
+  override lazy val toString: String = s"($dividend % ($divisor))"
 }
 
 case class AbsFunction private[arithmetic](ae: ArithExpr) extends ArithExpr {
-
-  override lazy val toString: String = "Abs(" + ae + ")"
-
   override val HashSeed = 0x3570a2ce
 
   override lazy val digest: Int = HashSeed ^ ae.digest()
+
+  override lazy val toString: String = "Abs(" + ae + ")"
 }
 
 object abs {
@@ -963,12 +923,11 @@ object abs {
 }
 
 case class FloorFunction private[arithmetic](ae: ArithExpr) extends ArithExpr {
-
-  override lazy val toString: String = "Floor(" + ae + ")"
-
   override val HashSeed = 0x558052ce
 
   override lazy val digest: Int = HashSeed ^ ae.digest()
+
+  override lazy val toString: String = "Floor(" + ae + ")"
 }
 
 object floor {
@@ -976,45 +935,36 @@ object floor {
 }
 
 case class CeilingFunction private[arithmetic](ae: ArithExpr) extends ArithExpr {
-
-  override lazy val toString: String = "Ceiling(" + ae + ")"
-
   override val HashSeed = 0xa45d23d0
 
   override lazy val digest: Int = HashSeed ^ ae.digest()
+
+  override lazy val toString: String = "Ceiling(" + ae + ")"
 }
 
 object ceil {
   def apply(ae: ArithExpr): ArithExpr = SimplifyCeiling(ae)
 }
 
-/**
-  * Conditional operator. Behaves like the `?:` operator in C.
-  *
-  * @param test A Predicate object.
-  * @param t    The 'then' block.
-  * @param e    The 'else block.
-  */
+/* Conditional operator. Behaves like the `?:` operator in C. */
 case class IfThenElse private[arithmetic](test: Predicate, t: ArithExpr, e: ArithExpr) extends ArithExpr {
-  override lazy val toString: String = s"( $test ? $t : $e )"
-
   override val HashSeed = 0x32c3d095
 
   override lazy val digest: Int = HashSeed ^ test.digest ^ t.digest() ^ ~e.digest()
+
+  override lazy val toString: String = s"( $test ? $t : $e )"
 }
 
-
+/* This class is ment to be used as a superclass, therefore, it is not private to this package */
 case class ArithExprFunction(name: String, range: Range = RangeUnknown) extends ArithExpr with SimplifiedExpr {
+  override val HashSeed = 0x3105f133
 
   override lazy val digest: Int = HashSeed ^ range.digest() ^ name.hashCode
-
-  override val HashSeed = 0x3105f133
 
   override lazy val toString: String = s"$name($range)"
 }
 
 object ArithExprFunction {
-
   def getArithExprFuns(expr: ArithExpr): Set[ArithExprFunction] = {
     val exprFunctions = scala.collection.mutable.HashSet[ArithExprFunction]()
     ArithExpr.visit(expr, {
@@ -1025,11 +975,11 @@ object ArithExprFunction {
   }
 }
 
-class Lookup private[arithmetic](val table: Seq[ArithExpr], val index: ArithExpr, val id: Int) extends ArithExprFunction("lookup") {
+class Lookup private[arithmetic](val table: Seq[ArithExpr],
+                                 val index: ArithExpr, val id: Int) extends ArithExprFunction("lookup") {
+  override lazy val digest: Int = HashSeed ^ table.hashCode ^ index.digest() ^ id.hashCode()
 
   override lazy val toString: String = "lookup" + id + "(" + index + ")"
-
-  override lazy val digest: Int = HashSeed ^ table.hashCode ^ index.digest() ^ id.hashCode()
 
   override def equals(that: Any) = that match {
     case thatLookup: Lookup => thatLookup.table == this.table &&
@@ -1044,17 +994,32 @@ object Lookup {
 
 /**
   * Represents a variable in the expression. A variable is an unknown term which is immutable within the expression
-  * but its value may change between expression, like a variable in C (cf sequence point).
+  * but its value may change between expression, like a variable in C.
   *
-  * @param name  Identifier for the variable. Might be empty, in which case a name will be generated.
+  * @param name  Name for the variable. Might be empty, in which case a name will be generated.
   * @param range Range of possible values for the variable.
   * @note The uniqueness of the variable name is not enforced since there is no notion of scope.
   *       Also note that the name is purely decorative during partial evaluation: the variable is actually tracked
   *       using an instance counter, hence multiple instances sharing the same name will not be simplified.
   */
-class Var(val name: String, val range: Range = RangeUnknown, fixedId: Option[Long] = None) extends ArithExpr with SimplifiedExpr {
+class Var private[arithmetic](val name: String,
+                              val range: Range = RangeUnknown,
+                              fixedId: Option[Long] = None) extends ArithExpr with SimplifiedExpr {
+  override lazy val hashCode = 8 * 79 + id.hashCode
 
-  /** Unique identifier. */
+  override val HashSeed = 0x54e9bd5e
+
+  override lazy val digest: Int = HashSeed /*^ name.hashCode*/ ^ id.hashCode ^ range.digest()
+
+  override def equals(that: Any) = that match {
+    case v: Var => this.id == v.id
+    case _ => false
+  }
+
+  override lazy val toString = s"v_${name}_$id"
+
+  lazy val toStringWithRange = s"$toString[${range.toString}]"
+
   val id: Long = {
     if (fixedId.isDefined)
       fixedId.get
@@ -1069,53 +1034,19 @@ class Var(val name: String, val range: Range = RangeUnknown, fixedId: Option[Lon
     }
   }
 
-  override def equals(that: Any) = that match {
-    case v: Var => this.id == v.id
-    case _ => false
-  }
-
-  override lazy val hashCode = 8 * 79 + id.hashCode
-
-  override val HashSeed = 0x54e9bd5e
-
-  override lazy val digest: Int = HashSeed /*^ name.hashCode*/ ^ id.hashCode ^ range.digest()
-
-  override lazy val toString = s"v_${name}_$id"
-
-  lazy val toStringWithRange = s"$toString[${range.toString}]"
-
-  /**
-    * Needs to be overriden by all subclasses (needed for substitution)
-    */
   def copy(r: Range) = new Var(name, r, Some(this.id))
-
 }
 
 object Var {
-  /**
-    * Instance counter
-    */
-  private val cnt = new AtomicLong(-1)
+  private val cnt = new AtomicLong(-1) /* Instance counter */
 
-  def apply(name: String = ""): Var = {
-    new Var(name)
-  }
+  def apply(name: String = ""): Var = new Var(name)
 
-  def apply(name: String, range: Range): ArithExpr = {
-    if (range.min == range.max)
-      return range.min
-    new Var(name, range)
-  }
+  def apply(range: Range): Var = new Var("", range)
 
-
-  def apply(range: Range): ArithExpr = {
-    if (range.min == range.max)
-      return range.min
-    new Var("", range)
-  }
+  def apply(name: String, range: Range): Var = new Var(name, range)
 
   def unapply(v: Var): Option[(String, Range)] = Some((v.name, v.range))
-
 }
 
 object PosVar {
@@ -1126,9 +1057,10 @@ object SizeVar {
   def apply(name: String): Var = new Var(name, StartFromRange(Cst(1)))
 }
 
-class OpaqueVar(val v: Var, r: Range = RangeUnknown, fixedId: Option[Long] = None) extends Var("", r, fixedId) {
-
-  override def copy(r: Range) = new OpaqueVar(v, r, Some(this.id))
+class OpaqueVar(val v: Var,
+                r: Range = RangeUnknown,
+                fixedId: Option[Long] = None) extends ExtensibleVar("", r, fixedId) {
+  override def makeCopy(r: Range) = new OpaqueVar(v, r, Some(this.id))
 
   override lazy val (min: ArithExpr, max: ArithExpr) = (this, this)
   override lazy val sign: Sign.Value = v.sign
@@ -1136,3 +1068,12 @@ class OpaqueVar(val v: Var, r: Range = RangeUnknown, fixedId: Option[Long] = Non
   override lazy val isEvaluable = false
 }
 
+/* This class is ment to be used as a superclass, therefore, it is not private to this package */
+abstract class ExtensibleVar(override val name: String,
+                             override val range: Range = RangeUnknown,
+                             fixedId: Option[Long] = None) extends Var(name, range, fixedId) {
+  override def copy(r: Range): Var = makeCopy(r)
+
+  /* force subclasses to implement makeCopy by making it abstract here */
+  protected def makeCopy(r: Range): ExtensibleVar
+}
