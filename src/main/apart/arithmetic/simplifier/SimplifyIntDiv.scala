@@ -77,6 +77,27 @@ object SimplifyIntDiv {
     case (Mod(ae1:ArithExpr, div1: ArithExpr), (div2: ArithExpr)) if (div1 == div2) => Some(Cst(0))
 
     // special cases //todo combine cases which only differ in order of args
+    // j(2+m) + k + i % 2+m = j + (i+k)/(2+m) whereas the int div will possibly simplified to 0
+    case (Sum(
+              Prod(Cst(c1) :: (a2:ArithExpr) :: Nil) ::
+              Prod((a1:ArithExpr) :: (m1: Var) :: Nil) ::
+              (k:ArithExpr) ::
+              (i:ArithExpr) ::
+              Nil),
+          Sum(Cst(c2) :: (m2: Var) :: Nil))
+      if m1 == m2 && a1 == a2 && c1 == c2 =>
+      Some(SimplifySum(a2, SimplifyIntDiv(Sum((k:ArithExpr) :: (i:ArithExpr) :: Nil), Sum(Cst(c2) :: (m2: Var) :: Nil))))
+
+    case (Sum(
+              Prod((a2:ArithExpr) :: Cst(c1) :: Nil) ::
+              Prod((a1:ArithExpr) :: (m1: Var) :: Nil) ::
+              (k:ArithExpr) ::
+              (i:ArithExpr) ::
+              Nil),
+          Sum(Cst(c2) :: (m2: Var) :: Nil))
+      if m1 == m2 && a1 == a2 && c1 == c2 =>
+      Some(SimplifySum(a2, SimplifyIntDiv(Sum((k:ArithExpr) :: (i:ArithExpr) :: Nil), Sum(Cst(c2) :: (m2: Var) :: Nil))))
+
     // Ni + nk + 2i + 2k + j % 2+N = (i+k) true if j < N+2
     case (Sum(
               Prod((Cst(c1)) :: (i2:Var) :: Nil) ::

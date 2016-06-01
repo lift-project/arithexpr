@@ -83,7 +83,17 @@ object SimplifyMod {
       if m1 == m2 && a1 == a2 && c1 == c2 =>
       Some(SimplifyMod(Sum(k :: i :: Nil), Sum(Cst(c1) :: m1 :: Nil)))
 
-      // (AE1 % N + AE2 * N) % N = AE1 % N
+    case (Sum(
+              Prod((a2:ArithExpr) :: Cst(c1) :: Nil) ::
+              Prod((a1:ArithExpr) :: (m1: Var) :: Nil) ::
+              (k:ArithExpr) ::
+              (i:ArithExpr) ::
+              Nil),
+          Sum(Cst(c2) :: (m2: Var) :: Nil))
+      if m1 == m2 && a1 == a2 && c1 == c2 =>
+      Some(SimplifyMod(Sum(k :: i :: Nil), Sum(Cst(c1) :: m1 :: Nil)))
+
+    // (AE1 % N + AE2 * N) % N = AE1 % N
     case (Sum(
               (Mod(ae1, n1)) ::
               Prod((ae2: ArithExpr) :: (n2:Var) :: Nil) ::
@@ -91,6 +101,17 @@ object SimplifyMod {
           (n3:Var))
       if n1 == n2 && n1 == n3 =>
       Some(SimplifyMod(ae1, n1))
+
+    // (AE1 % N + AE2 * N + AE3 * N) % N = AE1 % N
+    case (Sum(
+              (Mod(ae1, n1)) ::
+              Prod((n2:Var) :: (ae2: ArithExpr) :: Nil) ::
+              Prod((n3:Var) :: (ae3: ArithExpr) :: Nil) ::
+              Nil),
+          (n4:Var))
+      if n1 == n2 && n1 == n3  && n1 == n4 =>
+      Some(SimplifyMod(ae1, n1))
+
 
     // (((M * j) + (2 * j) + i) % (2 + M))  == (j * (M + 2) + i) % (M + 2) == i % (M + 2)
     case (Sum(Prod((m1: Var) :: (j1:Var) :: Nil) ::

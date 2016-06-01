@@ -409,7 +409,7 @@ class TestExpr {
     val M = SizeVar("M")
     val N = SizeVar("N")
     val j = Var("j", ContinuousRange(0, N + 2))
-    val i = Var("i", ContinuousRange(0, M + 2))
+    val i = Var("i", ContinuousRange(0, M))
     val k = Var("k", ContinuousRange(0, 3))
     val actual = ((N*i)+(N*k)+(2*i)+(2*k)+j) % (2+N)
     assertEquals(j, actual)
@@ -419,7 +419,7 @@ class TestExpr {
     val M = SizeVar("M")
     val N = SizeVar("N")
     val j = Var("j", ContinuousRange(0, N + 2))
-    val i = Var("i", ContinuousRange(0, M + 2))
+    val i = Var("i", ContinuousRange(0, M))
     val k = Var("k", ContinuousRange(0, 3))
     val actual = (((N * i) + (N * k) + (2 * i) + (2 * k) + j)) / ((2 + N))
     assertEquals(i+k, actual)
@@ -429,10 +429,50 @@ class TestExpr {
     val M = SizeVar("M")
     val N = SizeVar("N")
     val j = Var("j", ContinuousRange(0, N + 2))
-    val i = Var("i", ContinuousRange(0, M + 2))
+    val i = Var("i", ContinuousRange(0, M))
     val k = Var("k", ContinuousRange(0, 3))
     val actual = ((2*j)+(j*M)+k+i) % (2+M)
-    assertEquals(Mod(i+k, 2+M), actual)
+    assertEquals(i+k, actual)
+  }
+
+  @Test def slideTransposePadTransposePadPart4(): Unit = {
+    val M = SizeVar("M")
+    val N = SizeVar("N")
+    val j = Var("j", ContinuousRange(0, N + 2))
+    val i = Var("i", ContinuousRange(0, M))
+    val k = Var("k", ContinuousRange(0, 3))
+    val actual = (((2 * j) + (j * M) + k + i)) / ((2 + M))
+    assertEquals(j, actual)
+  }
+
+  @Test def slideTransposePadTransposePadPart5(): Unit = {
+    val M = SizeVar("M")
+    val N = SizeVar("N")
+    val j = Var("j", ContinuousRange(0, N + 2))
+    val i = Var("i", ContinuousRange(0, M))
+    val k = Var("k", ContinuousRange(0, 3))
+    val actual =((((((-1 + j) % (N)) + N) % (N)) * 2) + (((((-1 + j) % (N)) + N) % (N)) * M) + k + i) % (2 + M)
+    assertEquals(k+i, actual)
+  }
+
+  @Test def slideTransposePadTransposePadPart6(): Unit = {
+    val M = SizeVar("M")
+    val N = SizeVar("N")
+    val j = Var("j", ContinuousRange(0, N + 2))
+    val i = Var("i", ContinuousRange(0, M))
+    val k = Var("k", ContinuousRange(0, 3))
+    val actual = (((((((-1 + j) % (N)) + N) % (N)) * 2) + (((((-1 + j) % (N)) + N) % (N)) * M) + k + i)) / ((2 + M))
+    assertEquals(((((-1 + j) % N) + N) % N), actual)
+  }
+
+  @Test def slideTransposePadTransposePadPart7(): Unit = {
+    val M = SizeVar("M")
+    val N = SizeVar("N")
+    val j = Var("j", ContinuousRange(0, N + 2))
+    val i = Var("i", ContinuousRange(0, M))
+    val k = Var("k", ContinuousRange(0, 3))
+    val actual = (((((-1 + j) % (N)) + N) % (N)) + (N * i) + (N * k)) % N
+    assertEquals(((((-1 + j) % N) + N) % N), actual)
   }
 
   @Test def modOfVarWithConstantRange(): Unit = {
