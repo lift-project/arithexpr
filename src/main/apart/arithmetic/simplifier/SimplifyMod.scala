@@ -102,6 +102,14 @@ object SimplifyMod {
       if n1 == n2 && n1 == n3 =>
       Some(SimplifyMod(ae1, n1))
 
+    case (Sum(
+              (Mod(ae1, n1)) ::
+              Prod((n2:Var) :: (ae2: ArithExpr) :: Nil) ::
+              Nil),
+          (n3:Var))
+      if n1 == n2 && n1 == n3 =>
+      Some(SimplifyMod(ae1, n1))
+
     // (AE1 % N + AE2 * N + AE3 * N) % N = AE1 % N
     case (Sum(
               (Mod(ae1, n1)) ::
@@ -112,12 +120,53 @@ object SimplifyMod {
       if n1 == n2 && n1 == n3  && n1 == n4 =>
       Some(SimplifyMod(ae1, n1))
 
-
     // (((M * j) + (2 * j) + i) % (2 + M))  == (j * (M + 2) + i) % (M + 2) == i % (M + 2)
     case (Sum(Prod((m1: Var) :: (j1:Var) :: Nil) ::
               Prod(Cst(c1) :: (j2:Var) :: Nil) ::
               (i:Var) :: Nil), Sum(Cst(c2) :: (m2: Var) :: Nil)) if m1 == m2 && j1 == j2 && c1 == c2 =>
      Some(SimplifyMod(i, Sum(m1 :: Cst(c1) :: Nil)))
+
+    // 1_+ Ni + 2i + j % (2+N) = 1+j % (2+N) // further simplified in some cases
+    case (Sum(Cst(a) ::
+              Prod((n1: Var) :: (i1:Var) :: Nil) ::
+              Prod(Cst(c1) :: (i2:Var) :: Nil) ::
+              (j:Var) :: Nil),
+          Sum(Cst(c2) :: (n2: Var) :: Nil)) if n1 == n2 && i1 == i2 && c1 == c2 =>
+     Some(SimplifyMod(a + j, Sum(n1 :: Cst(c2) :: Nil)))
+
+    // 2 + Mj + 2j + M + i % 2+M = i
+    case (Sum(Cst(c1) ::
+              Prod((m1: Var) :: (j1:Var) :: Nil) ::
+              Prod(Cst(c2) :: (j2:Var) :: Nil) ::
+              (m2:Var) :: (i:Var) :: Nil),
+          Sum(Cst(c3) :: (m3: Var) :: Nil)) if m1 == m2 && m1 == m3 && j1 == j2 && c1 == c2 && c1 == c3 =>
+     Some(i)
+
+    // 4 + Mj + 2j + 2M + i % (2+M) = (2+M)(2+j) + i %  i
+    case (Sum(Cst(cDouble) ::
+              Prod((m1: Var) :: (j1:Var) :: Nil) ::
+              Prod(Cst(c1) :: (j2:Var) :: Nil) ::
+              Prod(Cst(c2) :: (m2:Var) :: Nil) ::
+              (i:Var) :: Nil),
+          Sum(Cst(c3) :: (m3: Var) :: Nil))
+      if m1 == m2 && m1 == m3 && j1 == j2 && c1 == c2 && c1 == c3 && c1*c2 == cDouble =>
+     Some(i)
+
+    // 2+N+j % 2+N = j % 2+N if j.sign = +
+    case (Sum(Cst(c1) :: (n1:Var) :: (j:Var) :: Nil),
+          Sum(Cst(c2) :: (n2: Var) :: Nil))
+      if n1 == n2 && c1 == c2 && j.sign == Sign.Positive =>
+     Some(SimplifyMod(j, Sum(Cst(c2) :: (n2: Var) :: Nil)))
+
+    // 1 + 2X + i + MX % 2+M = 1+i % 2+M todo think about if true in general when refactoring
+    // todo do this for all special cases - how to simplify mod in sums - what about the sign of terms?
+    case (Sum(Cst(c) ::
+              Prod((a1:ArithExpr) :: Cst(c1) :: Nil) ::
+              Prod((a2:ArithExpr) :: (m1:Var) :: Nil) ::
+              (i:Var) :: Nil),
+          Sum(Cst(c2) :: (m2: Var) :: Nil))
+      if m1 == m2 && a1 == a2 && c1 == c2  =>
+     Some(SimplifyMod(i+c, Sum(Cst(c1) :: (m2: Var) :: Nil)))
 
     // Modulo 1
     case (_, Cst(1)) => Some(Cst(0))
@@ -163,7 +212,8 @@ object SimplifyMod {
   def apply(dividend: ArithExpr, divisor: ArithExpr): ArithExpr = {
     val simplificationResult = if (PerformSimplification()) simplify(dividend, divisor) else None
     simplificationResult match {
-      case Some(toReturn) => println(s"$dividend % $divisor simplified to $toReturn"); toReturn
+      //case Some(toReturn) => println(s"$dividend % $divisor simplified to $toReturn"); toReturn
+      case Some(toReturn) => toReturn
       case None => println(s"$dividend % $divisor not simplified"); new Mod(dividend, divisor) with SimplifiedExpr
     }
   }
