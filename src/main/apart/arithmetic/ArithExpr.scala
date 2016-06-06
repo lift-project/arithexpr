@@ -185,6 +185,8 @@ abstract sealed class ArithExpr {
       false
   }
 
+  def substituteDiv: ArithExpr
+
 
   def pow(that: ArithExpr): ArithExpr = SimplifyPow(this, that)
 
@@ -741,6 +743,8 @@ case object ? extends ArithExpr with SimplifiedExpr {
   override lazy val sign = Sign.Unknown
 
   override def ==(that: ArithExpr): Boolean = that.getClass == this.getClass
+
+  override def substituteDiv = this
 }
 
 case object PosInf extends ArithExpr with SimplifiedExpr {
@@ -751,6 +755,8 @@ case object PosInf extends ArithExpr with SimplifiedExpr {
   override lazy val sign = Sign.Positive
 
   override def ==(that: ArithExpr): Boolean = that.getClass == this.getClass
+
+  override def substituteDiv = this
 }
 
 case object NegInf extends ArithExpr with SimplifiedExpr {
@@ -761,6 +767,8 @@ case object NegInf extends ArithExpr with SimplifiedExpr {
   override lazy val sign = Sign.Negative
 
   override def ==(that: ArithExpr): Boolean = that.getClass == this.getClass
+
+  override def substituteDiv = this
 }
 
 case class Cst private[arithmetic](c: Int) extends ArithExpr with SimplifiedExpr {
@@ -769,6 +777,8 @@ case class Cst private[arithmetic](c: Int) extends ArithExpr with SimplifiedExpr
   override lazy val digest: Int = Integer.hashCode(c)
 
   override lazy val toString = c.toString
+
+  override def substituteDiv = this
 }
 
 case class IntDiv private[arithmetic](numer: ArithExpr, denom: ArithExpr) extends ArithExpr() {
@@ -780,6 +790,8 @@ case class IntDiv private[arithmetic](numer: ArithExpr, denom: ArithExpr) extend
   override lazy val digest: Int = HashSeed ^ numer.digest() ^ ~denom.digest()
 
   override def toString: String = s"($numer) / ($denom)"
+
+  override def substituteDiv = numer.substituteDiv / denom.substituteDiv
 }
 
 case class Pow private[arithmetic](b: ArithExpr, e: ArithExpr) extends ArithExpr {
@@ -791,6 +803,8 @@ case class Pow private[arithmetic](b: ArithExpr, e: ArithExpr) extends ArithExpr
     case Cst(-1) => "1/^(" + b + ")"
     case _ => "pow(" + b + "," + e + ")"
   }
+
+  override def substituteDiv = this
 }
 
 case class Log private[arithmetic](b: ArithExpr, x: ArithExpr) extends ArithExpr with SimplifiedExpr {
@@ -799,6 +813,8 @@ case class Log private[arithmetic](b: ArithExpr, x: ArithExpr) extends ArithExpr
   override lazy val digest: Int = HashSeed ^ b.digest() ^ ~x.digest()
 
   override def toString: String = "log" + b + "(" + x + ")"
+
+  override def substituteDiv = this
 }
 
 /**
@@ -815,6 +831,14 @@ case class Prod private[arithmetic](factors: List[ArithExpr]) extends ArithExpr 
       Debug.AssertNot(x.isInstanceOf[Prod], s"Prod cannot contain a Prod in $toString")
       Debug.AssertNot(x.isInstanceOf[Sum], "Prod should not contain a Sum")
     })
+  }
+
+  override def substituteDiv = {
+    factors.foldLeft(Cst(1): ArithExpr)((exprSoFar, newTerm) =>
+      newTerm match {
+        case Pow(b, Cst(-1)) => exprSoFar / b.substituteDiv
+        case _ => exprSoFar * newTerm.substituteDiv
+      })
   }
 
   override val HashSeed = 0x286be17e
@@ -868,6 +892,8 @@ case class Sum private[arithmetic](terms: List[ArithExpr]) extends ArithExpr {
     })
   }
 
+  override def substituteDiv = Sum(terms.map(_.substituteDiv))
+
   override val HashSeed = 0x8e535130
 
   override lazy val digest: Int = terms.foldRight(HashSeed)((x, hash) => hash ^ x.digest())
@@ -908,6 +934,8 @@ case class Mod private[arithmetic](dividend: ArithExpr, divisor: ArithExpr) exte
   override lazy val digest: Int = HashSeed ^ dividend.digest() ^ ~divisor.digest()
 
   override lazy val toString: String = s"($dividend % ($divisor))"
+
+  override def substituteDiv = dividend.substituteDiv % divisor.substituteDiv
 }
 
 case class AbsFunction private[arithmetic](ae: ArithExpr) extends ArithExpr {
@@ -916,6 +944,8 @@ case class AbsFunction private[arithmetic](ae: ArithExpr) extends ArithExpr {
   override lazy val digest: Int = HashSeed ^ ae.digest()
 
   override lazy val toString: String = "Abs(" + ae + ")"
+
+  override def substituteDiv = this
 }
 
 object abs {
@@ -928,6 +958,8 @@ case class FloorFunction private[arithmetic](ae: ArithExpr) extends ArithExpr {
   override lazy val digest: Int = HashSeed ^ ae.digest()
 
   override lazy val toString: String = "Floor(" + ae + ")"
+
+  override def substituteDiv = FloorFunction(ae.substituteDiv)
 }
 
 object floor {
@@ -940,6 +972,8 @@ case class CeilingFunction private[arithmetic](ae: ArithExpr) extends ArithExpr 
   override lazy val digest: Int = HashSeed ^ ae.digest()
 
   override lazy val toString: String = "Ceiling(" + ae + ")"
+
+  override def substituteDiv = CeilingFunction(ae.substituteDiv)
 }
 
 object ceil {
@@ -953,15 +987,18 @@ case class IfThenElse private[arithmetic](test: Predicate, t: ArithExpr, e: Arit
   override lazy val digest: Int = HashSeed ^ test.digest ^ t.digest() ^ ~e.digest()
 
   override lazy val toString: String = s"( $test ? $t : $e )"
+
+  override def substituteDiv = IfThenElse(test, t.substituteDiv, e.substituteDiv)
 }
 
-/* This class is ment to be used as a superclass, therefore, it is not private to this package */
-case class ArithExprFunction(name: String, range: Range = RangeUnknown) extends ArithExpr with SimplifiedExpr {
+/* This class is meant to be used as a superclass, therefore, it is not private to this package */
+abstract case class ArithExprFunction(name: String, range: Range = RangeUnknown) extends ArithExpr with SimplifiedExpr {
   override val HashSeed = 0x3105f133
 
   override lazy val digest: Int = HashSeed ^ range.digest() ^ name.hashCode
 
   override lazy val toString: String = s"$name($range)"
+
 }
 
 object ArithExprFunction {
@@ -986,6 +1023,8 @@ class Lookup private[arithmetic](val table: Seq[ArithExpr],
       thatLookup.index == this.index && thatLookup.id == this.id
     case _ => false
   }
+
+  override def substituteDiv = Lookup(table.map(_.substituteDiv), index.substituteDiv, id)
 }
 
 object Lookup {
@@ -1033,6 +1072,7 @@ class Var private[arithmetic](val name: String,
       _id
     }
   }
+ override def substituteDiv = new Var(name, range.substituteDiv, Some(id))
 
   def copy(r: Range) = new Var(name, r, Some(this.id))
 }
