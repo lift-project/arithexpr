@@ -315,8 +315,15 @@ object ArithExpr {
 
   def NotEvaluable = new NotEvaluableException()
 
-  val sort: (ArithExpr, ArithExpr) => Boolean = (x: ArithExpr, y: ArithExpr) =>
-    x.HashSeed() < y.HashSeed() || (x.HashSeed() == y.HashSeed() && x.digest() < y.digest())
+  val sort: (ArithExpr, ArithExpr) => Boolean = (x: ArithExpr, y: ArithExpr) => (x, y) match {
+    case (c:Cst, _) => true                 // constants first
+    case (_, c:Cst) => false
+    case (x:Var, y:Var) => x.name < y.name  // order variables lexicographically
+    case (v:Var, _) => true                 // variables always after constants second
+    case (_, v:Var) => false
+    case (x:Prod, y:Prod) => x.factors.zip(y.factors).map(x => sort(x._1, x._2)).foldLeft(false)(_ || _)
+    case _ => x.HashSeed() < y.HashSeed() || (x.HashSeed() == y.HashSeed() && x.digest() < y.digest())
+  }
 
   def gcd(a: ArithExpr, b: ArithExpr): ArithExpr = ComputeGCD(a, b)
 
@@ -508,6 +515,8 @@ object ArithExpr {
       case (AbsFunction(Sum(Cst(a) :: (x: Var) :: Nil)), n: Var) if
           isSmaller(Sum(a :: x.range.max :: Nil), n).getOrElse(false) &&
           isSmaller(Prod(Cst(-1) :: Sum(a :: x.range.min :: Nil) :: Nil), n).getOrElse(false) =>
+        return Some(true)
+      case (Mod((a: ArithExpr), (v1:Var)), (v2:Var)) if v1 == v2 =>
         return Some(true)
       case _ =>
     }
@@ -903,7 +912,8 @@ case class Sum private[arithmetic](terms: List[ArithExpr]) extends ArithExpr {
 
 // this is really the remainder and not modulo! (I.e. it implements the C semantics of modulo)
 case class Mod private[arithmetic](dividend: ArithExpr, divisor: ArithExpr) extends ArithExpr {
-  override val HashSeed = 0xedf6bb88
+  //override val HashSeed = 0xedf6bb88
+  override val HashSeed = 0xedf6bb8
 
   override lazy val digest: Int = HashSeed ^ dividend.digest() ^ ~divisor.digest()
 
@@ -1009,7 +1019,7 @@ class Var private[arithmetic](val name: String,
 
   override val HashSeed = 0x54e9bd5e
 
-  override lazy val digest: Int = HashSeed /*^ name.hashCode*/ ^ id.hashCode ^ range.digest()
+  override lazy val digest: Int = HashSeed ^ name.hashCode ^ id.hashCode ^ range.digest()
 
   override def equals(that: Any) = that match {
     case v: Var => this.id == v.id

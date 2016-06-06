@@ -1,6 +1,7 @@
 package apart.testing
 
 import apart.arithmetic._
+import apart.arithmetic.simplifier.SimplifySum
 import org.junit.Assert._
 import org.junit.{Ignore, Test}
 
@@ -246,6 +247,17 @@ class TestExpr {
   }
 
   //noinspection ScalaUnnecessaryParentheses
+  @Test def simpleFactorizationSimplification(): Unit = {
+    val M = SizeVar("M")
+    val N = SizeVar("N")
+    val j = Var("j", ContinuousRange(0, N))
+    val i = Var("i", ContinuousRange(0, M))
+
+    val actual = ((2*N)+(M*N)) / (2+M)
+    assertEquals(N, actual)
+  }
+
+  //noinspection ScalaUnnecessaryParentheses
   @Test def modTransposePadTransposePadPart(): Unit = {
     val M = SizeVar("M")
     val N = SizeVar("N")
@@ -257,7 +269,7 @@ class TestExpr {
     assertEquals(i, actual)
   }
 
-
+  //noinspection ScalaUnnecessaryParentheses
   @Test def divTransposePadTransposePadPart1(): Unit = {
     val M = SizeVar("M")
     val N = SizeVar("N")
@@ -269,6 +281,7 @@ class TestExpr {
     assertEquals(j, actual)
   }
 
+  //noinspection ScalaUnnecessaryParentheses
   @Test def divTransposePadTransposePadPart2(): Unit = {
     val M = SizeVar("M")
     val N = SizeVar("N")
@@ -285,6 +298,7 @@ class TestExpr {
     assertEquals((((j-1) % N) + N) % N, actual)
   }
 
+  //noinspection ScalaUnnecessaryParentheses
   @Test def divTransposePadTransposePadPart3(): Unit = {
     val M = SizeVar("M")
     val N = SizeVar("N")
@@ -297,6 +311,7 @@ class TestExpr {
     assertEquals((((j-1) % N) + N) % N, actual)
   }
 
+  //noinspection ScalaUnnecessaryParentheses
   @Test def divTransposePadTransposePadPart4(): Unit = {
     val M = SizeVar("M")
     val N = SizeVar("N")
@@ -308,6 +323,7 @@ class TestExpr {
     assertEquals((((j-1) % N) + N) % N, actual)
   }
 
+  //noinspection ScalaUnnecessaryParentheses
   @Test def divTransposePadTransposePadPart5(): Unit = {
     val M = SizeVar("M")
     val N = SizeVar("N")
@@ -317,6 +333,7 @@ class TestExpr {
     assertEquals(i, actual)
   }
 
+  //noinspection ScalaUnnecessaryParentheses
   @Test def divTransposePadTransposePadPart6(): Unit = {
     val M = SizeVar("M")
     val N = SizeVar("N")
@@ -326,6 +343,7 @@ class TestExpr {
     assertEquals((((j-1) % N) + N) % N, actual)
   }
 
+  //noinspection ScalaUnnecessaryParentheses
   @Test def divTransposePadTransposePadPart7(): Unit = {
     val M = SizeVar("M")
     val N = SizeVar("N")
@@ -335,6 +353,7 @@ class TestExpr {
     assertEquals(Cst(0), actual)
   }
 
+  //noinspection ScalaUnnecessaryParentheses
   @Test def divTransposePadTransposePadPart8(): Unit = {
     val M = SizeVar("M")
     val N = SizeVar("N")
@@ -344,6 +363,7 @@ class TestExpr {
     assertEquals(Cst(0), actual)
   }
 
+  //noinspection ScalaUnnecessaryParentheses
   @Test def divTransposePadTransposePadPart9(): Unit = {
     val M = SizeVar("M")
     val N = SizeVar("N")
@@ -353,6 +373,7 @@ class TestExpr {
     assertEquals(j, actual)
   }
 
+  //noinspection ScalaUnnecessaryParentheses
   @Test def divTransposePadTransposePadPart10(): Unit = {
     val M = SizeVar("M")
     val N = SizeVar("N")
@@ -362,6 +383,7 @@ class TestExpr {
     assertEquals(i, actual)
   }
 
+  //noinspection ScalaUnnecessaryParentheses
   @Test def divTransposePadTransposePadPart11(): Unit = {
     val M = SizeVar("M")
     val N = SizeVar("N")
@@ -371,6 +393,7 @@ class TestExpr {
     assertEquals((((j-2) % N) + N) % N, actual)
   }
 
+  //noinspection ScalaUnnecessaryParentheses
   @Test def divTransposePadTransposePadPartFull(): Unit = {
     val M = SizeVar("M")
     val N = SizeVar("N")
@@ -417,6 +440,7 @@ class TestExpr {
     assertEquals(j, actual)
   }
 
+  //noinspection ScalaUnnecessaryParentheses
   @Test def slideTransposePadTransposePadPart2(): Unit = {
     val M = SizeVar("M")
     val N = SizeVar("N")
@@ -437,6 +461,7 @@ class TestExpr {
     assertEquals(i+k, actual)
   }
 
+  //noinspection ScalaUnnecessaryParentheses
   @Test def slideTransposePadTransposePadPart4(): Unit = {
     val M = SizeVar("M")
     val N = SizeVar("N")
@@ -447,6 +472,7 @@ class TestExpr {
     assertEquals(j, actual)
   }
 
+  //noinspection ScalaUnnecessaryParentheses
   @Test def slideTransposePadTransposePadPart5(): Unit = {
     val M = SizeVar("M")
     val N = SizeVar("N")
@@ -457,6 +483,7 @@ class TestExpr {
     assertEquals(k+i, actual)
   }
 
+  //noinspection ScalaUnnecessaryParentheses
   @Test def slideTransposePadTransposePadPart6(): Unit = {
     val M = SizeVar("M")
     val N = SizeVar("N")
@@ -467,6 +494,7 @@ class TestExpr {
     assertEquals(((((-1 + j) % N) + N) % N), actual)
   }
 
+  //noinspection ScalaUnnecessaryParentheses
   @Test def slideTransposePadTransposePadPart7(): Unit = {
     val M = SizeVar("M")
     val N = SizeVar("N")
@@ -477,6 +505,7 @@ class TestExpr {
     assertEquals(((((-1 + j) % N) + N) % N), actual)
   }
 
+  //noinspection ScalaUnnecessaryParentheses
   @Test def slideSlideTransposePadTransposePadPart1(): Unit = {
     val M = SizeVar("M")
     val N = SizeVar("N")
@@ -495,6 +524,7 @@ class TestExpr {
     assertEquals(j+1, actual)
   }
 
+  //noinspection ScalaUnnecessaryParentheses
   @Test def slideSlideTransposePadTransposePadPart3(): Unit = {
     val M = SizeVar("M")
     val N = SizeVar("N")
@@ -531,15 +561,17 @@ class TestExpr {
     assertEquals(i, actual)
   }
 
+  //noinspection ScalaUnnecessaryParentheses
   @Test def slideSlideTransposePadTransposePadPart7(): Unit = {
     val M = SizeVar("M")
     val N = SizeVar("N")
     val j = Var("j", ContinuousRange(0, N))
     val i = Var("i", ContinuousRange(0, M))
-    val actual = (4 + (M * j) + (2 * j) + (2 * M) + i) / ((2 + M))
+    val actual = (4 + (M * j) + (2 * j) + (2 * M) + i) / (2 + M)
     assertEquals(j+2, actual)
   }
 
+  //noinspection ScalaUnnecessaryParentheses
   @Test def slideSlideTransposePadTransposePadPart8(): Unit = {
     val M = SizeVar("M")
     val N = SizeVar("N")
@@ -557,6 +589,7 @@ class TestExpr {
     assertTrue(ArithExpr.isSmaller(AbsFunction(j-1),N).getOrElse(false))
   }
 
+  //noinspection ScalaUnnecessaryParentheses
   @Test def slideSlideTransposePadTransposePadPart10(): Unit = {
     val M = SizeVar("M")
     val N = SizeVar("N")
@@ -566,6 +599,7 @@ class TestExpr {
     assertEquals(j, actual)
   }
 
+  //noinspection ScalaUnnecessaryParentheses
   @Test def slideSlideTransposePadTransposePadPart11(): Unit = {
     val M = SizeVar("M")
     val N = SizeVar("N")
@@ -575,6 +609,7 @@ class TestExpr {
     assertEquals(i + 1, actual)
   }
 
+  //noinspection ScalaUnnecessaryParentheses
   @Test def slideSlideTransposePadTransposePadPart12(): Unit = {
     val M = SizeVar("M")
     val N = SizeVar("N")
@@ -582,6 +617,52 @@ class TestExpr {
     val i = Var("i", ContinuousRange(0, M))
     val actual = ((1 + (((-1 + N + j) % (N)) * 2) + (((-1 + N + j) % (N)) * M) + i)) / ((2 + M))
     assertEquals((-1 + N + j) % (N), actual)
+  }
+
+  //noinspection ScalaUnnecessaryParentheses
+  @Test def slideSlideTransposePadTransposePadPart13(): Unit = {
+    val M = SizeVar("M")
+    val N = SizeVar("N")
+    val j = Var("j", ContinuousRange(0, N))
+    val i = Var("i", ContinuousRange(0, M))
+    val actual = ((3 + N + j)) / ((2 + N))
+    assertEquals(Cst(1), actual)
+  }
+
+  //noinspection ScalaUnnecessaryParentheses
+  @Test def slideSlideTransposePadTransposePadPart14(): Unit = {
+    val M = SizeVar("M")
+    val N = SizeVar("N")
+    val j = Var("j", ContinuousRange(0, N))
+    val i = Var("i", ContinuousRange(0, M))
+    val actual = ((3 + N + j)) % ((2 + N))
+    assertEquals(1+j, actual)
+  }
+
+  @Test def slideSlideTransposePadTransposePadPart15(): Unit = {
+    val M = SizeVar("M")
+    val N = SizeVar("N")
+    val j = Var("j", ContinuousRange(0, N))
+    val i = Var("i", ContinuousRange(0, M))
+    val actual = (3 + (N * i) + (2 * i) + N + j) % (2 + N)
+    assertEquals(1+j, actual)
+  }
+
+  //noinspection ScalaUnnecessaryParentheses
+  @Ignore //todo fix
+  @Test def slideSlideTransposePadTransposePadPart16(): Unit = {
+    val M = SizeVar("M")
+    val N = SizeVar("N")
+    val j = Var("j", ContinuousRange(0, N))
+    val i = Var("i", ContinuousRange(0, M))
+    val actual = ((3 + (N * i) + (2 * i) + N + j)) / ((2 + N))
+    assertEquals(1+i, actual)
+  }
+
+  @Test def checkOrderOfTerms(): Unit = {
+    val M = Var("v_M_177") // M < j in ascii
+    val j = Var("v_j_179")
+    assertTrue(ArithExpr.sort(M, j))
   }
 
   @Test def modOfVarWithConstantRange(): Unit = {
