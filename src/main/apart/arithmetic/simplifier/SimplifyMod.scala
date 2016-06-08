@@ -69,26 +69,29 @@ object SimplifyMod {
       if n1 == n2 && n1 == n3  && n1 == n4 =>
       Some(SimplifyMod(a, n1))
 
-    // 2 + mj + 2j + m + i % 2+m ==  2+m + j(m+2) + i % 2+m => i % 2+m
+    // 2 + m + i + 2j + mj % 2+m == 2+m + j(m+2) + i % 2+m => i % 2+m
+    // 4 + m + i + 2j + mj % 2+m == (2+m)(j+1) + i + 2 => i + 2 % 2+m
     case (Sum(Cst(c1) ::
               (m2:Var) ::
               (i:Var) ::
               Prod(Cst(c2) :: (j2:Var) :: Nil) ::
               Prod((m1: Var) :: (j1:Var) :: Nil) ::
               Nil),
-          Sum(Cst(c3) :: (m3: Var) :: Nil)) if m1 == m2 && m1 == m3 && j1 == j2 && c1 == c2 && c1 == c3 =>
-     Some(SimplifyMod(i, c3+m3))
+          Sum(Cst(c3) :: (m3: Var) :: Nil))
+      if m1 == m2 && m1 == m3 && j1 == j2 /*&& c1 == c2*/ && c2 == c3 =>
+     Some(SimplifyMod(i + c1-c2, c3+m3))
 
     // 4 + i + 2m + 2j + mj % (2+m) = (2+m)(2+j) + i % (2+m) => i
-    case (Sum(Cst(cDouble) ::
+    // 5 + i + 2m + 2j + mj % (2+m) = (2+m)(2+j) + i+1 % (2+m) => i
+    case (Sum(Cst(c) ::
               (i:Var) ::
               Prod(Cst(c2) :: (m2:Var) :: Nil) ::
               Prod(Cst(c1) :: (j2:Var) :: Nil) ::
               Prod((m1: Var) :: (j1:Var) :: Nil) ::
               Nil),
           Sum(Cst(c3) :: (m3: Var) :: Nil))
-      if m1 == m2 && m1 == m3 && j1 == j2 && c1 == c2 && c1 == c3 && c1*c2 == cDouble =>
-     Some(i)
+      if m1 == m2 && m1 == m3 && j1 == j2 && c1 == c2 && c1 == c3 =>
+     Some(i + c-(c1*c2))
 
     // c+n+j % c+n = j % 2+N if j.sign = + and c >= 0
     case (Sum(Cst(c1) :: (n1:Var) :: (j:Var) :: Nil),

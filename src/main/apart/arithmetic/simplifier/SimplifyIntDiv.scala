@@ -141,7 +141,9 @@ object SimplifyIntDiv {
         ArithExpr.isSmaller(a1, n1).getOrElse(false) =>
       Some(Cst(0))
 
-    // c+m + i + cj + mj / c+m == c+m + i + j(c+m) => j + 1 true if i < 2+M
+    // c1+m + i + c2j + mj / c2+m == c+m + i + j(c+m) => j+1  + c1-c2+i/c2+m
+    // 3+n+j+2i+ni => (2+n)(i+1)+1+j / 2+n
+    // 4+n+j+2i+ni => (2+n)(i+1)+2+j / 2+n
     case (Sum(
               Cst(c1) ::
               (m2: Var) ::
@@ -150,9 +152,8 @@ object SimplifyIntDiv {
               Prod((m1: Var) :: (j1: Var) :: Nil) ::
               Nil),
           Sum(Cst(c3) :: (m3: Var) :: Nil))
-      if m1 == m2 && m1 == m3 && (c1 == 2 || c1 == 3) && c2 == c3 &&
-        ArithExpr.isSmaller(i, Sum(c1 :: m2 :: Nil)).getOrElse(false) =>
-      Some(j1 + 1)
+      if m1 == m2 && m1 == m3 && c2 == c3 =>
+      Some(SimplifySum((j1 + 1), SimplifyIntDiv(c1-c2+i, c2+m1)))
 
     // 4 + i + 2m + 2j + mj / 2+m = (2+m)(2+j)+i / (2+m) = 2+j true if i < 2+m
     case (Sum(

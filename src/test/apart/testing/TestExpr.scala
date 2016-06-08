@@ -668,6 +668,36 @@ class TestExpr {
     assertEquals(i+1, actual)
   }
 
+  //noinspection ScalaUnnecessaryParentheses
+  @Test def slideSlideTransposePadTransposePadPart18(): Unit = {
+    val M = SizeVar("M")
+    val N = SizeVar("N")
+    val j = Var("j", ContinuousRange(0, N))
+    val i = Var("i", ContinuousRange(0, M))
+    val actual = (4 + N + j + (2 * i) + (N * i)) % (2 + N)
+    assertEquals(j+2, actual)
+  }
+
+  //noinspection ScalaUnnecessaryParentheses
+  @Test def slideSlideTransposePadTransposePadPart19(): Unit = {
+    val M = SizeVar("M")
+    val N = SizeVar("N")
+    val j = Var("j", ContinuousRange(0, N))
+    val i = Var("i", ContinuousRange(0, M))
+    val actual = ((4 + N + j + (2 * i) + (N * i))) / ((2 + N))
+    assertEquals(i+1, actual)
+  }
+
+  //noinspection ScalaUnnecessaryParentheses
+  @Test def slideSlideTransposePadTransposePadPart20(): Unit = {
+    val M = SizeVar("M")
+    val N = SizeVar("N")
+    val j = Var("j", ContinuousRange(0, N))
+    val i = Var("i", ContinuousRange(0, M))
+    val actual = (5 + i + (2 * M) + (2 * j) + (M * j)) % (2 + M)
+    assertEquals(i+1, actual)
+  }
+
   @Test def checkOrderOfTerms(): Unit = {
     val M = Var("v_M_177") // M < j in ascii
     val j = Var("v_j_179")
