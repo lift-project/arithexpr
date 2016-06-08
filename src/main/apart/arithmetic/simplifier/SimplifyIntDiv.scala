@@ -116,8 +116,8 @@ object SimplifyIntDiv {
     // j + ck + ci + ni + nk / c+n == ((c+n)(i+k) + j) / c+n => i+k [+ j/c+n] //rather create intdiv instead?
     case (Sum(
               (j: Var) ::
-              Prod((Cst(c2)) :: (k2: Var) :: Nil) ::
               Prod((Cst(c1)) :: (i2: Var) :: Nil) ::
+              Prod((Cst(c2)) :: (k2: Var) :: Nil) ::
               Prod((n1: Var) :: (i1: Var) :: Nil) ::
               Prod((n2: Var) :: (k1: Var) :: Nil) ::
               Nil),
@@ -150,7 +150,7 @@ object SimplifyIntDiv {
               Prod((m1: Var) :: (j1: Var) :: Nil) ::
               Nil),
           Sum(Cst(c3) :: (m3: Var) :: Nil))
-      if m1 == m2 && m1 == m3 && c1 == c2 && c1 == c3 &&
+      if m1 == m2 && m1 == m3 && (c1 == 2 || c1 == 3) && c2 == c3 &&
         ArithExpr.isSmaller(i, Sum(c1 :: m2 :: Nil)).getOrElse(false) =>
       Some(j1 + 1)
 

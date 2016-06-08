@@ -41,8 +41,8 @@ object SimplifyMod {
     // j + ck + ci + ni + nk % c+n == (n+2)(i+k)+j % 2+n => j%(2+n)
     case (Sum(
               (j:Var) ::
-              Prod(Cst(c2) :: (k2:Var) :: Nil) ::
               Prod(Cst(c1) :: (i2:Var) :: Nil) ::
+              Prod(Cst(c2) :: (k2:Var) :: Nil) ::
               Prod((n1:Var) :: (i1:Var) :: Nil) ::
               Prod((n2:Var) :: (k1:Var) :: Nil) ::
               Nil),
@@ -161,7 +161,8 @@ object SimplifyMod {
     val simplificationResult = if (PerformSimplification()) simplify(dividend, divisor) else None
     simplificationResult match {
       //case Some(toReturn) => println(s"$dividend % $divisor simplified to $toReturn"); toReturn
-      case None => println(s"$dividend % $divisor not simplified"); new Mod(dividend, divisor) with SimplifiedExpr
+      case None => println(s"$dividend % $divisor not simplified");
+        new Mod(dividend, divisor) with SimplifiedExpr
       case Some(toReturn) => toReturn
       //case None => new Mod(dividend, divisor) with SimplifiedExpr
     }

@@ -649,20 +649,33 @@ class TestExpr {
   }
 
   //noinspection ScalaUnnecessaryParentheses
-  @Ignore //todo fix
   @Test def slideSlideTransposePadTransposePadPart16(): Unit = {
     val M = SizeVar("M")
     val N = SizeVar("N")
     val j = Var("j", ContinuousRange(0, N))
     val i = Var("i", ContinuousRange(0, M))
-    val actual = ((3 + (N * i) + (2 * i) + N + j)) / ((2 + N))
-    assertEquals(1+i, actual)
+    val actual = (4 + i + (M * j) + (2 * j) + (2 * M)) % (2 + M)
+    assertEquals(i, actual)
+  }
+
+  //noinspection ScalaUnnecessaryParentheses
+  @Test def slideSlideTransposePadTransposePadPart17(): Unit = {
+    val M = SizeVar("M")
+    val N = SizeVar("N")
+    val j = Var("j", ContinuousRange(0, N))
+    val i = Var("i", ContinuousRange(0, M))
+    val actual = ((3 + N + j + (2 * i) + (N * i))) / ((2 + N))
+    assertEquals(i+1, actual)
   }
 
   @Test def checkOrderOfTerms(): Unit = {
     val M = Var("v_M_177") // M < j in ascii
     val j = Var("v_j_179")
     assertTrue(ArithExpr.sort(M, j))
+  }
+
+  @Test def checkOrderOfTerms2(): Unit = {
+    assertFalse(ArithExpr.sort(Cst(2), Cst(2)))
   }
 
   @Test def modOfVarWithConstantRange(): Unit = {

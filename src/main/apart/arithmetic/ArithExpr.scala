@@ -316,6 +316,7 @@ object ArithExpr {
   def NotEvaluable = new NotEvaluableException()
 
   val sort: (ArithExpr, ArithExpr) => Boolean = (x: ArithExpr, y: ArithExpr) => (x, y) match {
+    case (Cst(a), Cst(b)) => a < b
     case (c:Cst, _) => true                 // constants first
     case (_, c:Cst) => false
     case (x:Var, y:Var) => x.name < y.name  // order variables lexicographically
