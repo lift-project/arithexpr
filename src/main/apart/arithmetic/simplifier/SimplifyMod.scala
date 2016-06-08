@@ -93,17 +93,10 @@ object SimplifyMod {
       if m1 == m2 && m1 == m3 && j1 == j2 && c1 == c2 && c1 == c3 =>
      Some(i + c-(c1*c2))
 
-    // c+n+j % c+n = j % 2+N if j.sign = + and c >= 0
-    case (Sum(Cst(c1) :: (n1:Var) :: (j:Var) :: Nil),
-          Sum(Cst(c2) :: (n2: Var) :: Nil))
-      if n1 == n2 && c1 == c2 &&
-        j.sign == Sign.Positive && c1 >= 0 =>
-     Some(SimplifyMod(j, Sum(Cst(c2) :: (n2: Var) :: Nil)))
-
     // c1+n+j % c2+n = c1-c2+j % c+n
     case (Sum(Cst(c1) :: (n1:Var) :: (j:Var) :: Nil),
           Sum(Cst(c2) :: (n2: Var) :: Nil))
-      if n1 == n2 && c1 > c2 && c1 >= 0 && c2 >= 0 &&
+      if n1 == n2 && c1 >= c2 && c1 >= 0 && c2 >= 0 &&
         n1.sign == Sign.Positive && j.sign == Sign.Positive =>
      Some(SimplifyMod(c1-c2+j, c2+n2))
 

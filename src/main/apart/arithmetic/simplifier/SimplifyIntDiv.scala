@@ -157,16 +157,15 @@ object SimplifyIntDiv {
 
     // 4 + i + 2m + 2j + mj / 2+m = (2+m)(2+j)+i / (2+m) = 2+j true if i < 2+m
     case (Sum(
-              Cst(cDouble) ::
+              Cst(c) ::
               (i: Var) ::
               Prod(Cst(c2) :: (m2: Var) :: Nil) ::
               Prod(Cst(c1) :: (j2: Var) :: Nil) ::
               Prod((m1: Var) :: (j1: Var) :: Nil) ::
               Nil),
           Sum(Cst(c3) :: (m3: Var) :: Nil))
-      if m1 == m2 && m1 == m3 && c1 == c2 && c1 == c3 && c1 * c2 == cDouble &&
-        ArithExpr.isSmaller(i, c1 + m2).getOrElse(false) =>
-      Some(j1 + c2)
+      if m1 == m2 && m1 == m3 && c1 == c2 && c1 == c3  =>
+      Some(SimplifySum(j1 + c2, SimplifyIntDiv(i + c-(c1*c2), c1+m1)))
 
     // c+n+j / c+n = 1 true if j<c+n
     case (Sum(
