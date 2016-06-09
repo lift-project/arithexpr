@@ -60,6 +60,14 @@ object SimplifyMod {
     // If there exists a common denominator, simplify
     case (x, y) if ArithExpr.gcd(x,y) == y => Some(Cst(0))
 
+    // Apply mod to constants
+    case (s@Sum(terms), Cst(d))
+      if terms.collect({ case Cst(_) => }).nonEmpty &&
+        terms.collect({ case Cst(v) => v }).head >= d =>
+
+      val c = terms.collect({ case Cst(v) => v }).head
+      Some((s - c + c%d) % d)
+
     // Isolate the terms which are multiple of the mod and eliminate
     case (s@Sum(terms), d) if !ArithExpr.mightBeNegative(s) =>
       val (multiple, _) = terms.partition(t => (t, d) match {
