@@ -77,6 +77,8 @@ class Regressions {
     override lazy val sign: Sign.Value = Sign.Positive
 
     override lazy val (min : ArithExpr, max: ArithExpr) = (Cst(0),PosInf)
+
+    override def substituteDiv = this
   }
 
   class func2(a: Int) extends ArithExprFunction("func2") {
@@ -87,6 +89,8 @@ class Regressions {
     override lazy val sign: Sign.Value = Sign.Positive
 
     override lazy val (min : ArithExpr, max: ArithExpr) = (Cst(0),PosInf)
+
+    override def substituteDiv = this
   }
 
   @Test def expr10(): Unit = {
@@ -133,6 +137,8 @@ class Regressions {
 
       override lazy val (min : ArithExpr, max: ArithExpr) = (range.min.min, range.max.max)
       override lazy val sign: Sign.Value = Sign.Positive
+
+      override def substituteDiv = this
     }
   @Test
   def expr14(): Unit = {
@@ -155,5 +161,23 @@ class Regressions {
   def expr15(): Unit = {
     val get_local_id = new OclFunction("get_local_id", ContinuousRange(0, 2))
     assertTrue(ArithExpr.isSmaller( 1+(2*get_local_id), 4 ).getOrElse(false))
+  }
+
+  @Test
+  def expr16(): Unit = {
+    val expr = 4 * Var("", RangeAdd(0, 32, 1))
+    val start = (899 + expr) % 128
+    val gold =  3 + expr
+
+    assertEquals(gold, start)
+  }
+
+  @Test
+  def expr17(): Unit = {
+    val expr = 4 * Var("", RangeAdd(0, 32, 1))
+    val start = (899 + expr) / 128
+    val gold = Cst(7)
+
+    assertEquals(gold, start)
   }
 }

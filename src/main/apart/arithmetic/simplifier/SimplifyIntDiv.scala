@@ -4,23 +4,6 @@ package simplifier
 
 object SimplifyIntDiv {
 
-  //  private def simplifyIntDivConstants(factors: List[ArithExpr], denomFactors: List[ArithExpr]): Option[ArithExpr] = {
-  //    val (numerConstant, numerother) = factors.partition(_.isInstanceOf[Cst])
-  //    val (denomConstant, demonother) = denomFactors.partition(_.isInstanceOf[Cst])
-  //
-  //    if (denomConstant.nonEmpty && numerConstant.nonEmpty)
-  //      ExprSimplifier(numerConstant.head /^ denomConstant.head) match {
-  //        case Pow(b, e) =>
-  //          Some((e * Cst(-1) :: numerother).reduce(_*_) / (b :: demonother).reduce(_*_))
-  //        case c: Cst =>
-  //          val numer = if(numerother.nonEmpty) (c :: numerother).reduce(_*_) else c
-  //          val denom = if(demonother.nonEmpty) demonother.reduce(_*_) else Cst(1)
-  //          Some(numer / denom)
-  //        case _ => None
-  //      }
-  //    else None
-  //  }
-
   /**
     * Try to replace the expression with an equivalent simplified expression.
     *
@@ -76,11 +59,7 @@ object SimplifyIntDiv {
     // (AE % div) / div = 0
     case (Mod(ae1: ArithExpr, div1: ArithExpr), (div2: ArithExpr)) if (div1 == div2) => Some(Cst(0))
 
-    ///////////////////////////////////////////////////////////////////////////////////
-    // SPECIAL CASES //todo combine cases which only differ in order of args
-    ///////////////////////////////////////////////////////////////////////////////////
-
-    // FACTORIZATION | FRACTION REDUCTION | SPLIT FRACTION IN PARTS
+    // SPECIAL CASES
     // cn + mn / c+m == n(c+m) / c+m => n
     case (Sum(
               Prod(Cst(c1) :: (n2: Var) :: Nil) ::
@@ -195,6 +174,14 @@ object SimplifyIntDiv {
       if n1 == n2 && c2 == c3 && c1 >= 0 && c2 >= 0 &&
         n1.sign == Sign.Positive && j.sign == Sign.Positive =>
       Some(SimplifySum(c2, SimplifyIntDiv(j + c1 - c2*c2, n2+c3)))
+
+    // Pull out multiples from constants
+    case (s@Sum(terms), Cst(d))
+      if terms.collect({ case Cst(_) => }).nonEmpty &&
+        terms.collect({ case Cst(v) => v }).head >= d =>
+
+      val c = terms.collect({ case Cst(v) => v }).head
+      Some(c/d + (s - c + c%d) / d)
 
     // Simplify common factors in the numerator and the denominator
     case (Sum(terms), denom) =>
