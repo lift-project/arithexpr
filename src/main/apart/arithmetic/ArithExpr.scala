@@ -319,7 +319,7 @@ object ArithExpr {
     case (Cst(a), Cst(b)) => a < b
     case (c:Cst, _) => true                 // constants first
     case (_, c:Cst) => false
-    case (x:Var, y:Var) => x.name < y.name  // order variables lexicographically
+    case (x:Var, y:Var) => x.toString < y.toString // order variables lexicographically
     case (v:Var, _) => true                 // variables always after constants second
     case (_, v:Var) => false
     case (x:Prod, y:Prod) => x.factors.zip(y.factors).map(x => sort(x._1, x._2)).foldLeft(false)(_ || _)
