@@ -183,6 +183,19 @@ object SimplifyIntDiv {
         ArithExpr.isSmaller(c1 - c2 + j, c2 + n2).getOrElse(false) =>
       Some(Cst(1))
 
+    // a + j + bn / n+b = b + (j + a-2b) / n+b
+    // 4 + j + 2n / 2+n == 2(n+2)+j % n+2 => 2 [+ j / n+2]
+    // 5 + j + 2n / 2+n == 2(n+2)+j+1 % n+2 => 2 [+ j / n+2]
+    case (Sum(
+              Cst(c1) ::
+              (j:Var) ::
+              Prod(Cst(c2) :: (n1:Var) :: Nil)::
+              Nil),
+          Sum(Cst(c3) :: (n2: Var) :: Nil))
+      if n1 == n2 && c2 == c3 && c1 >= 0 && c2 >= 0 &&
+        n1.sign == Sign.Positive && j.sign == Sign.Positive =>
+      Some(SimplifySum(c2, SimplifyIntDiv(j + c1 - c2*c2, n2+c3)))
+
     // Simplify common factors in the numerator and the denominator
     case (Sum(terms), denom) =>
       val (multiples, newTerms) = terms.partition(ArithExpr.multipleOf(_, denom))

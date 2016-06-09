@@ -100,6 +100,19 @@ object SimplifyMod {
         n1.sign == Sign.Positive && j.sign == Sign.Positive =>
      Some(SimplifyMod(c1-c2+j, c2+n2))
 
+    // a + j + bn / n+b = b(n+b) + j + a-2b % n+b
+    // 4 + j + 2n % 2+n == 2(n+2)+j % n+2 => j % n+2
+    // 5 + j + 2n % 2+n == 2(n+2)+j+1 % n+2 => j+1 % n+2
+    case (Sum(
+              Cst(c1) ::
+              (j:Var) ::
+              Prod(Cst(c2) :: (n1:Var) :: Nil)::
+              Nil),
+          Sum(Cst(c3) :: (n2: Var) :: Nil))
+      if n1 == n2 && c2 == c3 && c1 >= 0 && c2 >= 0 &&
+        n1.sign == Sign.Positive && j.sign == Sign.Positive =>
+     Some(SimplifyMod((j + c1-c2*c2), n1+c3))
+
     // 3 + n + j + 2i + ni % 2+n == (n+2)(i+1)+j+1 % 2+n => j+1 % 2+n // try to generalise a bit more
     case (Sum(
               Cst(3) ::
