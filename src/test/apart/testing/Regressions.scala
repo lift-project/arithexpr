@@ -77,6 +77,8 @@ class Regressions {
     override lazy val sign: Sign.Value = Sign.Positive
 
     override lazy val (min : ArithExpr, max: ArithExpr) = (Cst(0),PosInf)
+
+    override def substituteDiv = this
   }
 
   class func2(a: Int) extends ArithExprFunction("func2") {
@@ -87,6 +89,8 @@ class Regressions {
     override lazy val sign: Sign.Value = Sign.Positive
 
     override lazy val (min : ArithExpr, max: ArithExpr) = (Cst(0),PosInf)
+
+    override def substituteDiv = this
   }
 
   @Test def expr10(): Unit = {
@@ -133,6 +137,8 @@ class Regressions {
 
       override lazy val (min : ArithExpr, max: ArithExpr) = (range.min.min, range.max.max)
       override lazy val sign: Sign.Value = Sign.Positive
+
+      override def substituteDiv = this
     }
   @Test
   def expr14(): Unit = {

@@ -185,8 +185,13 @@ abstract sealed class ArithExpr {
       false
   }
 
+  /**
+    * Substitutes y * Pow(x, -1) operator with y / x. Added to get around
+    * comparison issues. Both will print to the same C code.
+    *
+    * @return
+    */
   def substituteDiv: ArithExpr
-
 
   def pow(that: ArithExpr): ArithExpr = SimplifyPow(this, that)
 
