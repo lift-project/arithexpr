@@ -317,8 +317,9 @@ abstract sealed class ArithExpr {
 }
 
 object ArithExpr {
+  implicit def IntToCst(i: Int): ArithExpr = Cst(i)
 
-  implicit def IntToCst(i: Int): Cst = Cst(i)
+  implicit def LongToCst(i: Long): Cst = Cst(i)
 
   def NotEvaluable = new NotEvaluableException()
 
@@ -520,7 +521,7 @@ object ArithExpr {
       case (v1: Var, v2: Var) if isSmaller(v1.range.max + 1, v2).getOrElse(false) =>
         return Some(true)
       // Abs(a + x) < n true if (a + x) < n and -1(a + x) < n
-      case (AbsFunction(Sum(Cst(a) :: (x: Var) :: Nil)), n: Var) if
+      case (AbsFunction(Sum((a: Cst) :: (x: Var) :: Nil)), n: Var) if
           isSmaller(Sum(a :: x.range.max :: Nil), n).getOrElse(false) &&
           isSmaller(Prod(Cst(-1) :: Sum(a :: x.range.min :: Nil) :: Nil), n).getOrElse(false) =>
         return Some(true)
@@ -690,7 +691,7 @@ object ArithExpr {
 
 
   def toInt(e: ArithExpr): Int = ExprSimplifier(e) match {
-    case Cst(i) => i
+    case Cst(i) => i.asInstanceOf[Int]
     case _ => throw NotEvaluable
   }
 
@@ -786,10 +787,10 @@ case object NegInf extends ArithExpr with SimplifiedExpr {
   override def substituteDiv = this
 }
 
-case class Cst private[arithmetic](c: Int) extends ArithExpr with SimplifiedExpr {
-  override val HashSeed = Integer.hashCode(c)
+case class Cst private[arithmetic](c: Long) extends ArithExpr with SimplifiedExpr {
+  override val HashSeed = java.lang.Long.hashCode(c)
 
-  override lazy val digest: Int = Integer.hashCode(c)
+  override lazy val digest: Int = java.lang.Long.hashCode(c)
 
   override lazy val toString = c.toString
 
@@ -892,7 +893,7 @@ case class Prod private[arithmetic](factors: List[ArithExpr]) extends ArithExpr 
 
   lazy val cstFactor: Cst = {
     if (simplified) factors.find(_.isInstanceOf[Cst]).getOrElse(Cst(1)).asInstanceOf[Cst]
-    else Cst(factors.filter(_.isInstanceOf[Cst]).foldLeft[Int](1)(_ + _.asInstanceOf[Cst].c))
+    else Cst(factors.filter(_.isInstanceOf[Cst]).foldLeft[Long](1)(_ + _.asInstanceOf[Cst].c))
   }
 }
 
@@ -938,7 +939,7 @@ case class Sum private[arithmetic](terms: List[ArithExpr]) extends ArithExpr {
 
   lazy val cstTerm: Cst = {
     if (simplified) terms.find(_.isInstanceOf[Cst]).getOrElse(Cst(0)).asInstanceOf[Cst]
-    else Cst(terms.filter(_.isInstanceOf[Cst]).foldLeft[Int](0)(_ + _.asInstanceOf[Cst].c))
+    else Cst(terms.filter(_.isInstanceOf[Cst]).foldLeft[Long](0)(_ + _.asInstanceOf[Cst].c))
   }
 }
 

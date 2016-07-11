@@ -91,7 +91,6 @@ class TestExpr {
     }
   }
 
-  @Ignore
   @Test
   def issue01(): Unit = {
     val K = Var("K")
