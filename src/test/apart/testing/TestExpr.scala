@@ -1,7 +1,6 @@
 package apart.testing
 
 import apart.arithmetic._
-import apart.arithmetic.simplifier.SimplifySum
 import org.junit.Assert._
 import org.junit.{Ignore, Test}
 
@@ -90,6 +89,22 @@ class TestExpr {
       case 1 => rndExpr(maxDepth, depth+1) + rndExpr(maxDepth, depth+1)
       case 2 => rndExpr(maxDepth, depth+1) /^ rndExpr(maxDepth, depth+1)
     }
+  }
+
+  @Ignore
+  @Test
+  def issue01(): Unit = {
+    val K = Var("K")
+    val M = Var("M")
+    val N = Var("N")
+
+    val expr = K * M * N * 1 /^ 32 * 1 /^ 4096
+
+    val substitutionMap = Map[ArithExpr, ArithExpr](K -> 512, M -> 2048, N -> 2048)
+
+    val result = ArithExpr.substitute(expr, substitutionMap)
+
+    assertEquals(Cst(16384), result)
   }
 
   @Test def testRandom(): Unit = {
