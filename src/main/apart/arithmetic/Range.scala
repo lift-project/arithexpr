@@ -76,7 +76,21 @@ case class RangeAdd(start: ArithExpr, stop: ArithExpr, step: ArithExpr) extends 
     assert (stop.sign == Sign.Positive | start.sign == Sign.Positive)
     // TODO: this maximum is too high! consider the following range: RangeAdd(0,10,5) in which case the max is 5, not 9
     // also consider the case where the step is negative and the stop is also negative, this would break (hence the assertion)
-    stop - 1
+    val result = stop - 1
+
+    try {
+      val evaluatedResult = result.evalDbl
+      val evaluatedStart = start.evalDbl
+
+      if (evaluatedResult < evaluatedStart)
+        start
+      else
+        result
+
+    } catch {
+      case _: NotEvaluableException => result
+    }
+
   }
 
   override def equals(that: Any) = that match {

@@ -1242,13 +1242,14 @@ class TestExpr {
 
     // The Var's maximum value + 1 is the inverse of it's multiplier
 
-    val expr1 = ceil(1 + (-1 * v_2_5 * Var("", RangeAdd(0, v_3_6 * 1 /^ v_2_5, 1)) * 1 /^ v_3_6))
     // v_3_6 > v_2_5
-    val expr2 = ceil(1 + (-1 * 8 * Var("", RangeAdd(0, Cst(64) /^ 8, 1)) * 1 /^ 64))
+    val expr1 = ceil(1 + (-1 * 8 * Var("", RangeAdd(0, Cst(64) /^ 8, 1)) * 1 /^ 64))
     // v_3_6 < v_2_5
-    val expr3 = ceil(1 + (-1 * 64 * Var("", RangeAdd(0, Cst(8) /^ 64, 1)) * 1 /^ 8))
+    val expr2 = ceil(1 + (-1 * 64 * Var("", RangeAdd(0, Cst(8) /^ 64, 1)) * 1 /^ 8))
     // v_3?6 == v_2_5
-    val expr4 = ceil(1 + (-1 * 64 * Var("", RangeAdd(0, Cst(64) /^ 64, 1)) * 1 /^ 64))
+    val expr3 = ceil(1 + (-1 * 64 * Var("", RangeAdd(0, Cst(64) /^ 64, 1)) * 1 /^ 64))
+
+    val expr4 = ceil(1 + (-1 * v_2_5 * Var("", RangeAdd(0, v_3_6 * 1 /^ v_2_5, 1)) * 1 /^ v_3_6))
 
     assertEquals(Cst(1), expr1)
     assertEquals(Cst(1), expr2)
@@ -1266,6 +1267,13 @@ class TestExpr {
     val range = RangeAdd(rangeStart, M /^ p, M/^ p)
 
     assertEquals(Cst(1), range.numVals)
+  }
+
+  @Test
+  def rangeMinMax(): Unit = {
+    val range = RangeAdd(0, Cst(8) /^ 64, 1)
+    assertTrue(range.min.evalDbl <= range.max.evalDbl)
+    assertTrue(range.max.evalDbl >= 0)
   }
 
   @Ignore
