@@ -1235,6 +1235,28 @@ class TestExpr {
   }
 
   @Ignore
+  @Test
+  def ceilNotSimplifying(): Unit = {
+    val v_3_6 = SizeVar("")
+    val v_2_5 = SizeVar("")
+
+    // The Var's maximum value + 1 is the inverse of it's multiplier
+
+    val expr1 = ceil(1 + (-1 * v_2_5 * Var("", RangeAdd(0, v_3_6 * 1 /^ v_2_5, 1)) * 1 /^ v_3_6))
+    // v_3_6 > v_2_5
+    val expr2 = ceil(1 + (-1 * 8 * Var("", RangeAdd(0, Cst(64) /^ 8, 1)) * 1 /^ 64))
+    // v_3_6 < v_2_5
+    val expr3 = ceil(1 + (-1 * 64 * Var("", RangeAdd(0, Cst(8) /^ 64, 1)) * 1 /^ 8))
+    // v_3?6 == v_2_5
+    val expr4 = ceil(1 + (-1 * 64 * Var("", RangeAdd(0, Cst(64) /^ 64, 1)) * 1 /^ 64))
+
+    assertEquals(Cst(1), expr1)
+    assertEquals(Cst(1), expr2)
+    assertEquals(Cst(1), expr3)
+    assertEquals(Cst(1), expr4)
+  }
+
+  @Ignore
   @Test def foo1(): Unit = {
     ceil(NegInf) % ?
   }
