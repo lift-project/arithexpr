@@ -1257,6 +1257,18 @@ class TestExpr {
   }
 
   @Ignore
+  @Test
+  def ceilNotSimplifyingInRangeNumVals(): Unit = {
+    val M = SizeVar("M")
+    val p = SizeVar("p")
+    val rangeStart = Var("get_group_id", RangeAdd(0, M/^p, 1))
+
+    val range = RangeAdd(rangeStart, M /^ p, M/^ p)
+
+    assertEquals(Cst(1), range.numVals)
+  }
+
+  @Ignore
   @Test def foo1(): Unit = {
     ceil(NegInf) % ?
   }
