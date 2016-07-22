@@ -1126,7 +1126,7 @@ object SizeVar {
 class OpaqueVar(val v: Var,
                 r: Range = RangeUnknown,
                 fixedId: Option[Long] = None) extends ExtensibleVar("", r, fixedId) {
-  override def makeCopy(r: Range) = new OpaqueVar(v, r, Some(this.id))
+  override def copy(r: Range) = new OpaqueVar(v, r, Some(this.id))
 
   override lazy val (min: ArithExpr, max: ArithExpr) = (this, this)
   override lazy val sign: Sign.Value = v.sign
@@ -1141,10 +1141,8 @@ class OpaqueVar(val v: Var,
 abstract class ExtensibleVar(override val name: String,
                              override val range: Range = RangeUnknown,
                              fixedId: Option[Long] = None) extends Var(name, range, fixedId) {
-  override def copy(r: Range): Var = makeCopy(r)
 
-  /* force subclasses to implement makeCopy by making it abstract here */
-  protected def makeCopy(r: Range): ExtensibleVar
-
+  /* redeclare as abstract to force subclasses to implement */
+  override def copy(r: Range): Var
   override def visitAndRebuild(f: (ArithExpr) => ArithExpr): ArithExpr
 }
