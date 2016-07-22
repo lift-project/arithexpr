@@ -187,14 +187,6 @@ abstract sealed class ArithExpr {
       false
   }
 
-  /**
-    * Substitutes y * Pow(x, -1) operator with y / x. Added to get around
-    * comparison issues. Both will print to the same C code.
-    *
-    * @return
-    */
-  def substituteDiv: ArithExpr
-
   def pow(that: ArithExpr): ArithExpr = SimplifyPow(this, that)
 
   /**
@@ -649,6 +641,23 @@ object ArithExpr {
         expr
     )
 
+  /**
+    * Substitutes y * Pow(x, -1) operator with y / x. Added to get around
+    * comparison issues. Both will print to the same C code.
+    *
+    * @return
+    */
+  def substituteDiv(e: ArithExpr) =
+  e.visitAndRebuild({
+      case Prod(factors) =>
+        factors.foldLeft(Cst(1): ArithExpr)((exprSoFar, newTerm) =>
+          newTerm match {
+            case Pow(b, Cst(-1)) => exprSoFar / b
+            case _ => exprSoFar * newTerm
+          })
+      case x => x
+    })
+
   private def evalDouble(e: ArithExpr): Double = e match {
     case Cst(c) => c
 
@@ -744,8 +753,6 @@ case object ? extends ArithExpr with SimplifiedExpr {
 
   override def ==(that: ArithExpr): Boolean = that.getClass == this.getClass
 
-  override def substituteDiv = this
-
   override def visitAndRebuild(f: (ArithExpr) => ArithExpr) = f(this)
 }
 
@@ -757,8 +764,6 @@ case object PosInf extends ArithExpr with SimplifiedExpr {
   override lazy val sign = Sign.Positive
 
   override def ==(that: ArithExpr): Boolean = that.getClass == this.getClass
-
-  override def substituteDiv = this
 
   override def visitAndRebuild(f: (ArithExpr) => ArithExpr) = f(this)
 }
@@ -772,8 +777,6 @@ case object NegInf extends ArithExpr with SimplifiedExpr {
 
   override def ==(that: ArithExpr): Boolean = that.getClass == this.getClass
 
-  override def substituteDiv = this
-
   override def visitAndRebuild(f: (ArithExpr) => ArithExpr) = f(this)
 }
 
@@ -783,8 +786,6 @@ case class Cst private[arithmetic](c: Long) extends ArithExpr with SimplifiedExp
   override lazy val digest: Int = java.lang.Long.hashCode(c)
 
   override lazy val toString = c.toString
-
-  override def substituteDiv = this
 
   override def visitAndRebuild(f: (ArithExpr) => ArithExpr): ArithExpr = f(this)
 }
@@ -798,8 +799,6 @@ case class IntDiv private[arithmetic](numer: ArithExpr, denom: ArithExpr) extend
   override lazy val digest: Int = HashSeed ^ numer.digest() ^ ~denom.digest()
 
   override def toString: String = s"($numer) / ($denom)"
-
-  override def substituteDiv = numer.substituteDiv / denom.substituteDiv
 
   override def visitAndRebuild(f: (ArithExpr) => ArithExpr): ArithExpr =
     f(numer.visitAndRebuild(f) / denom.visitAndRebuild(f))
@@ -815,8 +814,6 @@ case class Pow private[arithmetic](b: ArithExpr, e: ArithExpr) extends ArithExpr
     case _ => "pow(" + b + "," + e + ")"
   }
 
-  override def substituteDiv = this
-
   override def visitAndRebuild(f: (ArithExpr) => ArithExpr): ArithExpr =
     f(b.visitAndRebuild(f).pow(e.visitAndRebuild(f)))
 }
@@ -827,8 +824,6 @@ case class Log private[arithmetic](b: ArithExpr, x: ArithExpr) extends ArithExpr
   override lazy val digest: Int = HashSeed ^ b.digest() ^ ~x.digest()
 
   override def toString: String = "log" + b + "(" + x + ")"
-
-  override def substituteDiv = this
 
   override def visitAndRebuild(f: (ArithExpr) => ArithExpr): ArithExpr =
     f(Log(b.visitAndRebuild(f), x.visitAndRebuild(f)))
@@ -848,14 +843,6 @@ case class Prod private[arithmetic](factors: List[ArithExpr]) extends ArithExpr 
       Debug.AssertNot(x.isInstanceOf[Prod], s"Prod cannot contain a Prod in $toString")
       Debug.AssertNot(x.isInstanceOf[Sum], "Prod should not contain a Sum")
     })
-  }
-
-  override def substituteDiv = {
-    factors.foldLeft(Cst(1): ArithExpr)((exprSoFar, newTerm) =>
-      newTerm match {
-        case Pow(b, Cst(-1)) => exprSoFar / b.substituteDiv
-        case _ => exprSoFar * newTerm.substituteDiv
-      })
   }
 
   override val HashSeed = 0x286be17e
@@ -912,8 +899,6 @@ case class Sum private[arithmetic](terms: List[ArithExpr]) extends ArithExpr {
     })
   }
 
-  override def substituteDiv = Sum(terms.map(_.substituteDiv))
-
   override val HashSeed = 0x8e535130
 
   override lazy val digest: Int = terms.foldRight(HashSeed)((x, hash) => hash ^ x.digest())
@@ -959,8 +944,6 @@ case class Mod private[arithmetic](dividend: ArithExpr, divisor: ArithExpr) exte
 
   override lazy val toString: String = s"($dividend % ($divisor))"
 
-  override def substituteDiv = dividend.substituteDiv % divisor.substituteDiv
-
   override def visitAndRebuild(f: (ArithExpr) => ArithExpr): ArithExpr =
     f(dividend.visitAndRebuild(f) % divisor.visitAndRebuild(f))
 }
@@ -971,8 +954,6 @@ case class AbsFunction private[arithmetic](ae: ArithExpr) extends ArithExpr {
   override lazy val digest: Int = HashSeed ^ ae.digest()
 
   override lazy val toString: String = "Abs(" + ae + ")"
-
-  override def substituteDiv = this
 
   override def visitAndRebuild(f: (ArithExpr) => ArithExpr): ArithExpr =
     f(abs(ae.visitAndRebuild(f)))
@@ -989,8 +970,6 @@ case class FloorFunction private[arithmetic](ae: ArithExpr) extends ArithExpr {
 
   override lazy val toString: String = "Floor(" + ae + ")"
 
-  override def substituteDiv = FloorFunction(ae.substituteDiv)
-
   override def visitAndRebuild(f: (ArithExpr) => ArithExpr): ArithExpr =
     f(floor(ae.visitAndRebuild(f)))
 }
@@ -1005,8 +984,6 @@ case class CeilingFunction private[arithmetic](ae: ArithExpr) extends ArithExpr 
   override lazy val digest: Int = HashSeed ^ ae.digest()
 
   override lazy val toString: String = "Ceiling(" + ae + ")"
-
-  override def substituteDiv = CeilingFunction(ae.substituteDiv)
 
   override def visitAndRebuild(f: (ArithExpr) => ArithExpr): ArithExpr =
     f(ceil(ae.visitAndRebuild(f)))
@@ -1023,8 +1000,6 @@ case class IfThenElse private[arithmetic](test: Predicate, t: ArithExpr, e: Arit
   override lazy val digest: Int = HashSeed ^ test.digest ^ t.digest() ^ ~e.digest()
 
   override lazy val toString: String = s"( $test ? $t : $e )"
-
-  override def substituteDiv = IfThenElse(test, t.substituteDiv, e.substituteDiv)
 
   override def visitAndRebuild(f: (ArithExpr) => ArithExpr): ArithExpr = {
     val newPredicate = Predicate(
@@ -1069,8 +1044,6 @@ class Lookup private[arithmetic](val table: Seq[ArithExpr],
       thatLookup.index == this.index && thatLookup.id == this.id
     case _ => false
   }
-
-  override def substituteDiv = Lookup(table.map(_.substituteDiv), index.substituteDiv, id)
 
   override def visitAndRebuild(f: (ArithExpr) => ArithExpr): ArithExpr = {
     f(Lookup(table.map(_.visitAndRebuild(f)), index.visitAndRebuild(f), id))
@@ -1122,8 +1095,6 @@ class Var private[arithmetic](val name: String,
       _id
     }
   }
-
-  override def substituteDiv = new Var(name, range.substituteDiv, Some(id))
 
   override def visitAndRebuild(f: (ArithExpr) => ArithExpr): ArithExpr = {
     f(new Var(name, range.visitAndRebuild(f), Some(id)))

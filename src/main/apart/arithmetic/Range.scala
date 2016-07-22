@@ -16,8 +16,6 @@ sealed abstract class Range {
     case _ => false
   }
 
-  def substituteDiv: Range
-
   def visitAndRebuild(f: ArithExpr => ArithExpr): Range
 
   /* Number of different values this range can take */
@@ -50,8 +48,6 @@ case class StartFromRange(start: ArithExpr) extends Range {
     case _ => false
   }
 
-  override def substituteDiv = StartFromRange(start.substituteDiv)
-
   override def visitAndRebuild(f: (ArithExpr) => ArithExpr): Range =
     StartFromRange(start.visitAndRebuild(f))
 }
@@ -67,8 +63,6 @@ case class GoesToRange(end: ArithExpr) extends Range {
     case r: GoesToRange => this.end == r.end
     case _ => false
   }
-
-  override def substituteDiv = GoesToRange(end.substituteDiv)
 
   override def visitAndRebuild(f: (ArithExpr) => ArithExpr): Range =
     GoesToRange(end.visitAndRebuild(f))
@@ -94,9 +88,6 @@ case class RangeAdd(start: ArithExpr, stop: ArithExpr, step: ArithExpr) extends 
 
   override lazy val numVals : ArithExpr = ceil((this.stop - this.start) /^ this.step)
 
-  override def substituteDiv =
-    RangeAdd(start.substituteDiv, stop.substituteDiv, step.substituteDiv)
-
   override def visitAndRebuild(f: (ArithExpr) => ArithExpr): Range =
     RangeAdd(start.visitAndRebuild(f), stop.visitAndRebuild(f), step.visitAndRebuild(f))
 }
@@ -113,9 +104,6 @@ case class RangeMul(start: ArithExpr, stop: ArithExpr, mul: ArithExpr) extends R
     case _ => false
   }
 
-  override def substituteDiv =
-    RangeMul(start.substituteDiv, stop.substituteDiv, mul.substituteDiv)
-
   override def visitAndRebuild(f: (ArithExpr) => ArithExpr): Range =
     RangeMul(start.visitAndRebuild(f), stop.visitAndRebuild(f), mul.visitAndRebuild(f))
 }
@@ -129,8 +117,6 @@ object ContinuousRange {
 case object RangeUnknown extends Range {
   override val min = ?
   override val max = ?
-
-  override def substituteDiv = this
 
   override def visitAndRebuild(f: (ArithExpr) => ArithExpr): Range = this
 }
