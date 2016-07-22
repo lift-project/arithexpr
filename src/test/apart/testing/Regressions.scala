@@ -79,6 +79,9 @@ class Regressions {
     override lazy val (min : ArithExpr, max: ArithExpr) = (Cst(0),PosInf)
 
     override def substituteDiv = this
+
+    override def visitAndRebuild(f: (ArithExpr) => ArithExpr): ArithExpr =
+      f(this)
   }
 
   class func2(a: Int) extends ArithExprFunction("func2") {
@@ -91,6 +94,8 @@ class Regressions {
     override lazy val (min : ArithExpr, max: ArithExpr) = (Cst(0),PosInf)
 
     override def substituteDiv = this
+
+    override def visitAndRebuild(f: (ArithExpr) => ArithExpr): ArithExpr = ???
   }
 
   @Test def expr10(): Unit = {
@@ -139,6 +144,9 @@ class Regressions {
       override lazy val sign: Sign.Value = Sign.Positive
 
       override def substituteDiv = this
+
+      override def visitAndRebuild(f: (ArithExpr) => ArithExpr): ArithExpr =
+        f(this)
     }
   @Test
   def expr14(): Unit = {
