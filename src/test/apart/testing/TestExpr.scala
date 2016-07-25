@@ -1259,12 +1259,22 @@ class TestExpr {
     assertEquals(Cst(1), expr4)
   }
 
-  @Ignore
   @Test
-  def ceilNotSimplifyingInRangeNumVals(): Unit = {
+  def numValsNotSimplifying(): Unit = {
     val M = SizeVar("M")
     val p = SizeVar("p")
     val rangeStart = Var("get_group_id", RangeAdd(0, M/^p, 1))
+
+    val range = RangeAdd(rangeStart, M /^ p, M/^ p)
+
+    assertEquals(Cst(1), range.numVals)
+  }
+
+  @Test
+  def numValsNotSimplifying2(): Unit = {
+    val M = SizeVar("M")
+    val p = SizeVar("p")
+    val rangeStart = get_group_id(RangeAdd(0, M/^p, 1))
 
     val range = RangeAdd(rangeStart, M /^ p, M/^ p)
 

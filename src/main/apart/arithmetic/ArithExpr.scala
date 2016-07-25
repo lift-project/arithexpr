@@ -542,6 +542,20 @@ object ArithExpr {
       case _ =>
     }
 
+    // See TestExpr.numValsNotSimplifying2 and RangeAdd.numValues
+    val fun1 = ArithExprFunction.getArithExprFuns(ae1)
+    val fun2 = ArithExprFunction.getArithExprFuns(ae2)
+    val union = fun1 ++ fun2
+
+    if (union.nonEmpty) {
+      val replacements = union.map(f => Var(f.name, f.range))
+      val replacementsMap = (union, replacements).zipped.toMap[ArithExpr, ArithExpr]
+
+      val substitute1 = substitute(ae1, replacementsMap)
+      val substitute2 = substitute(ae2, replacementsMap)
+
+      return isSmaller(substitute1, substitute2)
+    }
 
     val ae1Vars = collectVars(ae1).filter(_ match { case _: OpaqueVar => false case _ => true })
     val ae2Vars = collectVars(ae2).filter(_ match { case _: OpaqueVar => false case _ => true })

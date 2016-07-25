@@ -100,7 +100,15 @@ case class RangeAdd(start: ArithExpr, stop: ArithExpr, step: ArithExpr) extends 
     case _ => false
   }
 
-  override lazy val numVals : ArithExpr = ceil((this.stop - this.start) /^ this.step)
+  override lazy val numVals : ArithExpr = {
+    // TODO: Workaround. See TestExpr.numValsNotSimplifying
+    // TODO: and TestExpr.ceilNotSimplifying
+    if (ArithExpr.isSmaller(start, stop).getOrElse(false) &&
+      ArithExpr.isSmaller(max, start + step).getOrElse(false))
+      Cst(1)
+    else
+      ceil((this.stop - this.start) /^ this.step)
+  }
 
   override def visitAndRebuild(f: (ArithExpr) => ArithExpr): Range =
     RangeAdd(start.visitAndRebuild(f), stop.visitAndRebuild(f), step.visitAndRebuild(f))
