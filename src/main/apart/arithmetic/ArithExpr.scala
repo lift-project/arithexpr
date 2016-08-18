@@ -315,7 +315,7 @@ object ArithExpr {
 
   implicit def LongToCst(i: Long): Cst = Cst(i)
 
-  def NotEvaluable = new NotEvaluableException()
+  val NotEvaluable = NotEvaluableException
 
   val sort: (ArithExpr, ArithExpr) => Boolean = (x: ArithExpr, y: ArithExpr) => (x, y) match {
     case (Cst(a), Cst(b)) => a < b
@@ -354,7 +354,7 @@ object ArithExpr {
   def minmax(v: Var, c: Cst): (ArithExpr, ArithExpr) = {
     val m1 = v.range.min match {
       case Cst(min) => if (min >= c.c) Some((c, v)) else None
-      case ? => throw new NotEvaluableException()
+      case ? => throw NotEvaluableException
       case _ => throw new NotImplementedError()
     }
 
@@ -494,13 +494,13 @@ object ArithExpr {
       if (diff.isEvaluable)
         return Some(diff.evalDbl > 0)
     } catch {
-      case _: NotEvaluableException =>
+      case NotEvaluableException =>
     }
 
     try {
       return Some(ae1.max.eval < ae2.min.eval)
     } catch {
-      case _: NotEvaluableException =>
+      case NotEvaluableException =>
     }
 
     // TODO: Find a more generic solution for these cases
@@ -577,7 +577,7 @@ object ArithExpr {
       val ae2WithFixedVarsMin = ae2WithFixedVars.min
       isSmaller(ae1WithFixedVarsMax, ae2WithFixedVarsMin)
     } catch {
-      case _: NotEvaluableException => None
+      case NotEvaluableException => None
     }
   }
 
