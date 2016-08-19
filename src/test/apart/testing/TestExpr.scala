@@ -108,6 +108,17 @@ class TestExpr {
     assertEquals(Cst(16384), result)
   }
 
+  // Test how an NotEvaluableException is thrown
+  @Test
+  def issue02(): Unit = {
+    try {
+      Var("M").eval
+    } catch {
+      case NotEvaluableException => return
+    }
+    assert(false)
+  }
+
   @Test def testRandom(): Unit = {
 
     for (a <- 1 to 10) {

@@ -1,7 +1,9 @@
 package apart
 package arithmetic
 
+import scala.util.control.ControlThrowable
+
 /**
   * Control flow exception used to abort arithmetic expression evaluation on unknown terms.
   */
-final class NotEvaluableException extends Throwable
+object NotEvaluableException extends ControlThrowable

@@ -13,7 +13,7 @@ object SimplifyCeiling {
           assert(d.isValidInt)
          Cst(d.toInt)
         } catch {
-          case _: NotEvaluableException =>
+          case NotEvaluableException =>
             // ok let's try to evaluate ceiling of min and max
             try {
               val min = CeilingFunction(ae.min).evalDbl
@@ -23,7 +23,7 @@ object SimplifyCeiling {
                 return Cst(min.toInt)
               }
             } catch {
-              case _: NotEvaluableException => new CeilingFunction(ae) with SimplifiedExpr
+              case NotEvaluableException => new CeilingFunction(ae) with SimplifiedExpr
               case e: Throwable => throw e
             }
             new CeilingFunction(ae) with SimplifiedExpr
