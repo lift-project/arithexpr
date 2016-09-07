@@ -38,57 +38,61 @@ abstract sealed class ArithExpr {
     * based on the variables
     */
   private def _minmax() : (ArithExpr, ArithExpr) =
-  this match {
-    case AbsFunction(expr) =>
-            (ArithExpr.min(abs(expr.min), abs(expr.max)),
-             ArithExpr.max(abs(expr.min), abs(expr.max)))
-    case PosInf => (PosInf, PosInf)
-    case NegInf => (NegInf, NegInf)
-    case c: CeilingFunction => (ceil(c.ae.min), ceil(c.ae.max))
-    case f: FloorFunction => (floor(f.ae.min), floor(f.ae.max))
-    case c: Cst => (c,c)
-    case Prod(factors) =>
-      this.sign match {
-        case Sign.Positive => (factors.map(abs(_).min).reduce[ArithExpr](_ * _), factors.map(abs(_).max).reduce[ArithExpr](_ * _))
-        case Sign.Negative => (factors.map(abs(_).max).reduce[ArithExpr](_ * _) * -1, factors.map(abs(_).min).reduce[ArithExpr](_ * _) * -1)
-        case Sign.Unknown => (?,?) // impossible to determine the min and max
-      }
-    case Sum(terms) =>
-      (terms.map(_.min).reduce[ArithExpr](_ + _), terms.map(_.max).reduce[ArithExpr](_ + _))
-    case IntDiv(numer, denom) =>
-      this.sign match {
-        case Sign.Positive => (ExprSimplifier(numer.min / denom.max), ExprSimplifier(numer.max / denom.min))
-        case Sign.Negative => (ExprSimplifier(numer.max / denom.min), ExprSimplifier(numer.min / denom.max))
-        case Sign.Unknown => (?,?) // impossible to determine the min and max
-      }
-    case ite : IfThenElse =>
-      (ArithExpr.Math.Min(ite.t.min, ite.e.min), ArithExpr.Math.Max(ite.t.max, ite.e.max))
-    case l:Log =>
-      assert (l.x.sign == Sign.Positive)
-      (l.x-1).sign match {
-        case Sign.Positive => (Log(l.b.max, l.x.min), Log(l.b.min,l.x.max))
-        case Sign.Negative => (Log(l.b.min, l.x.max), Log(l.b.max,l.x.min))
-        case _ => (?,?) // impossible to determine the min and max
-      }
-    case Mod(dividend, divisor) =>
-      (dividend.sign,divisor.sign) match{
-        case (Sign.Positive, Sign.Positive) => (0, divisor.max-1)
-        case (Sign.Positive, Sign.Negative) => (0, (0-divisor.max)-1)
-        case (Sign.Negative, Sign.Positive) => (0-(divisor.max-1), 0)
-        case (Sign.Negative, Sign.Negative) => (0-((0-divisor).max-1),0)
-        case _ => (?,?) // impossible to determine the min and max
-      }
-    case Pow(b,e) =>
-      (b.sign, e.sign) match {
-        case (Sign.Positive, Sign.Positive) => (b.min pow e.min, b.max pow e.max)
-        case (Sign.Positive, Sign.Negative) => (b.max pow e.min, b.min pow e.max)
-        case (Sign.Positive, _) => (?,?) // could be anything
-        case (Sign.Negative, _) => (?,?) // could be anything
-        case (Sign.Unknown, _) => (?,?) // unkown
-      }
-    case v: Var => (v.range.min.min: ArithExpr, v.range.max.max: ArithExpr)
-    case ? => (?,?)
-    case _ => (?,?)
+  try {
+    this match {
+      case AbsFunction(expr) =>
+        (ArithExpr.min(abs(expr.min), abs(expr.max)),
+          ArithExpr.max(abs(expr.min), abs(expr.max)))
+      case PosInf => (PosInf, PosInf)
+      case NegInf => (NegInf, NegInf)
+      case c: CeilingFunction => (ceil(c.ae.min), ceil(c.ae.max))
+      case f: FloorFunction => (floor(f.ae.min), floor(f.ae.max))
+      case c: Cst => (c, c)
+      case Prod(factors) =>
+        this.sign match {
+          case Sign.Positive => (factors.map(abs(_).min).reduce[ArithExpr](_ * _), factors.map(abs(_).max).reduce[ArithExpr](_ * _))
+          case Sign.Negative => (factors.map(abs(_).max).reduce[ArithExpr](_ * _) * -1, factors.map(abs(_).min).reduce[ArithExpr](_ * _) * -1)
+          case Sign.Unknown => (?, ?) // impossible to determine the min and max
+        }
+      case Sum(terms) =>
+        (terms.map(_.min).reduce[ArithExpr](_ + _), terms.map(_.max).reduce[ArithExpr](_ + _))
+      case IntDiv(numer, denom) =>
+        this.sign match {
+          case Sign.Positive => (ExprSimplifier(numer.min / denom.max), ExprSimplifier(numer.max / denom.min))
+          case Sign.Negative => (ExprSimplifier(numer.max / denom.min), ExprSimplifier(numer.min / denom.max))
+          case Sign.Unknown => (?, ?) // impossible to determine the min and max
+        }
+      case ite: IfThenElse =>
+        (ArithExpr.Math.Min(ite.t.min, ite.e.min), ArithExpr.Math.Max(ite.t.max, ite.e.max))
+      case l: Log =>
+        assert(l.x.sign == Sign.Positive)
+        (l.x - 1).sign match {
+          case Sign.Positive => (Log(l.b.max, l.x.min), Log(l.b.min, l.x.max))
+          case Sign.Negative => (Log(l.b.min, l.x.max), Log(l.b.max, l.x.min))
+          case _ => (?, ?) // impossible to determine the min and max
+        }
+      case Mod(dividend, divisor) =>
+        (dividend.sign, divisor.sign) match {
+          case (Sign.Positive, Sign.Positive) => (0, divisor.max - 1)
+          case (Sign.Positive, Sign.Negative) => (0, (0 - divisor.max) - 1)
+          case (Sign.Negative, Sign.Positive) => (0 - (divisor.max - 1), 0)
+          case (Sign.Negative, Sign.Negative) => (0 - ((0 - divisor).max - 1), 0)
+          case _ => (?, ?) // impossible to determine the min and max
+        }
+      case Pow(b, e) =>
+        (b.sign, e.sign) match {
+          case (Sign.Positive, Sign.Positive) => (b.min pow e.min, b.max pow e.max)
+          case (Sign.Positive, Sign.Negative) => (b.max pow e.min, b.min pow e.max)
+          case (Sign.Positive, _) => (?, ?) // could be anything
+          case (Sign.Negative, _) => (?, ?) // could be anything
+          case (Sign.Unknown, _) => (?, ?) // unkown
+        }
+      case v: Var => (v.range.min.min: ArithExpr, v.range.max.max: ArithExpr)
+      case ? => (?, ?)
+      case _ => (?, ?)
+    }
+  } catch {
+    case NotEvaluableException => (?, ?)
   }
 
   /**
