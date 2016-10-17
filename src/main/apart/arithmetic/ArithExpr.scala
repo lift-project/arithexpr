@@ -25,6 +25,19 @@ abstract sealed class ArithExpr {
     */
   val simplified: Boolean = false
 
+  /**
+    * Rebuild the expression with simplification enabled.
+    *
+    * @return The simplified expression.
+    */
+  def enforceSimplification: ArithExpr = {
+    val `simplify?` = PerformSimplification.simplify
+    PerformSimplification.simplify = true
+    val ret = this.visitAndRebuild(x => x)
+    PerformSimplification.simplify = `simplify?`
+    ret
+  }
+
   /* Should be overridden by any class that extends ArithExpr and is outside the arithmetic package */
   lazy val sign: Sign.Value = Sign(this)
 
