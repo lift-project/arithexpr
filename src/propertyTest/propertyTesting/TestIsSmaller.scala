@@ -1,6 +1,6 @@
 package propertyTesting
 
-import apart.arithmetic._
+import lift.arithmetic._
 import org.scalacheck.Prop.{BooleanOperators, forAll}
 import org.scalacheck.Properties
 
