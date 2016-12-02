@@ -1,4 +1,4 @@
-name := "Apart"
+name := "ArithExpr"
 
 version := "1.0"
 
