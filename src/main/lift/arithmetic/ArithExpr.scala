@@ -154,6 +154,7 @@ abstract sealed class ArithExpr {
       case adds: Sum => adds.terms.foldLeft(l)((acc, expr) => getVars(expr, acc))
       case muls: Prod => muls.factors.foldLeft(l)((acc, expr) => getVars(expr, acc))
       case Pow(b, oe) => l ++ getVars(b) ++ getVars(oe)
+      case IntDiv(a, b) => l ++ getVars(a) ++ getVars(b)
       case v: Var => l + v
       case _ => l
     }
