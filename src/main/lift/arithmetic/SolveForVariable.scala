@@ -14,18 +14,19 @@ object SolveForVariable {
     * @return A (simplified) arithmetic expression that equals V
     */
   def apply(a: ArithExpr, b: ArithExpr): ArithExpr = {
+    val variables = ArithExpr.collectVars(a)
     // simple checks
-    if(a.varList.size > 1){
-      println(s"Too many variables in expression, expected one variable, got ${a.varList}")
+    if(variables.size > 1){
+      println(s"Too many variables in expression, expected one variable, got ${variables}")
       throw SolveForVariable.NotSolvable
     }
     // ideally we can check by counting the instances, but instead,
     // we'll just have to check all the subterms at every stage
-    if(instanceCount(a, a.varList.head) != 1) {
-      println(s"Too many instances of variable ${a.varList.head} in expression")
+    if(instanceCount(a, variables.head) != 1) {
+      println(s"Too many instances of variable ${variables.head} in expression")
       throw SolveForVariable.NotSolvable
     }
-    val v = a.varList.head
+    val v = variables.head
     // otherwise, solve, with v - the variable we want to solve for
     solve(a,b,v)
   }
@@ -53,8 +54,22 @@ object SolveForVariable {
         }
       }
 
+      // Var + Cst = Expr -> Var = Expr - Cst
+      // or
+      // Var - Cst = Expr -> Var = Expr + Cst
+      case (Sum(terms), y) => {
+        val (c: List[ArithExpr], nc: List[ArithExpr]) = terms.partition(e => ArithExpr.contains(e,v))
+        if (c.length != 1){
+          throw SolveForVariable.NotSolvable
+        }
+        solve(c(0), Sum(b :: nc.map(t => 0-t)), v)
+      }
+
       // otherwise, we don't support it yet...
-      case _ => throw SolveForVariable.NotSolvable
+      case _ =>{
+        println(s"Cannot solve: ${a} and ${b}")
+        throw SolveForVariable.NotSolvable
+      }
     }
   }
 

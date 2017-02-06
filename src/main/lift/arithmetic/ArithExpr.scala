@@ -149,6 +149,7 @@ abstract sealed class ArithExpr {
 
   lazy val varList = getVars(this)
 
+  @deprecated("This method will be deprecated. Consider using `collectVars` instead.", "ArithExpr")
   private def getVars(e: ArithExpr, l: Set[Var] = Set[Var]()): Set[Var] = {
     e match {
       case adds: Sum => adds.terms.foldLeft(l)((acc, expr) => getVars(expr, acc))
