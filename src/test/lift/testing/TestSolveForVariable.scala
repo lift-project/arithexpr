@@ -42,6 +42,40 @@ class TestSolveForVariable {
     assertEquals(nrhs, Cst(100))
   }
 
+  @Test
+  def TestSum() : Unit = {
+    val v = Var("X")
+    val lhs = Sum(v :: Cst(10) :: Nil)
+    val rhs = Cst(100)
+    println(s"lhs: ${lhs}")
+    println(s"rhs: ${rhs}")
+
+    val nrhs = SolveForVariable(lhs, rhs)
+
+    println(s"NewRHS: ${nrhs}")
+    println(s"Expected: ${Cst(90)}")
+
+    assertEquals(nrhs, Cst(90))
+  }
+
+  @Test
+  def TestMultSum() : Unit = {
+    val v = Var("X")
+    val lhs = Sum(Prod(v :: Cst(16) :: Nil) :: Cst(128) :: Nil)
+    val rhs = Cst(384)
+
+    println(s"lhs: ${lhs}")
+    println(s"rhs: ${rhs}")
+
+    val nrhs = SolveForVariable(lhs, rhs)
+
+    println(s"NewRHS: ${nrhs}")
+    println(s"Expected: ${Cst(16)}")
+
+    assertEquals(nrhs, Cst(16))
+
+  }
+
   @Test(expected=classOf[NotSolvableException])
   def TooManyVariables(): Unit = {
     val x = Var("X")
