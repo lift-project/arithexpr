@@ -147,19 +147,7 @@ abstract sealed class ArithExpr {
     ArithExpr.substitute(this, (vars ++ exprFunctions, maxLens).zipped.toMap)
   }
 
-  lazy val varList = getVars(this)
-
-  @deprecated("This method will be deprecated. Consider using `collectVars` instead.", "ArithExpr")
-  private def getVars(e: ArithExpr, l: Set[Var] = Set[Var]()): Set[Var] = {
-    e match {
-      case adds: Sum => adds.terms.foldLeft(l)((acc, expr) => getVars(expr, acc))
-      case muls: Prod => muls.factors.foldLeft(l)((acc, expr) => getVars(expr, acc))
-      case Pow(b, oe) => l ++ getVars(b) ++ getVars(oe)
-      case IntDiv(a, b) => l ++ getVars(a) ++ getVars(b)
-      case v: Var => l + v
-      case _ => l
-    }
-  }
+  lazy val varList = ArithExpr.collectVars(this)
 
   def visitAndRebuild(f: ArithExpr => ArithExpr): ArithExpr
 
