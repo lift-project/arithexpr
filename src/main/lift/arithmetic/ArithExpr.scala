@@ -108,6 +108,8 @@ abstract sealed class ArithExpr {
     case NotEvaluableException() => (?, ?)
   }
 
+  lazy val eval: Int = evalInt
+
   /**
     * Evaluates an arithmetic expression.
     *
@@ -115,12 +117,12 @@ abstract sealed class ArithExpr {
     * @throws NotEvaluableException if the expression cannot be fully evaluated.
     * @throws NotEvaluableToIntException if the expression evaluated to a value larger than scala.Int.MaxValue
     */
-  lazy val evalToInt: Int = {
-    val v = eval
-    if (v < scala.Int.MaxValue) {
+  lazy val evalInt: Int = {
+    val value = evalLong
+    if (value > scala.Int.MaxValue) {
       throw NotEvaluableToIntException()
     }
-    v.toInt
+    value.toInt
   }
 
   /**
@@ -129,7 +131,7 @@ abstract sealed class ArithExpr {
     * @return The Long value of the expression.
     * @throws NotEvaluableException if the expression cannot be fully evaluated.
     */
-  lazy val eval: Long = {
+  lazy val evalLong: Long = {
     // Evaluating is quite expensive, traverse the tree to check assess evaluability
     if (!isEvaluable)
       throw NotEvaluableException()
@@ -139,14 +141,14 @@ abstract sealed class ArithExpr {
     else throw NotEvaluableException()
   }
 
+  lazy val evalDouble: Double = ArithExpr.evalDouble(this)
+
   lazy val isEvaluable: Boolean = {
     !ArithExpr.visitUntil(this, x => {
       x == PosInf || x == NegInf || x == ? ||
         x.isInstanceOf[ArithExprFunction] || x.isInstanceOf[Var] || x.isInstanceOf[IfThenElse]
     })
   }
-
-  lazy val evalDbl: Double = ArithExpr.evalDouble(this)
 
   lazy val atMax: ArithExpr = {
     val vars = varList.filter(_.range.max != ?)
@@ -512,7 +514,7 @@ object ArithExpr {
       // we check to see if the difference can be evaluated
       val diff = ae2 - ae1
       if (diff.isEvaluable)
-        return Some(diff.evalDbl > 0)
+        return Some(diff.evalDouble > 0)
     } catch {
       case NotEvaluableException() =>
     }

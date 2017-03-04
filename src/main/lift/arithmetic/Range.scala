@@ -81,8 +81,8 @@ case class RangeAdd(start: ArithExpr, stop: ArithExpr, step: ArithExpr) extends 
     val result = stop - 1
 
     try {
-      val evaluatedResult = result.evalDbl
-      val evaluatedStart = start.evalDbl
+      val evaluatedResult = result.evalDouble
+      val evaluatedStart = start.evalDouble
 
       if (evaluatedResult < evaluatedStart)
         start
