@@ -90,7 +90,7 @@ case class RangeAdd(start: ArithExpr, stop: ArithExpr, step: ArithExpr) extends 
         result
 
     } catch {
-      case NotEvaluableException => result
+      case NotEvaluableException() => result
     }
 
   }

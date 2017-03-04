@@ -105,7 +105,7 @@ abstract sealed class ArithExpr {
       case _ => (?, ?)
     }
   } catch {
-    case NotEvaluableException => (?, ?)
+    case NotEvaluableException() => (?, ?)
   }
 
   /**
@@ -113,15 +113,30 @@ abstract sealed class ArithExpr {
     *
     * @return The Int value of the expression.
     * @throws NotEvaluableException if the expression cannot be fully evaluated.
+    * @throws NotEvaluableToIntException if the expression evaluated to a value larger than scala.Int.MaxValue
     */
-  lazy val eval: Int = {
+  lazy val evalToInt: Int = {
+    val v = eval
+    if (v < scala.Int.MaxValue) {
+      throw NotEvaluableToIntException()
+    }
+    v.toInt
+  }
+
+  /**
+    * Evaluates an arithmetic expression.
+    *
+    * @return The Long value of the expression.
+    * @throws NotEvaluableException if the expression cannot be fully evaluated.
+    */
+  lazy val eval: Long = {
     // Evaluating is quite expensive, traverse the tree to check assess evaluability
     if (!isEvaluable)
-      throw ArithExpr.NotEvaluable
+      throw NotEvaluableException()
     val dblResult = ArithExpr.evalDouble(this)
-    if (dblResult.isValidInt)
-      dblResult.toInt
-    else throw ArithExpr.NotEvaluable
+    if (dblResult.isWhole())
+      dblResult.toLong
+    else throw NotEvaluableException()
   }
 
   lazy val isEvaluable: Boolean = {
@@ -147,7 +162,7 @@ abstract sealed class ArithExpr {
     ArithExpr.substitute(this, (vars ++ exprFunctions, maxLens).zipped.toMap)
   }
 
-  lazy val varList = ArithExpr.collectVars(this)
+  lazy val varList: Set[Var] = ArithExpr.collectVars(this)
 
   def visitAndRebuild(f: ArithExpr => ArithExpr): ArithExpr
 
@@ -236,7 +251,7 @@ abstract sealed class ArithExpr {
     * @param that Right-hand side of the division
     * @return A Sum object
     */
-  def -(that: ArithExpr) = this + (that * -1)
+  def -(that: ArithExpr): ArithExpr = this + (that * -1)
 
   /**
     * The % operator yields the remainder from the division of the first expression by the second.
@@ -312,7 +327,7 @@ abstract sealed class ArithExpr {
     */
   def digest(): Int
 
-  override def hashCode = digest()
+  override def hashCode: Int = digest()
 
   def HashSeed(): Int
 }
@@ -322,15 +337,13 @@ object ArithExpr {
 
   implicit def LongToCst(i: Long): Cst = Cst(i)
 
-  val NotEvaluable = NotEvaluableException
-
   val sort: (ArithExpr, ArithExpr) => Boolean = (x: ArithExpr, y: ArithExpr) => (x, y) match {
     case (Cst(a), Cst(b)) => a < b
-    case (c:Cst, _) => true                 // constants first
-    case (_, c:Cst) => false
+    case (_:Cst, _) => true                 // constants first
+    case (_, _:Cst) => false
     case (x:Var, y:Var) => x.toString < y.toString // order variables lexicographically
-    case (v:Var, _) => true                 // variables always after constants second
-    case (_, v:Var) => false
+    case (_:Var, _) => true                 // variables always after constants second
+    case (_, _:Var) => false
     case (x:Prod, y:Prod) => x.factors.zip(y.factors).map(x => sort(x._1, x._2)).foldLeft(false)(_ || _)
     case _ => x.HashSeed() < y.HashSeed() || (x.HashSeed() == y.HashSeed() && x.digest() < y.digest())
   }
@@ -344,7 +357,7 @@ object ArithExpr {
   def minmax(e1: ArithExpr, e2: ArithExpr): (ArithExpr, ArithExpr) = {
     e1 - e2 match {
       case Cst(c) if c < 0 => (e1, e2) /* e1 is smaller than e2 */
-      case Cst(c) => (e2, e1) /* e2 is smaller than e1*/
+      case Cst(_) => (e2, e1) /* e2 is smaller than e1*/
       case _ =>
         (e1, e2) match {
           case (v: Var, c: Cst) => minmax(v, c)
@@ -353,7 +366,7 @@ object ArithExpr {
           case (p: Prod, c: Cst) => minmax(p, c)
           case (c: Cst, p: Prod) => minmax(p, c).swap
 
-          case _ => throw NotEvaluable
+          case _ => throw NotEvaluableException()
         }
     }
   }
@@ -361,7 +374,7 @@ object ArithExpr {
   def minmax(v: Var, c: Cst): (ArithExpr, ArithExpr) = {
     val m1 = v.range.min match {
       case Cst(min) => if (min >= c.c) Some((c, v)) else None
-      case ? => throw NotEvaluableException
+      case `?` => throw NotEvaluableException()
       case _ => throw new NotImplementedError()
     }
 
@@ -374,7 +387,7 @@ object ArithExpr {
 
     if (m2.isDefined) return m2.get
 
-    throw NotEvaluable
+    throw NotEvaluableException()
   }
 
   def minmax(p: Prod, c: Cst): (ArithExpr, ArithExpr) = {
@@ -388,10 +401,10 @@ object ArithExpr {
       case _: IllegalArgumentException =>
     }
 
-    throw NotEvaluable
+    throw NotEvaluableException()
   }
 
-  private def upperBound(p: Prod): Option[Int] = {
+  private def upperBound(p: Prod): Option[Long] = {
     Some(Prod(p.factors.map({
       case v: Var => v.range.max match {
         case max: Cst => max
@@ -402,7 +415,7 @@ object ArithExpr {
     })).eval)
   }
 
-  private def lowerBound(p: Prod): Option[Int] = {
+  private def lowerBound(p: Prod): Option[Long] = {
     Some(Prod(p.factors.map({
       case v: Var => v.range.min match {
         case min: Cst => min
@@ -462,7 +475,7 @@ object ArithExpr {
 
   private[arithmetic] def isDivision: (ArithExpr) => Boolean = {
     case Pow(_, Cst(x)) if x < 0 => true
-    case e => false
+    case _ => false
   }
 
 
@@ -501,13 +514,13 @@ object ArithExpr {
       if (diff.isEvaluable)
         return Some(diff.evalDbl > 0)
     } catch {
-      case NotEvaluableException =>
+      case NotEvaluableException() =>
     }
 
     try {
       return Some(ae1.max.eval < ae2.min.eval)
     } catch {
-      case NotEvaluableException =>
+      case NotEvaluableException() =>
     }
 
     // TODO: Find a more generic solution for these cases
@@ -526,7 +539,7 @@ object ArithExpr {
           isSmaller(Sum(a :: x.range.max :: Nil), n).getOrElse(false) &&
           isSmaller(Prod(Cst(-1) :: Sum(a :: x.range.min :: Nil) :: Nil), n).getOrElse(false) =>
         return Some(true)
-      case (Mod((a: ArithExpr), (v1:Var)), (v2:Var)) if v1 == v2 =>
+      case (Mod((_: ArithExpr), (v1:Var)), (v2:Var)) if v1 == v2 =>
         return Some(true)
       case _ =>
     }
@@ -584,7 +597,7 @@ object ArithExpr {
       val ae2WithFixedVarsMin = ae2WithFixedVars.min
       isSmaller(ae1WithFixedVarsMax, ae2WithFixedVarsMin)
     } catch {
-      case NotEvaluableException => None
+      case NotEvaluableException() => None
     }
   }
 
@@ -668,7 +681,7 @@ object ArithExpr {
     *
     * @return
     */
-  def substituteDiv(e: ArithExpr) =
+  def substituteDiv(e: ArithExpr): ArithExpr =
   e.visitAndRebuild({
       case Prod(factors) =>
         factors.foldLeft(Cst(1): ArithExpr)((exprSoFar, newTerm) =>
@@ -698,19 +711,19 @@ object ArithExpr {
 
     case AbsFunction(expr) => scala.math.abs(evalDouble(expr))
 
-    case IfThenElse(_, _, _) => throw NotEvaluable
+    case IfThenElse(_, _, _) => throw NotEvaluableException()
 
-    case ? | NegInf | PosInf | _: Var | _: ArithExprFunction | _: SimplifiedExpr => throw NotEvaluable
+    case `?` | NegInf | PosInf | _: Var | _: ArithExprFunction | _: SimplifiedExpr => throw NotEvaluableException()
   }
 
 
   def toInt(e: ArithExpr): Int = ExprSimplifier(e) match {
     case Cst(i) => i.asInstanceOf[Int]
-    case _ => throw NotEvaluable
+    case _ => throw NotEvaluableException()
   }
 
 
-  def asCst(e: ArithExpr) = ExprSimplifier(e) match {
+  def asCst(e: ArithExpr): Cst = ExprSimplifier(e) match {
     case c: Cst => c
     case _ => throw new IllegalArgumentException
   }
@@ -727,7 +740,7 @@ object ArithExpr {
       * @param y The second value
       * @return The minimum between x and y
       */
-    def Min(x: ArithExpr, y: ArithExpr) = {
+    def Min(x: ArithExpr, y: ArithExpr): ArithExpr = {
       // Since Min duplicates the expression, we simplify it in place to point to the same node
       val sx = ExprSimplifier(x)
       val sy = ExprSimplifier(y)
@@ -741,7 +754,7 @@ object ArithExpr {
       * @param y The second value
       * @return The maximum between x and y
       */
-    def Max(x: ArithExpr, y: ArithExpr) = {
+    def Max(x: ArithExpr, y: ArithExpr): ArithExpr = {
       // Since Max duplicates the expression, we simplify it in place to point to the same node
       val sx = ExprSimplifier(x)
       val sy = ExprSimplifier(y)
@@ -774,7 +787,7 @@ case object ? extends ArithExpr with SimplifiedExpr {
 
   override def ==(that: ArithExpr): Boolean = that.getClass == this.getClass
 
-  override def visitAndRebuild(f: (ArithExpr) => ArithExpr) = f(this)
+  override def visitAndRebuild(f: (ArithExpr) => ArithExpr): ArithExpr = f(this)
 }
 
 case object PosInf extends ArithExpr with SimplifiedExpr {
@@ -786,7 +799,7 @@ case object PosInf extends ArithExpr with SimplifiedExpr {
 
   override def ==(that: ArithExpr): Boolean = that.getClass == this.getClass
 
-  override def visitAndRebuild(f: (ArithExpr) => ArithExpr) = f(this)
+  override def visitAndRebuild(f: (ArithExpr) => ArithExpr): ArithExpr = f(this)
 }
 
 case object NegInf extends ArithExpr with SimplifiedExpr {
@@ -798,15 +811,15 @@ case object NegInf extends ArithExpr with SimplifiedExpr {
 
   override def ==(that: ArithExpr): Boolean = that.getClass == this.getClass
 
-  override def visitAndRebuild(f: (ArithExpr) => ArithExpr) = f(this)
+  override def visitAndRebuild(f: (ArithExpr) => ArithExpr): ArithExpr = f(this)
 }
 
 case class Cst private[arithmetic](c: Long) extends ArithExpr with SimplifiedExpr {
-  override val HashSeed = java.lang.Long.hashCode(c)
+  override val HashSeed: Int = java.lang.Long.hashCode(c)
 
   override lazy val digest: Int = java.lang.Long.hashCode(c)
 
-  override lazy val toString = c.toString
+  override lazy val toString: String = c.toString
 
   override def visitAndRebuild(f: (ArithExpr) => ArithExpr): ArithExpr = f(this)
 }
@@ -870,7 +883,7 @@ case class Prod private[arithmetic](factors: List[ArithExpr]) extends ArithExpr 
 
   override lazy val digest: Int = factors.foldRight(HashSeed)((x, hash) => hash ^ x.digest())
 
-  override def equals(that: Any) = that match {
+  override def equals(that: Any): Boolean = that match {
     case p: Prod => factors.length == p.factors.length && factors.intersect(p.factors).length == factors.length
     case _ => false
   }
@@ -924,7 +937,7 @@ case class Sum private[arithmetic](terms: List[ArithExpr]) extends ArithExpr {
 
   override lazy val digest: Int = terms.foldRight(HashSeed)((x, hash) => hash ^ x.digest())
 
-  override def equals(that: Any) = that match {
+  override def equals(that: Any): Boolean = that match {
     case s: Sum => terms.length == s.terms.length && terms.intersect(s.terms).length == terms.length
     case _ => false
   }
@@ -1060,7 +1073,7 @@ class Lookup private[arithmetic](val table: Seq[ArithExpr],
 
   override lazy val toString: String = "lookup" + id + "(" + index + ")"
 
-  override def equals(that: Any) = that match {
+  override def equals(that: Any): Boolean = that match {
     case thatLookup: Lookup => thatLookup.table == this.table &&
       thatLookup.index == this.index && thatLookup.id == this.id
     case _ => false
@@ -1088,13 +1101,13 @@ object Lookup {
 class Var private[arithmetic](val name: String,
                               val range: Range = RangeUnknown,
                               fixedId: Option[Long] = None) extends ArithExpr with SimplifiedExpr {
-  override lazy val hashCode = 8 * 79 + id.hashCode
+  override lazy val hashCode: Int = 8 * 79 + id.hashCode
 
   override val HashSeed = 0x54e9bd5e
 
   override lazy val digest: Int = HashSeed ^ name.hashCode ^ id.hashCode ^ range.digest()
 
-  override def equals(that: Any) = that match {
+  override def equals(that: Any): Boolean = that match {
     case v: Var => this.id == v.id
     case _ => false
   }
