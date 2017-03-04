@@ -114,7 +114,7 @@ class TestExpr {
     try {
       Var("M").eval
     } catch {
-      case NotEvaluableException => return
+      case NotEvaluableException() => return
     }
     assert(false)
   }
