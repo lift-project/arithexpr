@@ -3,6 +3,8 @@ package arithmetic
 
 import java.util.concurrent.atomic.AtomicLong
 
+import lift.arithmetic.NotEvaluableException._
+import lift.arithmetic.NotEvaluableToIntException._
 import lift.arithmetic.simplifier._
 
 import scala.language.implicitConversions
@@ -120,7 +122,7 @@ abstract sealed class ArithExpr {
   lazy val evalInt: Int = {
     val value = evalLong
     if (value > scala.Int.MaxValue) {
-      throw NotEvaluableToIntException()
+      throw NotEvaluableToInt
     }
     value.toInt
   }
@@ -134,11 +136,11 @@ abstract sealed class ArithExpr {
   lazy val evalLong: Long = {
     // Evaluating is quite expensive, traverse the tree to check assess evaluability
     if (!isEvaluable)
-      throw NotEvaluableException()
+      throw NotEvaluable
     val dblResult = ArithExpr.evalDouble(this)
     if (dblResult.isWhole())
       dblResult.toLong
-    else throw NotEvaluableException()
+    else throw NotEvaluable
   }
 
   lazy val evalDouble: Double = ArithExpr.evalDouble(this)
@@ -368,7 +370,7 @@ object ArithExpr {
           case (p: Prod, c: Cst) => minmax(p, c)
           case (c: Cst, p: Prod) => minmax(p, c).swap
 
-          case _ => throw NotEvaluableException()
+          case _ => throw NotEvaluable
         }
     }
   }
@@ -376,7 +378,7 @@ object ArithExpr {
   def minmax(v: Var, c: Cst): (ArithExpr, ArithExpr) = {
     val m1 = v.range.min match {
       case Cst(min) => if (min >= c.c) Some((c, v)) else None
-      case `?` => throw NotEvaluableException()
+      case `?` => throw NotEvaluable
       case _ => throw new NotImplementedError()
     }
 
@@ -389,7 +391,7 @@ object ArithExpr {
 
     if (m2.isDefined) return m2.get
 
-    throw NotEvaluableException()
+    throw NotEvaluable
   }
 
   def minmax(p: Prod, c: Cst): (ArithExpr, ArithExpr) = {
@@ -403,7 +405,7 @@ object ArithExpr {
       case _: IllegalArgumentException =>
     }
 
-    throw NotEvaluableException()
+    throw NotEvaluable
   }
 
   private def upperBound(p: Prod): Option[Long] = {
@@ -713,15 +715,15 @@ object ArithExpr {
 
     case AbsFunction(expr) => scala.math.abs(evalDouble(expr))
 
-    case IfThenElse(_, _, _) => throw NotEvaluableException()
+    case IfThenElse(_, _, _) => throw NotEvaluable
 
-    case `?` | NegInf | PosInf | _: Var | _: ArithExprFunction | _: SimplifiedExpr => throw NotEvaluableException()
+    case `?` | NegInf | PosInf | _: Var | _: ArithExprFunction | _: SimplifiedExpr => throw NotEvaluable
   }
 
 
   def toInt(e: ArithExpr): Int = ExprSimplifier(e) match {
     case Cst(i) => i.asInstanceOf[Int]
-    case _ => throw NotEvaluableException()
+    case _ => throw NotEvaluable
   }
 
 
