@@ -1,7 +1,6 @@
 package lift.testing
 
 import lift.arithmetic._
-import lift.arithmetic.NotSolvableException
 import org.junit.Assert._
 import org.junit.Test
 

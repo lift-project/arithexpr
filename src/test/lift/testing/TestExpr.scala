@@ -114,7 +114,7 @@ class TestExpr {
     try {
       Var("M").eval
     } catch {
-      case NotEvaluableException => return
+      case NotEvaluableException() => return
     }
     assert(false)
   }
@@ -125,10 +125,10 @@ class TestExpr {
       val re = rndExpr(3)
       print(re)
 
-      val oriEval = re.evalDbl
+      val oriEval = re.evalDouble
       val sim = re
 
-      val simEval = sim.evalDbl
+      val simEval = sim.evalDouble
       assertTrue(oriEval+" != "+simEval, math.abs(oriEval-simEval) <= 1.0/1000000.0)
     }
   }
@@ -1295,8 +1295,8 @@ class TestExpr {
   @Test
   def rangeMinMax(): Unit = {
     val range = RangeAdd(0, Cst(8) /^ 64, 1)
-    assertTrue(range.min.evalDbl <= range.max.evalDbl)
-    assertTrue(range.max.evalDbl >= 0)
+    assertTrue(range.min.evalDouble <= range.max.evalDouble)
+    assertTrue(range.max.evalDouble >= 0)
   }
 
   @Ignore

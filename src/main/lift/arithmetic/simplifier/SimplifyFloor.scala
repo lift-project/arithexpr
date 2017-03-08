@@ -9,21 +9,21 @@ object SimplifyFloor {
       case c: Cst => c
       case _ =>
         try {
-          val d = new FloorFunction(ae).evalDbl
+          val d = new FloorFunction(ae).evalDouble
           assert(d.isValidInt)
           new Cst(d.toInt)
         } catch {
-          case NotEvaluableException =>
+          case NotEvaluableException() =>
             // ok let's try to evaluate floor of min and max
             try {
-              val min = new FloorFunction(ae.min).evalDbl
-              val max = new FloorFunction(ae.max).evalDbl
+              val min = new FloorFunction(ae.min).evalDouble
+              val max = new FloorFunction(ae.max).evalDouble
               if (min == max) {
                 assert(min.isValidInt)
                 return new Cst(min.toInt)
               }
             } catch {
-              case NotEvaluableException => new FloorFunction(ae) with SimplifiedExpr
+              case NotEvaluableException() => new FloorFunction(ae) with SimplifiedExpr
               case e: Throwable => throw e
             }
             new FloorFunction(ae) with SimplifiedExpr
