@@ -76,15 +76,16 @@ case class RangeAdd(start: ArithExpr, stop: ArithExpr, step: ArithExpr) extends 
   private def checkBound(up: Boolean, result: ArithExpr)
                         : ArithExpr = {
     try {
-      val evaluatedResult = result.evalDbl
-      val evaluatedStart = start.evalDbl
+      val evaluatedResult = result.evalDouble
+      val evaluatedStart = start.evalDouble
+
       if ((evaluatedResult < evaluatedStart) != up)
         result
       else
         // Fall back on `start` is `result` is out of bounds
         start
     } catch {
-      case NotEvaluableException => result
+      case NotEvaluableException() => result
     }
   }
   

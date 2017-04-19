@@ -2,3 +2,9 @@ project/*
 target/*
 .idea
 
+# Temporaries
+*.swp
+
+# Generated during testing
+*.cpp
+*.dot
