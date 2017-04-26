@@ -62,17 +62,15 @@ object SimplifySum {
         case s@Sum(sterms) if sterms.contains(slhs) && sterms.contains(srhs) => None
         case other => Some(other * gcd)
       }
-
-    //case ()
-
-    case x => None
+      
+    case _ => None
   }
 
 
   /**
    * Promote the sum to another operation.
-    *
-    * @param lhs The left-hand side.
+   *
+   * @param lhs The left-hand side.
    * @param rhs The right-hand side.
    * @return An option containing a different operation if the sum can be re-written, None otherwise
    */

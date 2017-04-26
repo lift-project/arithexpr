@@ -17,7 +17,7 @@ object Sign extends Enumeration {
 
   private[arithmetic] def apply(ae: ArithExpr): Value = {
     ae match {
-      case CeilingFunction(e) => e.sign
+      case CeilingFunction(e) => signCeil(e)
       case FloorFunction(e) => e.sign
       case AbsFunction(_) => Sign.Positive
       case Cst(c) if c >= 0 => Sign.Positive
@@ -32,6 +32,15 @@ object Sign extends Enumeration {
       case Var(_, range) => signVar(range)
       case ? => Sign.Unknown
       case _: ArithExprFunction => Sign.Unknown
+    }
+  }
+  
+  // 0 ≤ ⌈x⌉ iff -1 < x
+  private def signCeil(e: ArithExpr): Sign = {
+    ArithExpr.isSmaller(Cst(-1), e) match {
+      case Some(true) => Positive
+      case Some(false) => Negative
+      case None => Unknown
     }
   }
 
