@@ -550,7 +550,10 @@ object ArithExpr {
         // Fetch the terms of the form Pow(…, -1), inverse and isolate them
         val (inverses, rem) = p.partition(ArithExpr.isInverse) match {
           case (inv, r) => (
-            Prod(inv.map({ case Pow(x, Cst(-1)) => x })),
+            Prod(inv.map({
+              case Pow(x, Cst(-1)) => x
+              case _ => throw new IllegalArgumentException() // Cannot happen at this point
+            })),
             Prod(r)
           )
         }
