@@ -1183,6 +1183,22 @@ class TestExpr {
     // a * -1 < c   should be unknown
     assert( ArithExpr.isSmaller(a * -1, c).isEmpty )
   }
+  
+  @Test
+  def signCeil(): Unit = {
+    val i = Var("i", ContinuousRange(0, 16))
+    // ⌈x⌉ = 0  if  -1 < x ≤ 0
+    assertEquals(Sign.Positive, CeilingFunction(Cst(1) * i /^ 16).sign)
+  }
+  
+  @Test
+  def annoyingWarning(): Unit = {
+    val i = Var(RangeAdd(1, PosInf, 1))
+    val j = Var(RangeAdd(0, i, 1))
+    val x = (-1 * j * 1 /^ i) + (Cst(128) * 1 /^ i)
+  
+    assertEquals(Sign.Positive, CeilingFunction(x).sign)
+  }
 
   @Test
   def fractionMultipleOf(): Unit = {

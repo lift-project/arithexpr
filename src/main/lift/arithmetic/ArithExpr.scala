@@ -545,6 +545,34 @@ object ArithExpr {
         return Some(true)
       case (Mod((_: ArithExpr), (v1:Var)), (v2:Var)) if v1 == v2 =>
         return Some(true)
+      // z < x/y and y > 0  iff  y * z < x
+      case (_, Prod(p)) if p.exists(ArithExpr.isInverse) =>
+        // Fetch the terms of the form Pow(…, -1), inverse and isolate them
+        val (inverses, rem) = p.partition(ArithExpr.isInverse) match {
+          case (inv, r) => (
+            Prod(inv.map({ case Pow(x, Cst(-1)) => x })),
+            Prod(r)
+          )
+        }
+        val result = inverses.sign match {
+          case Sign.Positive => isSmaller(ae1 * inverses, rem)
+          case Sign.Negative => isSmaller(rem, ae1 * inverses)
+          case _ => None
+        }
+        if (result.isDefined) return result
+      // z < c*(x + y)  iff  z/c < x + y  Especially useful when c = 1 /^ something
+      case (_, Sum(List(Prod(x), Prod(y)))) =>
+        val (fact, sum) = factorize(Prod(x), Prod(y))
+        // We have to check that a factorization has actually been performed
+        if (fact.factors.nonEmpty) {
+          val result = fact.sign match {
+            case Sign.Positive => isSmaller(ae1 /^ fact, sum)
+            case Sign.Negative => isSmaller(sum, ae1 /^ fact)
+            case _ => None
+          }
+          if (result.isDefined)
+            return result
+        }
       case _ =>
     }
 
@@ -731,8 +759,39 @@ object ArithExpr {
     case c: Cst => c
     case _ => throw new IllegalArgumentException
   }
-
-
+  
+  private def isInverse(e: ArithExpr): Boolean = ExprSimplifier(e) match {
+    case Pow(_, Cst(-1)) => true
+    case _ => false
+  }
+  
+  // factorize(e1, e2) returns a pair `(c, s)` such as
+  //     `e1 + e2 = c * (e1' + e2')`
+  // and `s = e1 + e2'`
+  def factorize(e1: Prod, e2: Prod): (Prod, Sum) = {
+    def find[T](l: List[T], p: T => Boolean): Option[(T, List[T])] = {
+      l match {
+        case Nil => None
+        case x::xs =>
+          if (p(x))
+            Some((x, xs))
+          else
+            find(xs, p) match {
+              case None => None
+              case Some((y, ys)) => Some((y, x::ys))
+            }
+      }
+    }
+    val init = (List(): List[ArithExpr], List(): List[ArithExpr], e2.factors)
+    val (common, newE2, newE1) = e1.factors.foldLeft(init)({
+      case ((com, unmatched, rem), e) => find(rem, (_:ArithExpr) == e) match {
+        case None => (com, e :: unmatched, rem)
+        case Some((x, xs)) => (x :: com, unmatched, xs)
+      }
+    })
+    (Prod(common), Sum(List(Prod(newE1), Prod(newE2))))
+  }
+  
   /**
     * Math operations derived from the basic operations
     */
