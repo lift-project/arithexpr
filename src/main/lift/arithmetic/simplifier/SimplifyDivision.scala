@@ -19,14 +19,15 @@ object SimplifyDivision {
           Prod(Cst(c1) :: (n2: Var) :: Nil) ::
           Prod((m1: Var) :: (n1: Var) :: Nil) ::  Nil),
         Sum(Cst(c2) :: (m2: Var) :: Nil)
-        ) if m1 == m2 && n1 == n2 && c1 == c2 => n1
+        ) if c1 == c2 && ((m1 == m2 && n1 == n2) || (m1 == n2 && m2 == n1)) => n2
 
       // i + ca + ma /^ c+m => a + (i /^ c+m)
       case (
         Sum(
           (i: Var) :: Prod(Cst(c1) :: (a2: ArithExpr) :: Nil) ::
           Prod((m1: Var) :: (a1: ArithExpr) :: Nil) :: Nil),
-        Sum(Cst(c2) :: (m2: Var) :: Nil)) if m1 == m2 && a1 == a2 && c1 == c2 => a1 + (i /^ (c1 + m1))
+        Sum(Cst(c2) :: (m2: Var) :: Nil)
+        ) if c1 == c2 && m1 == m2 && a1 == a2 => a1 + (i /^ (c1 + m1))
         
       case (x, y) => x * (y pow -1)
     }
