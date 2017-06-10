@@ -554,7 +554,7 @@ object ArithExpr {
               case Pow(x, Cst(-1)) => x
               case _ => throw new IllegalArgumentException() // Cannot happen at this point
             })),
-            Prod(r)
+            if (r.nonEmpty) Prod(r) else Cst(1)
           )
         }
         val result = inverses.sign match {
