@@ -7,6 +7,8 @@ object SimplifyCeiling {
   def apply(ae: ArithExpr): ArithExpr = {
     ae match {
       case c: Cst => c
+      case NegInf => NegInf
+      case PosInf => PosInf
       case _ =>
         try {
           val d = CeilingFunction(ae).evalDouble

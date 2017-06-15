@@ -1315,8 +1315,7 @@ class TestExpr {
     assertTrue(range.max.evalDouble >= 0)
   }
 
-  @Ignore
-  @Test def foo1(): Unit = {
+  @Test def ceilInfinity(): Unit = {
     ceil(NegInf) % ?
   }
 }
