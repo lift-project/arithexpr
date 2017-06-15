@@ -1232,7 +1232,6 @@ class TestExpr {
     assertFalse(ArithExpr.multipleOf(n /^ 8, n))
   }
 
-  @Ignore
   @Test
   def divisionSmallerThan(): Unit = {
     val l = Var("l", GoesToRange(64))
