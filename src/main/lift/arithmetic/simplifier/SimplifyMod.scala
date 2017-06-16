@@ -7,6 +7,8 @@ import scala.language.postfixOps
 object SimplifyMod {
 
   def simplify(dividend: ArithExpr, divisor: ArithExpr): Option[ArithExpr] = (dividend, divisor) match {
+  
+    case (arithmetic.?, _) | (_, arithmetic.?) => Some(?)
 
     // Simplify operands
     case (x, y) if !x.simplified => Some(ExprSimplifier(x) % y)

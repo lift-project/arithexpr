@@ -1315,6 +1315,6 @@ class TestExpr {
   }
 
   @Test def ceilInfinity(): Unit = {
-    ceil(NegInf) % ?
+    assertEquals(?, ceil(NegInf) % ?)
   }
 }
