@@ -576,6 +576,8 @@ object ArithExpr {
           if (result.isDefined)
             return result
         }
+      case (IntDiv(a, b), c) if isSmaller(a.max / b.min, c.min).getOrElse(false) =>
+        return Some(true)
       case _ =>
     }
 

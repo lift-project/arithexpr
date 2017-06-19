@@ -1232,7 +1232,6 @@ class TestExpr {
     assertFalse(ArithExpr.multipleOf(n /^ 8, n))
   }
 
-  @Ignore
   @Test
   def divisionSmallerThan(): Unit = {
     val l = Var("l", GoesToRange(64))
@@ -1315,8 +1314,7 @@ class TestExpr {
     assertTrue(range.max.evalDouble >= 0)
   }
 
-  @Ignore
-  @Test def foo1(): Unit = {
-    ceil(NegInf) % ?
+  @Test def ceilInfinity(): Unit = {
+    assertEquals(?, ceil(NegInf) % ?)
   }
 }
