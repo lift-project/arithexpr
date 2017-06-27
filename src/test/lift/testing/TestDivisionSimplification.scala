@@ -1,7 +1,6 @@
 package lift.testing
 
 import lift.arithmetic._
-import opencl.generator.OclFunction
 import org.junit.Test
 import org.junit.Assert.assertEquals
 
@@ -23,14 +22,13 @@ class TestDivisionSimplification {
       (a + Cst(42) * c + b * c) /^ (Cst(42) + b)
     )
   }
-
+  
   @Test def issueNumber4(): Unit = {
-    val v_O_0 = Var("v_O_0",StartFromRange(1))
-    val v_gl_id_13 =   OclFunction("get_global_id", 0, ContinuousRange(0, OclFunction("get_global_size", 0, ContinuousRange(1,PosInf))))
+    val v_O = Var("v_O", StartFromRange(1))
+    val gl_id = Var("gl_id", ContinuousRange(0, Var("gl_size", ContinuousRange(1, PosInf))))
     val inSize  = Cst(3)
-    val i = (((4+(2*v_O_0))) / ((2+v_O_0))+(3*v_gl_id_13))
+    val i = (4 + (2 * v_O)) / (2 + v_O) + (3 * gl_id)
 
-    i/inSize
-    println("made it !")
+    assertEquals(gl_id, i/inSize)
   }
 }
