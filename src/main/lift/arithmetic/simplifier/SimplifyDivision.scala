@@ -24,6 +24,7 @@ object SimplifyDivision {
       // Σ a * xi /^ Σ xi == a
       case (Sum(lTerms), Sum(rTerms)) if
           lTerms.length == rTerms.length &&
+          // There is a common factor `a` so that `(i-th left term) / (i-th right term) = a` for all `i`.
           (lTerms zip rTerms).map(p => p._1 /^ p._2).distinct.length == 1 &&
           // This last condition is not necessary but it should prevent infinite simplifications
           (lTerms.head /^ rTerms.head) != Prod(List(lTerms.head, Pow(rTerms.head, Cst(-1)))) =>
