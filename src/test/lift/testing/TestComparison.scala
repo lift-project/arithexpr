@@ -23,4 +23,11 @@ class TestComparison {
     val rhs = Prod(List(Cst(1) /^ a, Cst(1) /^ b))
     assertEquals(Some(false), ArithExpr.isSmaller(1, rhs))
   }
+
+  /** Used to lead to a stack overflow */
+  @Test
+  def smallerOpaqueVar(): Unit = {
+    val v = new OpaqueVar(Var("v"))
+    assertEquals(None, ArithExpr.isSmaller(v/2, 1))
+  }
 }
