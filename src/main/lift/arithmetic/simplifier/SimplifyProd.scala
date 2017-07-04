@@ -110,6 +110,9 @@ object SimplifyProd {
     case (p: Prod, x) => Some(addFactor(x, p))
     case (x, p: Prod) => Some(addFactor(x, p))
 
+    case (v: Var, y) if v.range.min == v.range.max && v.range.min != ? => Some(v.range.min * y)
+    case (x, v: Var) if v.range.min == v.range.max && v.range.min != ? => Some(x * v.range.min)
+
     // Actual product
     case (x, y) => None
   }
