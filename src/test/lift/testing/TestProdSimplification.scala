@@ -10,4 +10,11 @@ class TestProdSimplification {
     val v = Var("v", range = RangeAdd(0, 1, 1))
     assertEquals(Cst(0), v * Cst(16))
   }
+
+  @Test
+  def prodOfFractions(): Unit = {
+    val v = Var("v")
+    assertEquals(v /^ 8, (v /^ 2) /^ 4)
+    assertEquals(v /^ 8, (v /^ 2) * (Cst(1) /^ 4))
+  }
 }
