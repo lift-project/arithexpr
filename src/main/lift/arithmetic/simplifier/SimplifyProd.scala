@@ -34,7 +34,8 @@ object SimplifyProd {
     case (x, y) if x == y => Some(x pow 2)
 
     case (Pow(b1,e1),Pow(b2,e2)) if b1 == b2 => Some(b1 pow (e1 + e2))
-    case (Pow(Cst(b1),e1),Pow(Cst(b2),e2)) if e1 == e2 => Some(Cst(b1 * b2) pow e1)
+    // Not efficient: two calls to `simplify`
+    case (Pow(b1, e1), Pow(b2, e2)) if e1 == e2 && simplify(b1, b2).isDefined => Some((b1 * b2) pow e1)
     case (base,Pow(b,e)) if base == Cst(1) => Some(base /^ b * (b pow (e + 1)))
     case (Pow(b,e),base) if base == Cst(1) => Some(base /^ b * (b pow (e + 1)))
     case (base,Pow(b,e)) if ArithExpr.gcd(base,b) == b => Some(base /^ b * (b pow (e + 1)))
