@@ -1250,3 +1250,19 @@ abstract class ExtensibleVar(override val name: String,
   override def copy(r: Range): Var
   override def visitAndRebuild(f: (ArithExpr) => ArithExpr): ArithExpr
 }
+
+class TuningParameter(r: Range = RangeUnknown,
+                fixedId: Option[Long] = None) extends ExtensibleVar("", r, fixedId) {
+
+  override def copy(r: Range) = new TuningParameter(r, Some(this.id))
+
+  override def visitAndRebuild(f: (ArithExpr) => ArithExpr): ArithExpr =
+    f(new TuningParameter(range.visitAndRebuild(f), Some(id)))
+
+  override lazy val toString = s"v_TP_$id"
+}
+
+object TuningParameter {
+  def apply(r: Range = RangeUnknown,
+           fixedId: Option[Long] = None) : TuningParameter = new TuningParameter(r, fixedId)
+}
