@@ -115,7 +115,8 @@ object SimplifyProd {
     case (v: Var, y) if v.range.min == v.range.max && v.range.min != ? => Some(v.range.min * y)
     case (x, v: Var) if v.range.min == v.range.max && v.range.min != ? => Some(x * v.range.min)
 
-    //case (v1: Var, IntDiv(x, v2: Var)) if v1 == v2 => Some(x)
+    // TuningParameters are picked to evenly divide x so its a valid simplification
+    case (v1: TuningParameter, IntDiv(x, v2: TuningParameter)) if v1 == v2 => Some(x)
 
     // Actual product
     case (x, y) => None
