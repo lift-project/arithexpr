@@ -216,6 +216,14 @@ abstract sealed class ArithExpr {
   def pow(that: ArithExpr): ArithExpr = SimplifyPow(this, that)
 
   /**
+    * XOR Operator, C style
+    *
+    * @param that Right-hand side.
+    * @return an expression representing the XOR of the two values
+    */
+  def ^(that: ArithExpr): ArithExpr = XOR(this, that)
+
+  /**
     * Multiplication operator.
     *
     * @param that Right-hand side.
@@ -826,6 +834,17 @@ case class Cst private[arithmetic](c: Long) extends ArithExpr with SimplifiedExp
   override lazy val toString: String = c.toString
 
   override def visitAndRebuild(f: (ArithExpr) => ArithExpr): ArithExpr = f(this)
+}
+
+case class XOR private[arithmetic](a: ArithExpr, b: ArithExpr) extends ArithExpr with SimplifiedExpr {
+  override val HashSeed = 0x00000042
+
+  override lazy val digest : Int = HashSeed ^ a.digest() ^ b.digest()
+
+  override def toString: String = "(" + a + ")^(" + b + ")"
+
+  override def visitAndRebuild(f: (ArithExpr) => ArithExpr): ArithExpr =
+    f(a.visitAndRebuild(f) ^ b.visitAndRebuild(f))
 }
 
 case class IntDiv private[arithmetic](numer: ArithExpr, denom: ArithExpr) extends ArithExpr() {
