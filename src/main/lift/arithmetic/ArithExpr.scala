@@ -52,63 +52,63 @@ abstract sealed class ArithExpr {
   /** This method should only be used internally or in special cases where we want to customise the behaviour
     * based on the variables
     */
-  private def _minmax() : (ArithExpr, ArithExpr) =
-  try {
-    this match {
-      case AbsFunction(expr) =>
-        (ArithExpr.min(abs(expr.min), abs(expr.max)),
-          ArithExpr.max(abs(expr.min), abs(expr.max)))
-      case PosInf => (PosInf, PosInf)
-      case NegInf => (NegInf, NegInf)
-      case c: CeilingFunction => (ceil(c.ae.min), ceil(c.ae.max))
-      case f: FloorFunction => (floor(f.ae.min), floor(f.ae.max))
-      case c: Cst => (c, c)
-      case Prod(factors) =>
-        this.sign match {
-          case Sign.Positive => (factors.map(abs(_).min).reduce[ArithExpr](_ * _), factors.map(abs(_).max).reduce[ArithExpr](_ * _))
-          case Sign.Negative => (factors.map(abs(_).max).reduce[ArithExpr](_ * _) * -1, factors.map(abs(_).min).reduce[ArithExpr](_ * _) * -1)
-          case Sign.Unknown => (?, ?) // impossible to determine the min and max
-        }
-      case Sum(terms) =>
-        (terms.map(_.min).reduce[ArithExpr](_ + _), terms.map(_.max).reduce[ArithExpr](_ + _))
-      case IntDiv(numer, denom) =>
-        this.sign match {
-          case Sign.Positive => (ExprSimplifier(numer.min / denom.max), ExprSimplifier(numer.max / denom.min))
-          case Sign.Negative => (ExprSimplifier(numer.max / denom.min), ExprSimplifier(numer.min / denom.max))
-          case Sign.Unknown => (?, ?) // impossible to determine the min and max
-        }
-      case ite: IfThenElse =>
-        (ArithExpr.Math.Min(ite.t.min, ite.e.min), ArithExpr.Math.Max(ite.t.max, ite.e.max))
-      case l: Log =>
-        assert(l.x.sign == Sign.Positive)
-        (l.x - 1).sign match {
-          case Sign.Positive => (Log(l.b.max, l.x.min), Log(l.b.min, l.x.max))
-          case Sign.Negative => (Log(l.b.min, l.x.max), Log(l.b.max, l.x.min))
-          case _ => (?, ?) // impossible to determine the min and max
-        }
-      case Mod(dividend, divisor) =>
-        (dividend.sign, divisor.sign) match {
-          case (Sign.Positive, Sign.Positive) => (0, divisor.max - 1)
-          case (Sign.Positive, Sign.Negative) => (0, (0 - divisor.max) - 1)
-          case (Sign.Negative, Sign.Positive) => (0 - (divisor.max - 1), 0)
-          case (Sign.Negative, Sign.Negative) => (0 - ((0 - divisor).max - 1), 0)
-          case _ => (?, ?) // impossible to determine the min and max
-        }
-      case Pow(b, e) =>
-        (b.sign, e.sign) match {
-          case (Sign.Positive, Sign.Positive) => (b.min pow e.min, b.max pow e.max)
-          case (Sign.Positive, Sign.Negative) => (b.max pow e.min, b.min pow e.max)
-          case (Sign.Positive, _) => (?, ?) // could be anything
-          case (Sign.Negative, _) => (?, ?) // could be anything
-          case (Sign.Unknown, _) => (?, ?) // unkown
-        }
-      case v: Var => (v.range.min.min: ArithExpr, v.range.max.max: ArithExpr)
-      case ? => (?, ?)
-      case _ => (?, ?)
+  private def _minmax(): (ArithExpr, ArithExpr) =
+    try {
+      this match {
+        case AbsFunction(expr) =>
+          (ArithExpr.min(abs(expr.min), abs(expr.max)),
+            ArithExpr.max(abs(expr.min), abs(expr.max)))
+        case PosInf => (PosInf, PosInf)
+        case NegInf => (NegInf, NegInf)
+        case c: CeilingFunction => (ceil(c.ae.min), ceil(c.ae.max))
+        case f: FloorFunction => (floor(f.ae.min), floor(f.ae.max))
+        case c: Cst => (c, c)
+        case Prod(factors) =>
+          this.sign match {
+            case Sign.Positive => (factors.map(abs(_).min).reduce[ArithExpr](_ * _), factors.map(abs(_).max).reduce[ArithExpr](_ * _))
+            case Sign.Negative => (factors.map(abs(_).max).reduce[ArithExpr](_ * _) * -1, factors.map(abs(_).min).reduce[ArithExpr](_ * _) * -1)
+            case Sign.Unknown => (?, ?) // impossible to determine the min and max
+          }
+        case Sum(terms) =>
+          (terms.map(_.min).reduce[ArithExpr](_ + _), terms.map(_.max).reduce[ArithExpr](_ + _))
+        case IntDiv(numer, denom) =>
+          this.sign match {
+            case Sign.Positive => (ExprSimplifier(numer.min / denom.max), ExprSimplifier(numer.max / denom.min))
+            case Sign.Negative => (ExprSimplifier(numer.max / denom.min), ExprSimplifier(numer.min / denom.max))
+            case Sign.Unknown => (?, ?) // impossible to determine the min and max
+          }
+        case ite: IfThenElse =>
+          (ArithExpr.Math.Min(ite.t.min, ite.e.min), ArithExpr.Math.Max(ite.t.max, ite.e.max))
+        case l: Log =>
+          assert(l.x.sign == Sign.Positive)
+          (l.x - 1).sign match {
+            case Sign.Positive => (Log(l.b.max, l.x.min), Log(l.b.min, l.x.max))
+            case Sign.Negative => (Log(l.b.min, l.x.max), Log(l.b.max, l.x.min))
+            case _ => (?, ?) // impossible to determine the min and max
+          }
+        case Mod(dividend, divisor) =>
+          (dividend.sign, divisor.sign) match {
+            case (Sign.Positive, Sign.Positive) => (0, divisor.max - 1)
+            case (Sign.Positive, Sign.Negative) => (0, (0 - divisor.max) - 1)
+            case (Sign.Negative, Sign.Positive) => (0 - (divisor.max - 1), 0)
+            case (Sign.Negative, Sign.Negative) => (0 - ((0 - divisor).max - 1), 0)
+            case _ => (?, ?) // impossible to determine the min and max
+          }
+        case Pow(b, e) =>
+          (b.sign, e.sign) match {
+            case (Sign.Positive, Sign.Positive) => (b.min pow e.min, b.max pow e.max)
+            case (Sign.Positive, Sign.Negative) => (b.max pow e.min, b.min pow e.max)
+            case (Sign.Positive, _) => (?, ?) // could be anything
+            case (Sign.Negative, _) => (?, ?) // could be anything
+            case (Sign.Unknown, _) => (?, ?) // unkown
+          }
+        case v: Var => (v.range.min.min: ArithExpr, v.range.max.max: ArithExpr)
+        case ? => (?, ?)
+        case _ => (?, ?)
+      }
+    } catch {
+      case NotEvaluableException() => (?, ?)
     }
-  } catch {
-    case NotEvaluableException() => (?, ?)
-  }
 
   lazy val eval: Int = evalInt
 
@@ -116,7 +116,7 @@ abstract sealed class ArithExpr {
     * Evaluates an arithmetic expression.
     *
     * @return The Int value of the expression.
-    * @throws NotEvaluableException if the expression cannot be fully evaluated.
+    * @throws NotEvaluableException      if the expression cannot be fully evaluated.
     * @throws NotEvaluableToIntException if the expression evaluated to a value larger than scala.Int.MaxValue
     */
   lazy val evalInt: Int = {
@@ -221,7 +221,23 @@ abstract sealed class ArithExpr {
     * @param that Right-hand side.
     * @return an expression representing the XOR of the two values
     */
-  def ^(that: ArithExpr): ArithExpr = XOR(this, that)
+  def ^(that: ArithExpr): ArithExpr = BitwiseXOR(this, that)
+
+  /**
+    * bitwise AND Operator, C style
+    *
+    * @param that Right-hand side.
+    * @return an expression representing the bitwise AND of the two values
+    */
+  def &(that: ArithExpr): ArithExpr = BitwiseAND(this, that)
+
+  /**
+    * bitshift, left, C style
+    *
+    * @param that Right-hand side.
+    * @return an expresison representing the left shift of the value by the right hand value
+    */
+  def <<(that: ArithExpr): ArithExpr = LShift(this, that)
 
   /**
     * Multiplication operator.
@@ -351,12 +367,12 @@ object ArithExpr {
 
   val sort: (ArithExpr, ArithExpr) => Boolean = (x: ArithExpr, y: ArithExpr) => (x, y) match {
     case (Cst(a), Cst(b)) => a < b
-    case (_:Cst, _) => true                 // constants first
-    case (_, _:Cst) => false
-    case (x:Var, y:Var) => x.toString < y.toString // order variables lexicographically
-    case (_:Var, _) => true                 // variables always after constants second
-    case (_, _:Var) => false
-    case (x:Prod, y:Prod) => x.factors.zip(y.factors).map(x => sort(x._1, x._2)).foldLeft(false)(_ || _)
+    case (_: Cst, _) => true // constants first
+    case (_, _: Cst) => false
+    case (x: Var, y: Var) => x.toString < y.toString // order variables lexicographically
+    case (_: Var, _) => true // variables always after constants second
+    case (_, _: Var) => false
+    case (x: Prod, y: Prod) => x.factors.zip(y.factors).map(x => sort(x._1, x._2)).foldLeft(false)(_ || _)
     case _ => x.HashSeed() < y.HashSeed() || (x.HashSeed() == y.HashSeed() && x.digest() < y.digest())
   }
 
@@ -548,10 +564,10 @@ object ArithExpr {
         return Some(true)
       // Abs(a + x) < n true if (a + x) < n and -1(a + x) < n
       case (AbsFunction(Sum((a: Cst) :: (x: Var) :: Nil)), n: Var) if
-          isSmaller(Sum(a :: x.range.max :: Nil), n).getOrElse(false) &&
-          isSmaller(Prod(Cst(-1) :: Sum(a :: x.range.min :: Nil) :: Nil), n).getOrElse(false) =>
+      isSmaller(Sum(a :: x.range.max :: Nil), n).getOrElse(false) &&
+        isSmaller(Prod(Cst(-1) :: Sum(a :: x.range.min :: Nil) :: Nil), n).getOrElse(false) =>
         return Some(true)
-      case (Mod((_: ArithExpr), (v1:Var)), (v2:Var)) if v1 == v2 =>
+      case (Mod((_: ArithExpr), (v1: Var)), (v2: Var)) if v1 == v2 =>
         return Some(true)
       case _ =>
     }
@@ -694,7 +710,7 @@ object ArithExpr {
     * @return
     */
   def substituteDiv(e: ArithExpr): ArithExpr =
-  e.visitAndRebuild({
+    e.visitAndRebuild({
       case Prod(factors) =>
         factors.foldLeft(Cst(1): ArithExpr)((exprSoFar, newTerm) =>
           newTerm match {
@@ -783,6 +799,7 @@ object ArithExpr {
       */
     def Clamp(x: ArithExpr, min: ArithExpr, max: ArithExpr) = Min(Max(x, min), max)
   }
+
 }
 
 trait SimplifiedExpr extends ArithExpr {
@@ -836,15 +853,35 @@ case class Cst private[arithmetic](c: Long) extends ArithExpr with SimplifiedExp
   override def visitAndRebuild(f: (ArithExpr) => ArithExpr): ArithExpr = f(this)
 }
 
-case class XOR private[arithmetic](a: ArithExpr, b: ArithExpr) extends ArithExpr with SimplifiedExpr {
+case class BitwiseXOR private[arithmetic](a: ArithExpr, b: ArithExpr) extends ArithExpr with SimplifiedExpr {
   override val HashSeed = 0x00000042
 
-  override lazy val digest : Int = HashSeed ^ a.digest() ^ b.digest()
+  override lazy val digest: Int = HashSeed ^ a.digest() ^ b.digest()
 
   override def toString: String = "(" + a + ")^(" + b + ")"
 
   override def visitAndRebuild(f: (ArithExpr) => ArithExpr): ArithExpr =
     f(a.visitAndRebuild(f) ^ b.visitAndRebuild(f))
+}
+
+case class BitwiseAND private[arithmetic](a: ArithExpr, b: ArithExpr) extends ArithExpr with SimplifiedExpr {
+  override val HashSeed = 0x42424200
+  override lazy val digest: Int = HashSeed ^ a.digest() ^ b.digest()
+
+  override def toString: String = "(" + a + ")&(" + b + ")"
+
+  override def visitAndRebuild(f: (ArithExpr) => ArithExpr): ArithExpr =
+    f(a.visitAndRebuild(f) & b.visitAndRebuild(f))
+}
+
+case class LShift private[arithmetic](a: ArithExpr, b: ArithExpr) extends ArithExpr with SimplifiedExpr {
+  override val HashSeed = 0x42420042
+  override lazy val digest: Int = HashSeed ^ a.digest() ^ b.digest()
+
+  override def toString: String = "(" + a + ")<<(" + b + ")"
+
+  override def visitAndRebuild(f: (ArithExpr) => ArithExpr): ArithExpr =
+    f(a.visitAndRebuild(f) << b.visitAndRebuild(f))
 }
 
 case class IntDiv private[arithmetic](numer: ArithExpr, denom: ArithExpr) extends ArithExpr() {
@@ -861,18 +898,18 @@ case class IntDiv private[arithmetic](numer: ArithExpr, denom: ArithExpr) extend
     f(numer.visitAndRebuild(f) / denom.visitAndRebuild(f))
 }
 
-case class Pow private[arithmetic](b: ArithExpr, e: ArithExpr) extends ArithExpr {
-  override val HashSeed = 0x63fcd7c2
+case class Pow private[arithmetic] (b: ArithExpr, e: ArithExpr) extends ArithExpr {
+override val HashSeed = 0x63fcd7c2
 
-  override lazy val digest: Int = HashSeed ^ b.digest() ^ e.digest()
+override lazy val digest: Int = HashSeed ^ b.digest () ^ e.digest ()
 
-  override def toString: String = e match {
-    case Cst(-1) => "1/^(" + b + ")"
-    case _ => "pow(" + b + "," + e + ")"
-  }
+override def toString: String = e match {
+case Cst (- 1) => "1/^(" + b + ")"
+case _ => "pow(" + b + "," + e + ")"
+}
 
-  override def visitAndRebuild(f: (ArithExpr) => ArithExpr): ArithExpr =
-    f(b.visitAndRebuild(f).pow(e.visitAndRebuild(f)))
+override def visitAndRebuild (f: (ArithExpr) => ArithExpr): ArithExpr =
+f (b.visitAndRebuild (f).pow (e.visitAndRebuild (f) ) )
 }
 
 case class Log private[arithmetic](b: ArithExpr, x: ArithExpr) extends ArithExpr with SimplifiedExpr {
@@ -942,7 +979,7 @@ case class Prod private[arithmetic](factors: List[ArithExpr]) extends ArithExpr 
   }
 
   override def visitAndRebuild(f: (ArithExpr) => ArithExpr): ArithExpr =
-    f(factors.map(_.visitAndRebuild(f)).reduce(_*_))
+    f(factors.map(_.visitAndRebuild(f)).reduce(_ * _))
 }
 
 
@@ -989,7 +1026,7 @@ case class Sum private[arithmetic](terms: List[ArithExpr]) extends ArithExpr {
   }
 
   override def visitAndRebuild(f: (ArithExpr) => ArithExpr): ArithExpr =
-    f(terms.map(_.visitAndRebuild(f)).reduce(_+_))
+    f(terms.map(_.visitAndRebuild(f)).reduce(_ + _))
 }
 
 // this is really the remainder and not modulo! (I.e. it implements the C semantics of modulo)
@@ -1201,5 +1238,6 @@ abstract class ExtensibleVar(override val name: String,
 
   /* redeclare as abstract to force subclasses to implement */
   override def copy(r: Range): Var
+
   override def visitAndRebuild(f: (ArithExpr) => ArithExpr): ArithExpr
 }
