@@ -166,7 +166,7 @@ abstract sealed class ArithExpr {
     ArithExpr.substitute(this, (vars ++ exprFunctions, maxLens).zipped.toMap)
   }
 
-  lazy val varList: Set[Var] = ArithExpr.collectVars(this)
+  lazy val varList: List[Var] = ArithExpr.collectVars(this)
 
   def visitAndRebuild(f: ArithExpr => ArithExpr): ArithExpr
 
@@ -483,7 +483,7 @@ object ArithExpr {
   }
 
 
-  def collectVars(ae: ArithExpr): Set[Var] = {
+  def collectVars(ae: ArithExpr): List[Var] = {
     val vars = new scala.collection.mutable.HashSet[Var]()
     ArithExpr.visit(ae, {
       case v: Var =>
@@ -493,7 +493,7 @@ object ArithExpr {
       case _ =>
     }
     )
-    vars.toSet
+    vars.toList
   }
 
   def mightBeNegative(expr: ArithExpr): Boolean = {
@@ -616,8 +616,8 @@ object ArithExpr {
       return isSmaller(substitute1, substitute2)
     }
 
-    val ae1Vars = collectVars(ae1).filter(_ match { case _: OpaqueVar => false case _ => true })
-    val ae2Vars = collectVars(ae2).filter(_ match { case _: OpaqueVar => false case _ => true })
+    val ae1Vars = collectVars(ae1).filter(_ match { case _: OpaqueVar => false case _ => true }).toSet
+    val ae2Vars = collectVars(ae2).filter(_ match { case _: OpaqueVar => false case _ => true }).toSet
     val commonVars = ae1Vars & ae2Vars
 
     val varsOnlyInae1 = ae1Vars -- commonVars
