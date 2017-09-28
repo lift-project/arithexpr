@@ -508,7 +508,7 @@ object ArithExpr {
 
 
   def collectVars(ae: ArithExpr): List[Var] = {
-    val vars = new scala.collection.mutable.HashSet[Var]()
+    val vars = new scala.collection.mutable.ListBuffer[Var]()
     ArithExpr.visit(ae, {
       case v: Var =>
         vars += v
@@ -517,7 +517,7 @@ object ArithExpr {
       case _ =>
     }
     )
-    vars.toList
+    vars.distinct.toList
   }
 
   def mightBeNegative(expr: ArithExpr): Boolean = {
