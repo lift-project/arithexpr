@@ -2,7 +2,6 @@ package lift.testing
 
 import lift.arithmetic._
 import lift.arithmetic.simplifier.ExprSimplifier
-import lift.tools.ExprPrinter
 import org.junit.Test
 
 /**
@@ -51,6 +50,5 @@ class StressTest {
       println("%d, %f, %f".format(i, (adding - start)/1000.0, (simplifying - adding)/1000.0))
     }
     b = ExprSimplifier(a)
-    ExprPrinter.dot(b)
   }
 }
