@@ -94,6 +94,14 @@ class TestExpr {
   }
 
   @Test
+  def issue141(): Unit = {
+    val i = Var("i")
+    val expr = (3 + ((-3 + i) % 3)) % 3
+    val incorrectSimplication = (-3 + i) % 3
+    assertNotEquals(incorrectSimplication, expr)
+  }
+
+  @Test
   def issue01(): Unit = {
     val K = Var("K")
     val M = Var("M")
