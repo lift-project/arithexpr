@@ -111,6 +111,15 @@ class TestExpr {
     // incorrectSimplification: -2
     assertNotEquals(incorrectSimplication, expr)
   }
+
+  @Test
+  def issue141_3(): Unit = {
+    val i = Var("i")
+    val expr = (3 - i) % 3
+    val incorrectSimplication = (-1 * i) % 3
+    assertNotEquals(incorrectSimplication, expr)
+  }
+
   @Test
   def issue01(): Unit = {
     val K = Var("K")
