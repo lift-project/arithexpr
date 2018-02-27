@@ -94,6 +94,39 @@ class TestExpr {
   }
 
   @Test
+  def issue141(): Unit = {
+    val i = Var("i")
+    val expr = (3 + ((-3 + i) % 3)) % 3
+    val gold = Mod(Sum(3 :: Mod(Sum(-3 :: i :: Nil), 3) :: Nil), 3)
+    val incorrectSimplication = (-3 + i) % 3
+    assertNotEquals(incorrectSimplication, expr)
+    assertEquals(gold, expr)
+  }
+
+  @Test
+  def issue141_2(): Unit = {
+    val i = Var("i")
+    val expr = (3 + (-2 * i)) % 3
+    val gold = Mod(Sum(3 :: Prod(-2 :: i :: Nil) :: Nil), 3)
+    val incorrectSimplication = (-2 * i) % 3
+    // wrong for example when i == 1
+    // expr: 1
+    // incorrectSimplification: -2
+    assertNotEquals(incorrectSimplication, expr)
+    assertEquals(gold, expr)
+  }
+
+  @Test
+  def issue141_3(): Unit = {
+    val i = Var("i")
+    val expr = (3 - i) % 3
+    val gold = Mod(Sum(3 :: Prod(-1 :: i :: Nil) :: Nil), 3)
+    val incorrectSimplication = (-1 * i) % 3
+    assertNotEquals(incorrectSimplication, expr)
+    assertEquals(gold, expr)
+  }
+
+  @Test
   def issue01(): Unit = {
     val K = Var("K")
     val M = Var("M")

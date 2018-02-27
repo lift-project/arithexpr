@@ -154,7 +154,10 @@ object SimplifyMod {
     // Apply mod to constants
     case (s@Sum(terms), Cst(d))
       if terms.collect({ case Cst(_) => }).nonEmpty &&
-        terms.collect({ case Cst(v) => v }).head >= d =>
+        terms.collect({ case Cst(v) => v }).head >= d &&
+        // none of the terms can be negative: (3 - i))  % 3
+        //                                       ^ might be negative
+        !terms.map(t => ArithExpr.mightBeNegative(t)).fold(false)(_ || _) =>
 
       val c = terms.collect({ case Cst(v) => v }).head
       Some((s - c + c%d) % d)
