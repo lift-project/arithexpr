@@ -19,8 +19,15 @@ object SimplifyIfThenElse {
 
     if(test.op == Operator.<) test.lhs match {
       case v: Var if ArithExpr.isSmaller(v.range.max, test.rhs).getOrElse(false) => return Some(t)
-      case Sum(Cst(c) :: (v:Var) :: Nil) if(
-        c < 0 && ArithExpr.isSmaller(v.range.max, test.rhs).getOrElse(false)) => return Some(t)
+      case Sum(Cst(c) :: (v:Var) :: Nil) if
+        c <= 0 && ArithExpr.isSmaller(v.range.max, test.rhs).getOrElse(false) => return Some(t)
+      case _ =>
+    }
+
+    if(test.op == Operator.>) test.lhs match {
+      case v: Var if ArithExpr.isSmaller(test.rhs, v.range.min).getOrElse(false) => return Some(t)
+      case Sum(Cst(c) :: (v:Var) :: Nil) if
+        c >= 0 && ArithExpr.isSmaller(test.rhs, v.range.min).getOrElse(false) => return Some(t)
       case _ =>
     }
 
