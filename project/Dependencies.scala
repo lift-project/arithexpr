@@ -3,9 +3,9 @@ import sbt._
 object Dependencies {
     lazy val libraryDependencies = Seq(
         // scala
-        "org.scala-lang" % "scala-reflect" % "2.11.8",
-        "org.scala-lang" % "scala-compiler" % "2.11.8",
-        "org.scala-lang" % "scala-library" % "2.11.8",
+        "org.scala-lang" % "scala-reflect" % "2.11.12",
+        "org.scala-lang" % "scala-compiler" % "2.11.12",
+        "org.scala-lang" % "scala-library" % "2.11.12",
     // testing
         "junit" % "junit" % "4.11",
         "com.novocode" % "junit-interface" % "0.11" % "test",

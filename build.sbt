@@ -1,10 +1,10 @@
+ThisBuild / scalaVersion := "2.11.12"
+ThisBuild / organization := "org.lift-project"
 
-lazy val root = (project in file("."))
+lazy val arithExpr = (project in file("."))
   .settings(
     name          := "ArithExpr",
-    organization  := "org.lift-project",
     version       := "1.0",
-    scalaVersion  := "2.11.8",
 
     scalacOptions ++= Seq("-Xmax-classfile-name", "100", "-unchecked", "-deprecation", "-feature"),
     scalacOptions in (Compile, doc) := Seq("-implicits", "-diagrams"),
@@ -21,7 +21,7 @@ lazy val root = (project in file("."))
     testOptions += Tests.Argument(TestFrameworks.JUnit, "-q", "-v"),
     testOptions += Tests.Argument(TestFrameworks.ScalaCheck, "-verbosity", "5"),
 
-    ScoverageSbtPlugin.ScoverageKeys.coverageExcludedPackages := "<empty>;.*Test.*;.*testing.*",
+    scoverage.ScoverageKeys.coverageExcludedPackages := "<empty>;.*Test.*;.*testing.*",
 
     fork := true
   )
