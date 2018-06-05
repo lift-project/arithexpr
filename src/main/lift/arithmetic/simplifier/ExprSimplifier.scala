@@ -17,6 +17,7 @@ object ExprSimplifier {
     case Pow(x,y) => SimplifyPow(x,y)
     case p: Prod => p.factors.reduce(_*_)
     case s: Sum => s.terms.reduce(_+_)
+    case bs:BigSum => SimplifyBigSum(bs)
     case Mod(a,b) => SimplifyMod(a,b)
     case IntDiv(a,b) => SimplifyIntDiv(a,b)
     case IfThenElse(test,t,el) => SimplifyIfThenElse(test,t,el)

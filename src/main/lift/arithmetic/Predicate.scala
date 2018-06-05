@@ -17,6 +17,8 @@ case class Predicate(lhs: ArithExpr, rhs: ArithExpr, op: Predicate.Operator.Oper
   def ??(thenBlock: ArithExpr) = new IfWithoutElse(this, thenBlock)
 
   val digest: Int = 0x7c6736c0 ^ lhs.digest() ^ rhs.digest() ^ op.hashCode()
+
+  def contains(subexpression: ArithExpr) = lhs.contains(subexpression) || rhs.contains(subexpression)
 }
 
 object Predicate {

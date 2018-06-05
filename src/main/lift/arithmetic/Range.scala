@@ -20,6 +20,8 @@ sealed abstract class Range {
 
   /* Number of different values this range can take */
   lazy val numVals: ArithExpr = ?
+
+  def contains(subexpression:ArithExpr):Boolean = this.min.contains(subexpression) || this.max.contains(subexpression)
 }
 
 object Range {

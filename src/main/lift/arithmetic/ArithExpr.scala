@@ -353,6 +353,14 @@ abstract sealed class ArithExpr {
     *
     * @return A 32 bit digest of the expression.
     */
+
+  /**
+    * Checks whether this arithmetic expression contains at least one instance of the given subexpression
+    * @param subexpression
+    * @return
+    */
+  def contains(subexpression: ArithExpr):Boolean
+
   def digest(): Int
 
   override def hashCode: Int = digest()
@@ -685,6 +693,11 @@ object ArithExpr {
       case FloorFunction(expr) => visit(expr, f)
       case CeilingFunction(expr) => visit(expr, f)
       case Sum(terms) => terms.foreach(t => visit(t, f))
+      case BigSum(iv, range, body) =>
+        visit(iv, f)
+        visit(range.min, f)
+        visit(range.max, f)
+        visit(body, f)
       case Prod(terms) => terms.foreach(t => visit(t, f))
       case IfThenElse(test, thenE, elseE) =>
         visit(test.lhs, f)
@@ -718,6 +731,8 @@ object ArithExpr {
         case Sum(terms) =>
           terms.foreach(t => if (visitUntil(t, f)) return true)
           false
+        case BigSum(iv, range, body) =>
+          visitUntil(iv, f) || visitUntil(range.min, f) || visitUntil(range.max, f) || visitUntil(body, f)
         case Prod(terms) =>
           terms.foreach(t => if (visitUntil(t, f)) return true)
           false
@@ -768,6 +783,18 @@ object ArithExpr {
 
     case Sum(terms) => terms.foldLeft(0.0)((result, expr) => result + evalDouble(expr))
     case Prod(terms) => terms.foldLeft(1.0)((result, expr) => result * evalDouble(expr))
+
+    case BigSum(iterVar, bounds, body) =>
+      val boundsMin = bounds.min.evalInt
+      val boundsMax = bounds.max.evalInt
+
+      val terms =
+        for (i <- boundsMin to boundsMax) yield {
+          val substBody = body.visitAndRebuild(subExpr => if (subExpr == iterVar) Cst(i) else subExpr)
+          substBody
+        }
+
+      evalDouble(Sum(terms.toList))
 
     case FloorFunction(expr) => scala.math.floor(evalDouble(expr))
     case CeilingFunction(expr) => scala.math.ceil(evalDouble(expr))
@@ -884,6 +911,8 @@ case object ? extends ArithExpr with SimplifiedExpr {
   override def ==(that: ArithExpr): Boolean = that.getClass == this.getClass
 
   override def visitAndRebuild(f: (ArithExpr) => ArithExpr): ArithExpr = f(this)
+
+  override def contains(subexpression: ArithExpr) = false
 }
 
 case object PosInf extends ArithExpr with SimplifiedExpr {
@@ -896,6 +925,8 @@ case object PosInf extends ArithExpr with SimplifiedExpr {
   override def ==(that: ArithExpr): Boolean = that.getClass == this.getClass
 
   override def visitAndRebuild(f: (ArithExpr) => ArithExpr): ArithExpr = f(this)
+
+  override def contains(subexpression: ArithExpr) = false
 }
 
 case object NegInf extends ArithExpr with SimplifiedExpr {
@@ -908,6 +939,9 @@ case object NegInf extends ArithExpr with SimplifiedExpr {
   override def ==(that: ArithExpr): Boolean = that.getClass == this.getClass
 
   override def visitAndRebuild(f: (ArithExpr) => ArithExpr): ArithExpr = f(this)
+
+  override def contains(subexpression: ArithExpr) = false
+
 }
 
 case class Cst private[arithmetic](c: Long) extends ArithExpr with SimplifiedExpr {
@@ -918,6 +952,8 @@ case class Cst private[arithmetic](c: Long) extends ArithExpr with SimplifiedExp
   override lazy val toString: String = c.toString
 
   override def visitAndRebuild(f: (ArithExpr) => ArithExpr): ArithExpr = f(this)
+
+  override def contains(subexpression: ArithExpr) = false
 }
 
 case class IntDiv private[arithmetic](numer: ArithExpr, denom: ArithExpr) extends ArithExpr() {
@@ -932,6 +968,8 @@ case class IntDiv private[arithmetic](numer: ArithExpr, denom: ArithExpr) extend
 
   override def visitAndRebuild(f: (ArithExpr) => ArithExpr): ArithExpr =
     f(numer.visitAndRebuild(f) / denom.visitAndRebuild(f))
+
+  override def contains(subexpression: ArithExpr) = numer.contains(subexpression) || denom.contains(subexpression)
 }
 
 case class Pow private[arithmetic](b: ArithExpr, e: ArithExpr) extends ArithExpr {
@@ -946,6 +984,8 @@ case class Pow private[arithmetic](b: ArithExpr, e: ArithExpr) extends ArithExpr
 
   override def visitAndRebuild(f: (ArithExpr) => ArithExpr): ArithExpr =
     f(b.visitAndRebuild(f).pow(e.visitAndRebuild(f)))
+
+  override def contains(subexpression: ArithExpr) = b.contains(subexpression) || e.contains(subexpression)
 }
 
 case class Log private[arithmetic](b: ArithExpr, x: ArithExpr) extends ArithExpr with SimplifiedExpr {
@@ -957,6 +997,8 @@ case class Log private[arithmetic](b: ArithExpr, x: ArithExpr) extends ArithExpr
 
   override def visitAndRebuild(f: (ArithExpr) => ArithExpr): ArithExpr =
     f(Log(b.visitAndRebuild(f), x.visitAndRebuild(f)))
+
+  override def contains(subexpression: ArithExpr) = b.contains(subexpression) || x.contains(subexpression)
 }
 
 /**
@@ -1033,6 +1075,8 @@ case class Sum private[arithmetic](terms: List[ArithExpr]) extends ArithExpr {
 
   override lazy val digest: Int = terms.foldRight(HashSeed)((x, hash) => hash ^ x.digest())
 
+  override def contains(subexpression: ArithExpr) = terms.exists(_.contains(subexpression))
+
   override def equals(that: Any): Boolean = that match {
     case s: Sum => terms.length == s.terms.length && terms.intersect(s.terms).length == terms.length
     case _ => false
@@ -1065,6 +1109,18 @@ case class Sum private[arithmetic](terms: List[ArithExpr]) extends ArithExpr {
     f(terms.map(_.visitAndRebuild(f)).reduce(_ + _))
 }
 
+
+case class BigSum(iterationVariable:Var, range:RangeAdd, body:ArithExpr) extends ArithExpr {
+  override val HashSeed = 0x270493ff
+
+  override lazy val digest:Int = HashSeed ^ iterationVariable.digest ^ range.digest() ^ body.digest()
+
+  override def visitAndRebuild(f: ArithExpr => ArithExpr) = BigSum(iterationVariable, range, f(body))
+
+  override def contains(subexpression: ArithExpr) =
+    iterationVariable.contains(subexpression) || range.contains(subexpression) || body.contains(subexpression)
+}
+
 // this is really the remainder and not modulo! (I.e. it implements the C semantics of modulo)
 case class Mod private[arithmetic](dividend: ArithExpr, divisor: ArithExpr) extends ArithExpr {
   //override val HashSeed = 0xedf6bb88
@@ -1076,6 +1132,8 @@ case class Mod private[arithmetic](dividend: ArithExpr, divisor: ArithExpr) exte
 
   override def visitAndRebuild(f: (ArithExpr) => ArithExpr): ArithExpr =
     f(dividend.visitAndRebuild(f) % divisor.visitAndRebuild(f))
+
+  override def contains(subexpression: ArithExpr) = dividend.contains(subexpression) || divisor.contains(subexpression)
 }
 
 case class AbsFunction private[arithmetic](ae: ArithExpr) extends ArithExpr {
@@ -1087,6 +1145,8 @@ case class AbsFunction private[arithmetic](ae: ArithExpr) extends ArithExpr {
 
   override def visitAndRebuild(f: (ArithExpr) => ArithExpr): ArithExpr =
     f(abs(ae.visitAndRebuild(f)))
+
+  override def contains(subexpression: ArithExpr) = ae.contains(subexpression)
 }
 
 object abs {
@@ -1102,6 +1162,8 @@ case class FloorFunction private[arithmetic](ae: ArithExpr) extends ArithExpr {
 
   override def visitAndRebuild(f: (ArithExpr) => ArithExpr): ArithExpr =
     f(floor(ae.visitAndRebuild(f)))
+
+  override def contains(subexpression: ArithExpr) = ae.contains(subexpression)
 }
 
 object floor {
@@ -1117,6 +1179,8 @@ case class CeilingFunction private[arithmetic](ae: ArithExpr) extends ArithExpr 
 
   override def visitAndRebuild(f: (ArithExpr) => ArithExpr): ArithExpr =
     f(ceil(ae.visitAndRebuild(f)))
+  override def contains(subexpression: ArithExpr) = ae.contains(subexpression)
+
 }
 
 object ceil {
@@ -1140,7 +1204,11 @@ case class IfThenElse private[arithmetic](test: Predicate, t: ArithExpr, e: Arit
 
     f(newPredicate ?? t.visitAndRebuild(f) !! e.visitAndRebuild(f))
   }
+
+  override def contains(subexpression: ArithExpr) =
+    test.contains(subexpression) || t.contains(subexpression) || e.contains(subexpression)
 }
+
 
 /* This class is meant to be used as a superclass, therefore, it is not private to this package */
 abstract case class ArithExprFunction(name: String, range: Range = RangeUnknown) extends ArithExpr with SimplifiedExpr {
@@ -1150,6 +1218,7 @@ abstract case class ArithExprFunction(name: String, range: Range = RangeUnknown)
 
   override lazy val toString: String = s"$name($range)"
 
+  override def contains(subexpression: ArithExpr) = range.contains(subexpression)
 }
 
 object ArithExprFunction {
@@ -1178,6 +1247,8 @@ class Lookup private[arithmetic](val table: Seq[ArithExpr],
   override def visitAndRebuild(f: (ArithExpr) => ArithExpr): ArithExpr = {
     f(Lookup(table.map(_.visitAndRebuild(f)), index.visitAndRebuild(f), id))
   }
+
+  override def contains(subexpression: ArithExpr) = table.exists(_.contains(subexpression)) || index.contains(subexpression)
 }
 
 object Lookup {
@@ -1193,6 +1264,8 @@ case class BitwiseXOR private[arithmetic](a: ArithExpr, b: ArithExpr) extends Ar
 
   override def visitAndRebuild(f: (ArithExpr) => ArithExpr): ArithExpr =
     f(a.visitAndRebuild(f) ^ b.visitAndRebuild(f))
+
+  override def contains(subexpression: ArithExpr) = a.contains(subexpression) || b.contains(subexpression)
 }
 
 case class BitwiseAND private[arithmetic](a: ArithExpr, b: ArithExpr) extends ArithExpr with SimplifiedExpr {
@@ -1203,6 +1276,8 @@ case class BitwiseAND private[arithmetic](a: ArithExpr, b: ArithExpr) extends Ar
 
   override def visitAndRebuild(f: (ArithExpr) => ArithExpr): ArithExpr =
     f(a.visitAndRebuild(f) & b.visitAndRebuild(f))
+
+  override def contains(subexpression: ArithExpr) = a.contains(subexpression) || b.contains(subexpression)
 }
 
 case class LShift private[arithmetic](a: ArithExpr, b: ArithExpr) extends ArithExpr with SimplifiedExpr {
@@ -1213,6 +1288,8 @@ case class LShift private[arithmetic](a: ArithExpr, b: ArithExpr) extends ArithE
 
   override def visitAndRebuild(f: (ArithExpr) => ArithExpr): ArithExpr =
     f(a.visitAndRebuild(f) << b.visitAndRebuild(f))
+
+  override def contains(subexpression: ArithExpr) = a.contains(subexpression) || b.contains(subexpression)
 }
 
 /**
@@ -1262,6 +1339,8 @@ class Var private[arithmetic](val name: String,
   }
 
   def copy(r: Range) = new Var(name, r, Some(this.id))
+
+  override def contains(subexpression: ArithExpr) = subexpression == this
 }
 
 object Var {
