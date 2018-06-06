@@ -146,9 +146,9 @@ abstract sealed class ArithExpr {
   lazy val evalDouble: Double = ArithExpr.evalDouble(this)
 
   lazy val isEvaluable: Boolean = {
-    !ArithExpr.visitUntil(this, x => {
+    ArithExpr.freeVariables(this).isEmpty && !ArithExpr.visitUntil(this, x => {
       x == PosInf || x == NegInf || x == ? ||
-        x.isInstanceOf[ArithExprFunction] || x.isInstanceOf[Var] || x.isInstanceOf[IfThenElse]
+        x.isInstanceOf[ArithExprFunction] || x.isInstanceOf[IfThenElse]
     })
   }
 
@@ -528,6 +528,40 @@ object ArithExpr {
     vars.distinct.toList
   }
 
+  def freeVariables(ae:ArithExpr):Set[Var] = {
+    ae match {
+      case Pow(base, exp) => freeVariables(base).union(freeVariables(exp))
+      case IntDiv(n, d) => freeVariables(n).union(freeVariables(d))
+      case Mod(dividend, divisor) => freeVariables(dividend).union(freeVariables(divisor))
+      case Log(b, x) => freeVariables(b).union(freeVariables(x))
+      case FloorFunction(expr) => freeVariables(expr)
+      case CeilingFunction(expr) => freeVariables(expr)
+
+      case Sum(terms) =>
+        terms.map(freeVariables).foldLeft(Set[Var]())(_.union(_))
+
+      case BigSum(iv, start, stop, body) =>
+        freeVariables(start).union(freeVariables(stop)).union(freeVariables(body)) - iv
+
+      case Prod(terms) =>
+        terms.map(freeVariables).foldLeft(Set[Var]())(_.union(_))
+
+      case IfThenElse(test, thenE, elseE) =>
+        freeVariables(test.lhs)
+          .union(freeVariables(test.rhs))
+          .union(freeVariables(thenE))
+          .union(freeVariables(elseE))
+      case lu: Lookup =>
+        freeVariables(lu.index)
+          .union(lu.table.map(freeVariables).foldLeft(Set[Var]())(_.union(_)))
+      case v:Var => Set(v)
+      case Cst(_) | ArithExprFunction(_, _) => Set()
+      case x if x.getClass == ?.getClass => Set()
+      case PosInf | NegInf => Set()
+      case AbsFunction(expr) => freeVariables(expr)
+    }
+  }
+
   def mightBeNegative(expr: ArithExpr): Boolean = {
     expr.sign != Sign.Positive
   }
@@ -693,10 +727,10 @@ object ArithExpr {
       case FloorFunction(expr) => visit(expr, f)
       case CeilingFunction(expr) => visit(expr, f)
       case Sum(terms) => terms.foreach(t => visit(t, f))
-      case BigSum(iv, range, body) =>
+      case BigSum(iv, start, stop, body) =>
         visit(iv, f)
-        visit(range.min, f)
-        visit(range.max, f)
+        visit(start, f)
+        visit(stop, f)
         visit(body, f)
       case Prod(terms) => terms.foreach(t => visit(t, f))
       case IfThenElse(test, thenE, elseE) =>
@@ -714,34 +748,36 @@ object ArithExpr {
     }
   }
 
-  def visitUntil(e: ArithExpr, f: (ArithExpr) => Boolean): Boolean = {
-    if (f(e)) true
+  def visitUntil(e:ArithExpr, f:(ArithExpr) => Boolean):Boolean = {
+    if(f(e)) true else {
+      enumerateChildren(e).map(visitUntil(_, f)).foldLeft(false)(_ || _)
+    }
+  }
+
+  private def enumerateChildren(e:ArithExpr):Iterable[ArithExpr] = {
+    e match {
+      case Pow(base, exp) => Iterable(base, exp)
+      case IntDiv(n, d) => Iterable(n, d)
+      case Mod(dividend, divisor) => Iterable(dividend, divisor)
+      case Log(b, x) => Iterable(b, x)
+      case FloorFunction(expr) => Iterable(expr)
+      case CeilingFunction(expr) => Iterable(expr)
+      case Sum(terms) => terms
+      case BigSum(iv, start, stop, body) => Iterable(iv, start, stop, body)
+      case Prod(terms) => terms
+      case gc: Lookup => Iterable(gc.index)
+      case Var(_, _) | Cst(_) | IfThenElse(_, _, _) | ArithExprFunction(_, _) => Iterable()
+      case x if x.getClass == ?.getClass => Iterable()
+      case PosInf | NegInf => Iterable()
+      case AbsFunction(expr) => Iterable(expr)
+    }
+  }
+
+  def visitUntilWithParent(e:ArithExpr, parent:Option[ArithExpr], f:(ArithExpr, Option[ArithExpr]) => Boolean):Boolean = {
+    if (f(e, parent)) true
     else {
-      e match {
-        case Pow(base, exp) =>
-          visitUntil(base, f) || visitUntil(exp, f)
-        case IntDiv(n, d) =>
-          visitUntil(n, f) || visitUntil(d, f)
-        case Mod(dividend, divisor) =>
-          visitUntil(dividend, f) || visitUntil(divisor, f)
-        case Log(b, x) =>
-          visitUntil(b, f) || visitUntil(x, f)
-        case FloorFunction(expr) => visitUntil(expr, f)
-        case CeilingFunction(expr) => visitUntil(expr, f)
-        case Sum(terms) =>
-          terms.foreach(t => if (visitUntil(t, f)) return true)
-          false
-        case BigSum(iv, range, body) =>
-          visitUntil(iv, f) || visitUntil(range.min, f) || visitUntil(range.max, f) || visitUntil(body, f)
-        case Prod(terms) =>
-          terms.foreach(t => if (visitUntil(t, f)) return true)
-          false
-        case gc: Lookup => visitUntil(gc.index, f)
-        case Var(_, _) | Cst(_) | IfThenElse(_, _, _) | ArithExprFunction(_, _) => false
-        case x if x.getClass == ?.getClass => false
-        case PosInf | NegInf => false
-        case AbsFunction(expr) => visitUntil(expr, f)
-      }
+      val children = ArithExpr.enumerateChildren(e)
+      children.map(visitUntilWithParent(_, Some(e), f)).foldLeft(false)(_ || _)
     }
   }
 
@@ -784,9 +820,9 @@ object ArithExpr {
     case Sum(terms) => terms.foldLeft(0.0)((result, expr) => result + evalDouble(expr))
     case Prod(terms) => terms.foldLeft(1.0)((result, expr) => result * evalDouble(expr))
 
-    case BigSum(iterVar, bounds, body) =>
-      val boundsMin = bounds.min.evalInt
-      val boundsMax = bounds.max.evalInt
+    case BigSum(iterVar, start, stop, body) =>
+      val boundsMin = start.evalInt
+      val boundsMax = stop.evalInt
 
       val terms =
         for (i <- boundsMin to boundsMax) yield {
@@ -1110,15 +1146,15 @@ case class Sum private[arithmetic](terms: List[ArithExpr]) extends ArithExpr {
 }
 
 
-case class BigSum(iterationVariable:Var, range:RangeAdd, body:ArithExpr) extends ArithExpr {
+case class BigSum(iterationVariable:Var, start:ArithExpr, stop:ArithExpr, body:ArithExpr) extends ArithExpr {
   override val HashSeed = 0x270493ff
 
-  override lazy val digest:Int = HashSeed ^ iterationVariable.digest ^ range.digest() ^ body.digest()
+  override lazy val digest:Int = HashSeed ^ iterationVariable.digest ^  start.digest() ^ stop.digest() ^ body.digest()
 
-  override def visitAndRebuild(f: ArithExpr => ArithExpr) = BigSum(iterationVariable, range, f(body))
+  override def visitAndRebuild(f: ArithExpr => ArithExpr) = BigSum(iterationVariable, start, stop, f(body))
 
   override def contains(subexpression: ArithExpr) =
-    iterationVariable.contains(subexpression) || range.contains(subexpression) || body.contains(subexpression)
+    iterationVariable.contains(subexpression) || start.contains(subexpression) || stop.contains(subexpression)|| body.contains(subexpression)
 }
 
 // this is really the remainder and not modulo! (I.e. it implements the C semantics of modulo)

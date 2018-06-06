@@ -21,7 +21,10 @@ object SimplifyBigSum {
   //If the iteration variable never appears in the body, then it's just a straightforward product
   private def intoProduct(bigSum: BigSum) = {
     if(!bigSum.body.contains(bigSum.iterationVariable)) {
-      bigSum.range.numVals * bigSum.body
+      val stop = bigSum.stop
+      val start = bigSum.start
+      val coeff = stop - start
+      coeff  * bigSum.body
     } else {
       bigSum
     }
@@ -30,12 +33,12 @@ object SimplifyBigSum {
 
   def main(args:Array[String]) = {
     val v = Var("x")
-    val bigSum = SimplifyBigSum(BigSum(v, ContinuousRange(0, 10), v))
+    val bigSum = SimplifyBigSum(BigSum(v, 0 , 10, v))
 
     println(bigSum)
     println(bigSum.evalDouble)
 
-    val bigSum2 = SimplifyBigSum(BigSum(v, ContinuousRange(5, 10), 1))
+    val bigSum2 = SimplifyBigSum(BigSum(v, 5, 10, 1))
 
     println(bigSum2)
     println(bigSum2.evalDouble)
