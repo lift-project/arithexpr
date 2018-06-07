@@ -887,6 +887,12 @@ object ArithExpr {
     (Prod(common), Sum(List(Prod(newE1), Prod(newE2))))
   }
 
+  def bigSum(start:ArithExpr, stop:ArithExpr, makeBody:Var => ArithExpr):ArithExpr = {
+    val freshVar = Var("SumVar")
+    val body = makeBody(freshVar)
+    SimplifyBigSum(BigSum(freshVar, start, stop, body))
+  }
+
   /**
     * Math operations derived from the basic operations
     */
@@ -1146,7 +1152,7 @@ case class Sum private[arithmetic](terms: List[ArithExpr]) extends ArithExpr {
 }
 
 
-case class BigSum(iterationVariable:Var, start:ArithExpr, stop:ArithExpr, body:ArithExpr) extends ArithExpr {
+case class BigSum private (iterationVariable:Var, start:ArithExpr, stop:ArithExpr, body:ArithExpr) extends ArithExpr {
   override val HashSeed = 0x270493ff
 
   override lazy val digest:Int = HashSeed ^ iterationVariable.digest ^  start.digest() ^ stop.digest() ^ body.digest()
