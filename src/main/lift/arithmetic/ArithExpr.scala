@@ -1155,6 +1155,8 @@ case class Sum private[arithmetic](terms: List[ArithExpr]) extends ArithExpr {
 case class BigSum private (iterationVariable:Var, start:ArithExpr, stop:ArithExpr, body:ArithExpr) extends ArithExpr {
   override val HashSeed = 0x270493ff
 
+  override val simplified = true
+
   override lazy val digest:Int = HashSeed ^ iterationVariable.digest ^  start.digest() ^ stop.digest() ^ body.digest()
 
   override def visitAndRebuild(f: ArithExpr => ArithExpr) = BigSum(iterationVariable, start, stop, f(body))
