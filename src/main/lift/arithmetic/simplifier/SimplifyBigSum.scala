@@ -4,7 +4,11 @@ import lift.arithmetic._
 
 object SimplifyBigSum {
   def apply(bigSum: BigSum):ArithExpr = {
-    intoProduct(bigSum)
+    if(bigSum.body == bigSum.iterationVariable && bigSum.start == Cst(0)) {
+      (bigSum.stop*(bigSum.stop + 1))/2
+    } else {
+      intoProduct(bigSum)
+    }
   }
 
   /*
