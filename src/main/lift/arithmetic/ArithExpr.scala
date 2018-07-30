@@ -890,8 +890,7 @@ object ArithExpr {
   def bigSum(start:ArithExpr, stop:ArithExpr, makeBody:Var => ArithExpr):ArithExpr = {
     val freshVar = Var("SumVar")
     val body = makeBody(freshVar)
-    val bs = BigSum(freshVar, start, stop, body)
-    SimplifyBigSum(bs)
+    SimplifyBigSum(BigSum(freshVar, start, stop, body))
   }
 
   def bigSumBinding(start:ArithExpr, stop:ArithExpr, body:ArithExpr, replacing:Var):ArithExpr = {
