@@ -4,7 +4,19 @@ import lift.arithmetic._
 
 object SimplifyBigSum {
   def apply(bigSum: BigSum):ArithExpr = {
-    liftOutConstantFactors(bigSum)
+    splitTerms(bigSum)
+  }
+
+  private def splitTerms(bigSum: BigSum):ArithExpr = {
+    bigSum.body match {
+      case Sum(terms) =>
+        //Split each term in it's own sum, then simplify it
+        Sum(terms.map(term =>
+          SimplifyBigSum(bigSum.copy(body = term)
+        )))
+
+      case _ => liftOutConstantFactors(bigSum)
+    }
   }
 
   private def makeProd(exprs:List[ArithExpr]):ArithExpr = exprs match {
@@ -52,7 +64,7 @@ object SimplifyBigSum {
     if(!bigSum.body.contains(bigSum.iterationVariable)) {
       val stop = bigSum.stop
       val start = bigSum.start
-      val coeff = stop - start
+      val coeff = stop - start + 1
       coeff  * bigSum.body
     } else {
       bigSum
