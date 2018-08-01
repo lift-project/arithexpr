@@ -4,6 +4,31 @@ import lift.arithmetic._
 
 object SimplifyBigSum {
   def apply(bigSum: BigSum):ArithExpr = {
+    liftOutConstantFactors(bigSum)
+  }
+
+  private def makeProd(exprs:List[ArithExpr]):ArithExpr = exprs match {
+    case List(justThis) => justThis
+    case other => Prod(other)
+  }
+
+  private def liftOutConstantFactors(bigSum: BigSum):ArithExpr = {
+    bigSum.body match {
+      case Prod(factors) =>
+        val (stayingIn, liftedOut) = factors.partition(expr => expr.contains(bigSum.iterationVariable))
+        //If we lifted out all of the constant factors, then we should leave a Cst(1) behind...
+        val newBody = stayingIn match {
+          case Nil => Cst(1)
+          case other => makeProd(other)
+        }
+
+        val result = makeProd(liftedOut) * SimplifyBigSum(bigSum.copy(body = newBody))
+        result
+      case _ => finalPhase(bigSum)
+    }
+  }
+
+  private def finalPhase(bigSum: BigSum):ArithExpr = {
     if(bigSum.body == bigSum.iterationVariable && bigSum.start == Cst(0)) {
       (bigSum.stop*(bigSum.stop + 1))/2
     } else {
