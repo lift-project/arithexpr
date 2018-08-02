@@ -899,6 +899,14 @@ object ArithExpr {
     SimplifyBigSum(BigSum(freshVar, start, stop, boundBody))
   }
 
+  def fun(genFun:ArithExpr => ArithExpr):Fun = fun("partitionVar", RangeUnknown, genFun)
+
+  def fun(name:String, range:Range, genFun:ArithExpr => ArithExpr):Fun = {
+    val v = new Var(name, range)
+    val body = genFun(v)
+    Fun(v, body)
+  }
+
   /**
     * Math operations derived from the basic operations
     */
@@ -1436,4 +1444,13 @@ abstract class ExtensibleVar(override val name: String,
   override def copy(r: Range): Var
 
   override def visitAndRebuild(f: (ArithExpr) => ArithExpr): ArithExpr
+}
+
+case class Fun(param:Var, body:ArithExpr) {
+  def mapBody(f:ArithExpr => ArithExpr):Fun = Fun(param, f(body))
+
+  def apply(value:ArithExpr):ArithExpr = ArithExpr.substitute(this.body, Map(param -> value))
+
+  def substitute(subst:collection.Map[ArithExpr, ArithExpr]) =
+    Fun(ArithExpr.substitute(param, subst).asInstanceOf[Var], ArithExpr.substitute(body, subst))
 }
