@@ -11,9 +11,9 @@ object SimplifyBigSum {
     bigSum.body match {
       case Sum(terms) =>
         //Split each term in it's own sum, then simplify it
-        Sum(terms.map(term =>
+        terms.map(term =>
           SimplifyBigSum(bigSum.copy(body = term)
-        )))
+        )).reduce(_ + _)
 
       case _ => liftOutConstantFactors(bigSum)
     }
@@ -21,7 +21,7 @@ object SimplifyBigSum {
 
   private def makeProd(exprs:List[ArithExpr]):ArithExpr = exprs match {
     case List(justThis) => justThis
-    case other => Prod(other)
+    case other => other.reduce(_ * _)
   }
 
   private def liftOutConstantFactors(bigSum: BigSum):ArithExpr = {
