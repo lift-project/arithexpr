@@ -152,6 +152,13 @@ abstract sealed class ArithExpr {
     })
   }
 
+  lazy val mightBeFractional:Boolean = {
+    this match {
+      case Pow(_, e) => ArithExpr.isSmaller(e, Cst(0)).contains(true)
+      case _ => false
+    }
+  }
+
   lazy val atMax: ArithExpr = {
     val vars = varList.filter(_.range.max != ?)
     val exprFunctions = ArithExprFunction.getArithExprFuns(this).filter(_.range.max != ?)
@@ -1167,6 +1174,8 @@ case class Sum private[arithmetic](terms: List[ArithExpr]) extends ArithExpr {
 
 
 case class BigSum private (iterationVariable:Var, start:ArithExpr, stop:ArithExpr, body:ArithExpr) extends ArithExpr {
+  assert(!start.mightBeFractional)
+  assert(!stop.mightBeFractional)
   override val HashSeed = 0x270493ff
 
   override val simplified = true
@@ -1453,4 +1462,6 @@ case class Fun(param:Var, body:ArithExpr) {
 
   def substitute(subst:collection.Map[ArithExpr, ArithExpr]) =
     Fun(ArithExpr.substitute(param, subst).asInstanceOf[Var], ArithExpr.substitute(body, subst))
+
+  def bodyDependsOnParam:Boolean = ArithExpr.freeVariables(this.body).contains(param)
 }
