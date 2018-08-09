@@ -15,7 +15,7 @@ object SimplifyBigSum {
           SimplifyBigSum(bigSum.copy(body = term)
         )).reduce(_ + _)
 
-      case _ => liftOutConstantFactors(bigSum)
+      case _ => simplifyFactors(bigSum)
     }
   }
 
@@ -24,7 +24,7 @@ object SimplifyBigSum {
     case other => other.reduce(_ * _)
   }
 
-  private def liftOutConstantFactors(bigSum: BigSum):ArithExpr = {
+  private def simplifyFactors(bigSum: BigSum):ArithExpr = {
     bigSum.body match {
       case Prod(factors) =>
         val (stayingIn, liftedOut) = factors.partition(expr => expr.contains(bigSum.iterationVariable))
@@ -41,25 +41,19 @@ object SimplifyBigSum {
   }
 
   private def finalPhase(bigSum: BigSum):ArithExpr = {
-    if(bigSum.body == bigSum.iterationVariable && bigSum.start == Cst(0)) {
-      (bigSum.stop*(bigSum.stop + 1))/2
-    } else {
-      intoProduct(bigSum)
+    bigSum.body match {
+      case _: IfThenElse =>
+        ifElimination(bigSum)
+      case _ => if (bigSum.body == bigSum.iterationVariable && bigSum.start == Cst(0)) {
+        (bigSum.stop * (bigSum.stop + 1)) / 2
+      } else {
+        intoProduct(bigSum)
+      }
     }
   }
 
-  /*
-  //If the sum does not being from zero, then we can split it in two zero-based sums
-  private def splitSums(bigSum: BigSum):ArithExpr = {
-    //TODO:Sound in principle, but stackoveflows!
-      if(bigSum.range.min != Cst(0)) {
-        val upperSum = BigSum(bigSum.iterationVariable, ContinuousRange(0, bigSum.range.max), bigSum.body)
-        val lowerSum = BigSum(bigSum.iterationVariable, ContinuousRange(0, bigSum.range.min), bigSum.body)
-        upperSum - lowerSum
-      } else bigSum
-  }*/
 
-  //If the iteration variable never appears in the body, then it's just a straightforward product
+  //if the iteration variable never appears in the body, then it's just a straightforward product
   private def intoProduct(bigSum: BigSum) = {
     if(!bigSum.body.contains(bigSum.iterationVariable)) {
       val stop = bigSum.stop
@@ -68,6 +62,19 @@ object SimplifyBigSum {
       coeff  * bigSum.body
     } else {
       bigSum
+    }
+  }
+
+  private def ifElimination(bigSum: BigSum):ArithExpr = {
+    val ifBody = bigSum.body.asInstanceOf[IfThenElse]
+    //Does the bottom of the range match the if condition?
+    ifBody.test match {
+      case Predicate(lhs, rhs, Predicate.Operator.==)
+        if lhs == bigSum.iterationVariable && rhs == bigSum.start ||
+           lhs == bigSum.start && rhs == bigSum.iterationVariable =>
+        //Split up the sum!
+        ifBody.t + SimplifyBigSum(BigSum(bigSum.iterationVariable, bigSum.start + 1, bigSum.stop, ifBody.e))
+      case _ => bigSum
     }
   }
 
