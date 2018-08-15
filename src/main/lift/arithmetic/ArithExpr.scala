@@ -187,6 +187,7 @@ abstract sealed class ArithExpr {
     * @note This operator works only for simplified expressions.
     */
   def ==(that: ArithExpr): Boolean = {
+    val hashEq = this.HashSeed() == that.HashSeed()
     if (this.HashSeed() == that.HashSeed() && digest() == that.digest())
       this === that
     else false
@@ -1464,4 +1465,13 @@ case class Fun(param:Var, body:ArithExpr) {
     Fun(ArithExpr.substitute(param, subst).asInstanceOf[Var], ArithExpr.substitute(body, subst))
 
   def bodyDependsOnParam:Boolean = ArithExpr.freeVariables(this.body).contains(param)
+}
+
+abstract class ArithMacro extends ArithExpr {
+
+  override def HashSeed() = 0x270392ff
+
+  override val simplified = true
+
+  override def visitAndRebuild(f: ArithExpr => ArithExpr) = f(this)
 }
