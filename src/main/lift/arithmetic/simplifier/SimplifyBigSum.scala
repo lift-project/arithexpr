@@ -1,5 +1,6 @@
 package lift.arithmetic.simplifier
 
+import lift.arithmetic.Predicate.Operator
 import lift.arithmetic._
 
 object SimplifyBigSum {
@@ -76,22 +77,28 @@ object SimplifyBigSum {
         if lhs == bigSum.iterationVariable && rhs == bigSum.start ||
            lhs == bigSum.start && rhs == bigSum.iterationVariable =>
         //Split up the sum!
-        ifBody.t + SimplifyBigSum(BigSum(bigSum.iterationVariable, bigSum.start + 1, bigSum.stop, ifBody.e))
-      case _ => bigSum
+
+        //We need to guard the lifted-out piece by another condition, that is that the bounds
+        //of the sum are actually non-overlapping.
+        val liftedOutPredicate = IfThenElse(Predicate(bigSum.stop, bigSum.start, Operator.>=), ifBody.t, 0)
+        liftedOutPredicate + SimplifyBigSum(BigSum(bigSum.iterationVariable, bigSum.start + 1, bigSum.stop, ifBody.e))
+      case Predicate(lhs, rhs, Predicate.Operator.<)
+        if lhs == bigSum.iterationVariable =>
+
+        val liftedOut = SimplifyBigSum(BigSum(bigSum.iterationVariable, bigSum.start, rhs -1, ifBody.t))
+        val remainingBit = SimplifyBigSum(BigSum(bigSum.iterationVariable, rhs, bigSum.stop, ifBody.e))
+        liftedOut + remainingBit
+
+      case Predicate(lhs, rhs, Predicate.Operator.>)
+        if lhs == bigSum.iterationVariable =>
+
+        val liftedOut = SimplifyBigSum(BigSum(bigSum.iterationVariable, bigSum.start, rhs -1, ifBody.t))
+        val remainingBit = SimplifyBigSum(BigSum(bigSum.iterationVariable, rhs, bigSum.stop, ifBody.e))
+        liftedOut + remainingBit
+
+      case Predicate(_, _, other) =>
+        println(s"WARNING: Can't simplify BigSum with operator $other")
+        bigSum
     }
-  }
-
-
-  def main(args:Array[String]) = {
-    val v = Var("x")
-    val bigSum = SimplifyBigSum(BigSum(v, 0 , 10, v))
-
-    println(bigSum)
-    println(bigSum.evalDouble)
-
-    val bigSum2 = SimplifyBigSum(BigSum(v, 5, 10, 1))
-
-    println(bigSum2)
-    println(bigSum2.evalDouble)
   }
 }
