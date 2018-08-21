@@ -5,6 +5,7 @@ import lift.arithmetic._
 
 object SimplifyBigSum {
   def apply(bigSum: BigSum):ArithExpr = {
+    //preemptively attempt to lift out expression if not contained
     if(ArithExpr.isSmaller(bigSum.stop.max, bigSum.start.min).contains(true)) {
       Cst(0)
     } else
@@ -48,24 +49,30 @@ object SimplifyBigSum {
     bigSum.body match {
       case _: IfThenElse =>
         ifElimination(bigSum)
-      case _ => if (bigSum.body == bigSum.iterationVariable && bigSum.start == Cst(0)) {
-        (bigSum.stop * (bigSum.stop + 1)) / 2
-      } else {
-        intoProduct(bigSum)
-      }
+      case _ =>
+        //EULER FORMULA
+        if (bigSum.body == bigSum.iterationVariable && bigSum.start == Cst(0)) {
+          (bigSum.stop * (bigSum.stop + 1)) / 2
+        } //Sum of powers of two
+        else if(bigSum.body == Pow(Cst(2), bigSum.iterationVariable) && bigSum.start == Cst(0)) {
+          Pow(Cst(2), bigSum.stop + 1) - 1
+        } else {
+          //CONSTANT
+          intoProduct(bigSum).getOrElse(bigSum)
+        }
     }
   }
 
 
   //if the iteration variable never appears in the body, then it's just a straightforward product
-  private def intoProduct(bigSum: BigSum) = {
+  private def intoProduct(bigSum: BigSum):Option[ArithExpr] = {
     if(!bigSum.body.contains(bigSum.iterationVariable)) {
       val stop = bigSum.stop
       val start = bigSum.start
       val coeff = stop - start + 1
-      coeff  * bigSum.body
+      Some(coeff  * bigSum.body)
     } else {
-      bigSum
+      None
     }
   }
 

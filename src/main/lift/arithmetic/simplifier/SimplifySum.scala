@@ -32,40 +32,41 @@ object SimplifySum {
    * @param rhs The second term.
    * @return An option containing an expression if the terms can be combined, None otherwise
    */
-  def combineTerms(lhs: ArithExpr, rhs: ArithExpr): Option[ArithExpr] = (lhs, rhs) match {
-    // Modulo Identity: a = a / b * b + a % b
-    case (p: Prod, m@Mod(a, b)) if p == (a / b) * b => Some(a)
-    case (m@Mod(a, b), p: Prod) if p == (a / b) * b => Some(a)
+  def combineTerms(lhs: ArithExpr, rhs: ArithExpr): Option[ArithExpr] = {
+      (lhs, rhs) match {
+        // Modulo Identity: a = a / b * b + a % b
+        case (p: Prod, m@Mod(a, b)) if p == (a / b) * b => Some(a)
+        case (m@Mod(a, b), p: Prod) if p == (a / b) * b => Some(a)
 
-    // Merge constants
-    case (Cst(x), Cst(y)) => Some(Cst(x+y))
+        // Merge constants
+        case (Cst(x), Cst(y)) => Some(Cst(x + y))
 
-    // Avoid duplicates in the term list
-    case (x,y) if x == y => Some(2 * x)
+        // Avoid duplicates in the term list
+        case (x, y) if x == y => Some(2 * x)
 
-    // Prune zeroed vars
-    case (x, v:Var) if v.max == Cst(0) => Some(x)
-    case (v:Var, x) if v.max == Cst(0) => Some(x)
+        // Prune zeroed vars
+        case (x, v: Var) if v.max == Cst(0) => Some(x)
+        case (v: Var, x) if v.max == Cst(0) => Some(x)
 
-    // Merge products if they only differ by a constant factor
-    case (p1:Prod, p2:Prod) if p1.withoutFactor(p1.cstFactor) == p2.withoutFactor(p2.cstFactor) =>
-      Some(p1.withoutFactor(p1.cstFactor) * (p1.cstFactor + p2.cstFactor))
-    case (x, p:Prod) if p.withoutFactor(p.cstFactor) == x => Some(x * (p.cstFactor + 1))
-    case (p:Prod, x) if p.withoutFactor(p.cstFactor) == x => Some(x * (p.cstFactor + 1))
+        // Merge products if they only differ by a constant factor
+        case (p1: Prod, p2: Prod) if p1.withoutFactor(p1.cstFactor) == p2.withoutFactor(p2.cstFactor) =>
+          Some(p1.withoutFactor(p1.cstFactor) * (p1.cstFactor + p2.cstFactor))
+        case (x, p: Prod) if p.withoutFactor(p.cstFactor) == x => Some(x * (p.cstFactor + 1))
+        case (p: Prod, x) if p.withoutFactor(p.cstFactor) == x => Some(x * (p.cstFactor + 1))
 
-    // Try to factorize terms and see if they simplify
-    case (x, y) if ArithExpr.gcd(x, y) != Cst(1) =>
-      val gcd = ArithExpr.gcd(x, y)
-      val slhs = x /^ gcd
-      val srhs = y /^ gcd
-      slhs + srhs match {
-        case s@Sum(sterms) if sterms.contains(slhs) && sterms.contains(srhs) => None
-        case other => Some(other * gcd)
+        // Try to factorize terms and see if they simplify
+        case (x, y) if ArithExpr.gcd(x, y) != Cst(1) =>
+          val gcd = ArithExpr.gcd(x, y)
+          val slhs = x /^ gcd
+          val srhs = y /^ gcd
+          slhs + srhs match {
+            case s@Sum(sterms) if sterms.contains(slhs) && sterms.contains(srhs) => None
+            case other => Some(other * gcd)
+          }
+
+        case _ => None
       }
-      
-    case _ => None
   }
-
 
   /**
    * Promote the sum to another operation.
