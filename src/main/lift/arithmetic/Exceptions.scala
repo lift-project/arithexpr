@@ -6,7 +6,7 @@ import scala.util.control.ControlThrowable
   * Control flow exception used to abort arithmetic expression evaluation
   * on unknown terms.
   */
-abstract case class NotEvaluableException private () extends ControlThrowable
+abstract case class NotEvaluableException private () extends Exception//ControlThrowable
 
 /**
   * Companion object for `NotEvaluableException`.

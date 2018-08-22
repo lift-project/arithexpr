@@ -133,10 +133,13 @@ abstract sealed class ArithExpr {
     * @return The Long value of the expression.
     * @throws NotEvaluableException if the expression cannot be fully evaluated.
     */
-  lazy val evalLong: Long = {
+  def evalLong: Long = {
     // Evaluating is quite expensive, traverse the tree to check assess evaluability
-    if (!isEvaluable)
-      throw NotEvaluable
+    //TODO: The lazy initialisation of isEvaluable is causing trouble with dealing with sometimes-evaluable
+    //things such as arith expr fun
+    /*if (!isEvaluable)
+      throw NotEvaluable*/
+
     val dblResult = ArithExpr.evalDouble(this)
     if (dblResult.isWhole())
       dblResult.toLong
@@ -146,9 +149,9 @@ abstract sealed class ArithExpr {
   lazy val evalDouble: Double = ArithExpr.evalDouble(this)
 
   lazy val isEvaluable: Boolean = {
-    ArithExpr.freeVariables(this).isEmpty && !ArithExpr.visitUntil(this, x => {
-      x == PosInf || x == NegInf || x == ? ||
-        x.isInstanceOf[ArithExprFunction] || x.isInstanceOf[IfThenElse]
+    ArithExpr.freeVariables(this).isEmpty && !ArithExpr.visitUntil(this, {
+      case f:ArithExprFunction => f.canBeEvaluated
+      case x => x == PosInf || x == NegInf || x == ? || x.isInstanceOf[IfThenElse]
     })
   }
 
@@ -563,7 +566,8 @@ object ArithExpr {
         freeVariables(lu.index)
           .union(lu.table.map(freeVariables).foldLeft(Set[Var]())(_.union(_)))
       case v:Var => Set(v)
-      case Cst(_) | ArithExprFunction(_, _) => Set()
+      case f:ArithExprFunction => f.freeVariables()
+      case Cst(_)  => Set()
       case x if x.getClass == ?.getClass => Set()
       case PosInf | NegInf => Set()
       case AbsFunction(expr) => freeVariables(expr)
@@ -847,7 +851,9 @@ object ArithExpr {
 
     case IfThenElse(_, _, _) => throw NotEvaluable
 
-    case `?` | NegInf | PosInf | _: Var | _: ArithExprFunction | _: SimplifiedExpr => throw NotEvaluable
+    case f:ArithExprFunction => f.evalDouble
+
+    case `?` | NegInf | PosInf | _: Var | _: SimplifiedExpr => throw NotEvaluable
   }
 
 
@@ -907,7 +913,7 @@ object ArithExpr {
     SimplifyBigSum(BigSum(freshVar, start, stop, boundBody))
   }
 
-  def fun(genFun:ArithExpr => ArithExpr):Fun = fun("partitionVar", RangeUnknown, genFun)
+  def fun(genFun:ArithExpr => ArithExpr):Fun = fun("funVar", RangeUnknown, genFun)
 
   def fun(name:String, range:Range, genFun:ArithExpr => ArithExpr):Fun = {
     val v = new Var(name, range)
@@ -1286,7 +1292,13 @@ abstract case class ArithExprFunction(name: String, range: Range = RangeUnknown)
 
   override lazy val toString: String = s"$name($range)"
 
+  override lazy val evalDouble:Double = throw NotEvaluable
+
   override def contains(subexpression: ArithExpr) = range.contains(subexpression)
+
+  def freeVariables(): Set[Var] = Set()
+
+  def canBeEvaluated:Boolean
 }
 
 object ArithExprFunction {
@@ -1302,6 +1314,8 @@ object ArithExprFunction {
 
 class Lookup private[arithmetic](val table: Seq[ArithExpr],
                                  val index: ArithExpr, val id: Int) extends ArithExprFunction("lookup") {
+  override val canBeEvaluated = false
+
   override lazy val digest: Int = HashSeed ^ table.hashCode ^ index.digest() ^ id.hashCode()
 
   override lazy val toString: String = "lookup" + id + "(" + index + ")"
@@ -1464,10 +1478,12 @@ case class Fun(param:Var, body:ArithExpr) {
   def substitute(subst:collection.Map[ArithExpr, ArithExpr]) =
     Fun(ArithExpr.substitute(param, subst).asInstanceOf[Var], ArithExpr.substitute(body, subst))
 
+  def visitAndRebuild(f:ArithExpr => ArithExpr) = Fun(param.visitAndRebuild(f).asInstanceOf[Var], body.visitAndRebuild(f))
+
   def bodyDependsOnParam:Boolean = ArithExpr.freeVariables(this.body).contains(param)
 }
 
-abstract class ArithMacro extends ArithExpr {
+abstract class ArithMacro extends ArithExpr  with SimplifiedExpr {
 
   override def HashSeed() = 0x270392ff
 
