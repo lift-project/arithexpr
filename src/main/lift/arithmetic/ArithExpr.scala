@@ -137,8 +137,8 @@ abstract sealed class ArithExpr {
     // Evaluating is quite expensive, traverse the tree to check assess evaluability
     //TODO: The lazy initialisation of isEvaluable is causing trouble with dealing with sometimes-evaluable
     //things such as arith expr fun
-    /*if (!isEvaluable)
-      throw NotEvaluable*/
+    if (!isEvaluable)
+      throw NotEvaluable
 
     val dblResult = ArithExpr.evalDouble(this)
     if (dblResult.isWhole())
@@ -150,7 +150,7 @@ abstract sealed class ArithExpr {
 
   lazy val isEvaluable: Boolean = {
     ArithExpr.freeVariables(this).isEmpty && !ArithExpr.visitUntil(this, {
-      case f:ArithExprFunction => f.canBeEvaluated
+      case x:ArithExprFunction => !x.canBeEvaluated
       case x => x == PosInf || x == NegInf || x == ? || x.isInstanceOf[IfThenElse]
     })
   }
