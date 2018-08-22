@@ -150,7 +150,7 @@ abstract sealed class ArithExpr {
 
   lazy val isEvaluable: Boolean = {
     ArithExpr.freeVariables(this).isEmpty && !ArithExpr.visitUntil(this, {
-      case x:ArithExprFunction => !x.canBeEvaluated
+      case f:ArithExprFunction => !f.canBeEvaluated
       case x => x == PosInf || x == NegInf || x == ? || x.isInstanceOf[IfThenElse]
     })
   }
