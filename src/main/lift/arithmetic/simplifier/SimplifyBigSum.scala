@@ -6,10 +6,11 @@ import lift.arithmetic._
 object SimplifyBigSum {
   def apply(bigSum: BigSum):ArithExpr = {
     //preemptively attempt to lift out expression if not contained
-    if(ArithExpr.isSmaller(bigSum.stop.max, bigSum.start.min).contains(true)) {
+    val resut = if(ArithExpr.isSmaller(bigSum.stop.max, bigSum.start.min).contains(true)) {
       Cst(0)
     } else
       splitTerms(bigSum)
+    resut
   }
 
   private def splitTerms(bigSum: BigSum):ArithExpr = {

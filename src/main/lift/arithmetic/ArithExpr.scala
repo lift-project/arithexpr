@@ -566,7 +566,7 @@ object ArithExpr {
         freeVariables(lu.index)
           .union(lu.table.map(freeVariables).foldLeft(Set[Var]())(_.union(_)))
       case v:Var => Set(v)
-      case f:ArithExprFunction => f.freeVariables()
+      case f:ArithExprFunction => f.freeVariables
       case Cst(_)  => Set()
       case x if x.getClass == ?.getClass => Set()
       case PosInf | NegInf => Set()
@@ -913,9 +913,9 @@ object ArithExpr {
     SimplifyBigSum(BigSum(freshVar, start, stop, boundBody))
   }
 
-  def fun(genFun:ArithExpr => ArithExpr):Fun = fun("funVar", RangeUnknown, genFun)
+  def fun(genFun:Var => ArithExpr):Fun = fun("funVar", RangeUnknown, genFun)
 
-  def fun(name:String, range:Range, genFun:ArithExpr => ArithExpr):Fun = {
+  def fun(name:String, range:Range, genFun:Var => ArithExpr):Fun = {
     val v = new Var(name, range)
     val body = genFun(v)
     Fun(v, body)
@@ -1294,9 +1294,11 @@ abstract case class ArithExprFunction(name: String, range: Range = RangeUnknown)
 
   override lazy val evalDouble:Double = throw NotEvaluable
 
-  override def contains(subexpression: ArithExpr) = range.contains(subexpression)
+  override def contains(subexpression: ArithExpr) = range.contains(subexpression) || this.argumentContains(subexpression)
 
-  def freeVariables(): Set[Var] = Set()
+  def freeVariables: Set[Var] = Set()
+
+  def argumentContains(subexpression:ArithExpr):Boolean
 
   def canBeEvaluated:Boolean
 }
@@ -1331,6 +1333,8 @@ class Lookup private[arithmetic](val table: Seq[ArithExpr],
   }
 
   override def contains(subexpression: ArithExpr) = table.exists(_.contains(subexpression)) || index.contains(subexpression)
+
+  override def argumentContains(subexpression: ArithExpr) = false
 }
 
 object Lookup {
@@ -1477,6 +1481,8 @@ case class Fun(param:Var, body:ArithExpr) {
 
   def substitute(subst:collection.Map[ArithExpr, ArithExpr]) =
     Fun(ArithExpr.substitute(param, subst).asInstanceOf[Var], ArithExpr.substitute(body, subst))
+
+  def freeVariables = ArithExpr.freeVariables(body) - param
 
   def visitAndRebuild(f:ArithExpr => ArithExpr) = Fun(param.visitAndRebuild(f).asInstanceOf[Var], body.visitAndRebuild(f))
 
