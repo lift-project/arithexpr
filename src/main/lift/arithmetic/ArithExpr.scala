@@ -1492,6 +1492,8 @@ case class Fun(param:Var, body:ArithExpr) {
     subbed
   }
 
+  def show:String = s"($param => $body)"
+
   def substitute(subst:collection.Map[ArithExpr, ArithExpr]) =
     Fun(ArithExpr.substitute(param, subst).asInstanceOf[Var], ArithExpr.substitute(body, subst))
 
