@@ -150,6 +150,7 @@ abstract sealed class ArithExpr {
 
   lazy val isEvaluable: Boolean = {
     ArithExpr.freeVariables(this).isEmpty && !ArithExpr.visitUntil(this, {
+      case s:BigSum => !s.isEvaluable
       case f:ArithExprFunction => !f.canBeEvaluated
       case x => x == PosInf || x == NegInf || x == ? || x.isInstanceOf[IfThenElse]
     })
@@ -775,7 +776,16 @@ object ArithExpr {
       case FloorFunction(expr) => Iterable(expr)
       case CeilingFunction(expr) => Iterable(expr)
       case Sum(terms) => terms
-      case BigSum(iv, start, stop, body) => Iterable(iv, start, stop, body)
+      /**TODO: fix big sum case
+       * Enumerate children is mostly used by isEvaluable. This worked until BigSum was introduced: one cannot look
+        * inside the big sum to establish wether it is evaluable, because the sum iteration variable is going to be
+        * contained in many subexpression. Now, a free variable at top level is generally considered not evaluable, but
+        * within a binder it is.
+        *
+        * We should really fix isEvaluable and have every node decide what to do. Until then though, the hack is to simply
+        * say that BigSum is a childless black box.
+       */
+      case _:BigSum => Iterable()
       case Prod(terms) => terms
       case gc: Lookup => Iterable(gc.index)
       case Var(_, _) | Cst(_) | IfThenElse(_, _, _) | ArithExprFunction(_, _) => Iterable()

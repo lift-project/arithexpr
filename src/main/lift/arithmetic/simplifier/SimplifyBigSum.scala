@@ -91,8 +91,9 @@ object SimplifyBigSum {
 
         //We need to guard the lifted-out piece by another condition, that is that the bounds
         //of the sum are actually non-overlapping.
-        val liftedOutPredicate = IfThenElse(Predicate(bigSum.stop, bigSum.start, Operator.>=), ifBody.t, 0)
+        val liftedOutPredicate = SimplifyIfThenElse(Predicate(bigSum.stop, bigSum.start, Operator.>=), ifBody.t, 0)
         liftedOutPredicate + SimplifyBigSum(BigSum(bigSum.iterationVariable, bigSum.start + 1, bigSum.stop, ifBody.e))
+
       case Predicate(lhs, rhs, Predicate.Operator.<)
         if lhs == bigSum.iterationVariable =>
 
