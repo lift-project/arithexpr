@@ -115,6 +115,7 @@ object SimplifySum {
    * @return A promoted expression or a simplified sum object.
    */
   def apply(lhs: ArithExpr, rhs: ArithExpr): ArithExpr = {
+    //println(s"Simplifying sum $lhs + $rhs")
     val simplificationResult = if (PerformSimplification()) simplify(lhs, rhs) else None
     simplificationResult match {
       case Some(toReturn) => toReturn

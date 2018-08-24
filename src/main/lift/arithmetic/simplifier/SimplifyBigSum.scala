@@ -8,7 +8,8 @@ object SimplifyBigSum {
     //preemptively attempt to lift out expression if not contained
     val resut = if(ArithExpr.isSmaller(bigSum.stop.max, bigSum.start.min).contains(true)) {
       Cst(0)
-    } else
+    }
+    else
       splitTerms(bigSum)
     resut
   }
@@ -40,7 +41,9 @@ object SimplifyBigSum {
           case other => makeProd(other)
         }
 
-        val result = makeProd(liftedOut) * SimplifyBigSum(bigSum.copy(body = newBody))
+        val prod = makeProd(liftedOut)
+        val newSum = SimplifyBigSum(bigSum.copy(body = newBody))
+        val result = Prod(List(prod, newSum))
         result
       case _ => finalPhase(bigSum)
     }

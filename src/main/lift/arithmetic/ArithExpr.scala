@@ -551,9 +551,9 @@ object ArithExpr {
       case Sum(terms) =>
         terms.map(freeVariables).foldLeft(Set[Var]())(_.union(_))
 
-      case BigSum(iv, start, stop, body) =>
+      case BigSum(iv, start, stop, body) => {
         freeVariables(start).union(freeVariables(stop)).union(freeVariables(body)) - iv
-
+      }
       case Prod(terms) =>
         terms.map(freeVariables).foldLeft(Set[Var]())(_.union(_))
 
@@ -1180,19 +1180,29 @@ case class Sum private[arithmetic](terms: List[ArithExpr]) extends ArithExpr {
 }
 
 
-case class BigSum private (iterationVariable:Var, start:ArithExpr, stop:ArithExpr, body:ArithExpr) extends ArithExpr {
+case class BigSum private(iterationVariable: Var, start: ArithExpr, stop: ArithExpr, body: ArithExpr) extends ArithExpr {
   assert(!start.mightBeFractional)
   assert(!stop.mightBeFractional)
   override val HashSeed = 0x270493ff
 
   override val simplified = true
 
-  override lazy val digest:Int = HashSeed ^ iterationVariable.digest ^  start.digest() ^ stop.digest() ^ body.digest()
+  override lazy val digest: Int = HashSeed ^ iterationVariable.digest ^ start.digest() ^ stop.digest() ^ body.digest()
 
-  override def visitAndRebuild(f: ArithExpr => ArithExpr) = BigSum(iterationVariable, start, stop, f(body))
+  override lazy val isEvaluable = ArithExpr.freeVariables(this).isEmpty && ArithExpr.visitUntil(this.body, {
+    case x:Var if x == this.iterationVariable => false
+    case other => !other.isEvaluable
+  })
+
+  override def visitAndRebuild(f: ArithExpr => ArithExpr) = {
+    val newStart = f(start.visitAndRebuild(f))
+    val newStop = f(stop.visitAndRebuild(f))
+    val newBody = f(body.visitAndRebuild(f))
+    BigSum(iterationVariable, newStart, newStop, newBody)
+  }
 
   override def contains(subexpression: ArithExpr) =
-    iterationVariable.contains(subexpression) || start.contains(subexpression) || stop.contains(subexpression)|| body.contains(subexpression)
+    iterationVariable.contains(subexpression) || start.contains(subexpression) || stop.contains(subexpression) || body.contains(subexpression)
 }
 
 // this is really the remainder and not modulo! (I.e. it implements the C semantics of modulo)
@@ -1477,7 +1487,10 @@ abstract class ExtensibleVar(override val name: String,
 case class Fun(param:Var, body:ArithExpr) {
   def mapBody(f:ArithExpr => ArithExpr):Fun = Fun(param, f(body))
 
-  def apply(value:ArithExpr):ArithExpr = ArithExpr.substitute(this.body, Map(param -> value))
+  def apply(value:ArithExpr):ArithExpr = {
+    val subbed = ArithExpr.substitute(this.body, Map(param -> value))
+    subbed
+  }
 
   def substitute(subst:collection.Map[ArithExpr, ArithExpr]) =
     Fun(ArithExpr.substitute(param, subst).asInstanceOf[Var], ArithExpr.substitute(body, subst))

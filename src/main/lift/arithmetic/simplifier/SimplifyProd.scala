@@ -22,6 +22,14 @@ object SimplifyProd {
     new Prod((factor :: prod.factors).sortWith(ArithExpr.sort)) with SimplifiedExpr
   }
 
+  def isPowerVar(a:ArithExpr): Boolean = {
+    def unsimplifiable(e:ArithExpr) = e.isInstanceOf[Var] || e.isInstanceOf[ArithExprFunction]
+    a match {
+      case Pow(_, e) => unsimplifiable(e)
+      case _  => false
+    }
+  }
+
   /**
    * Try to combine a pair of factors.
    * @param lhs The first factor.
@@ -29,12 +37,6 @@ object SimplifyProd {
    * @return An option containing an expression if the factors can be combined, None otherwise
    */
   def combineFactors(lhs: ArithExpr, rhs: ArithExpr): Option[ArithExpr] = {
-    def isPowerVar(a:ArithExpr): Boolean = {
-      a match {
-        case Pow(_, e) => e.isInstanceOf[Var]
-        case _  => false
-      }
-    }
     if (isPowerVar(lhs) || isPowerVar(rhs)) {
       None
     } else {
@@ -139,6 +141,7 @@ object SimplifyProd {
    * @return A promoted expression or a simplified Prod object.
    */
   def apply(lhs: ArithExpr, rhs: ArithExpr): ArithExpr = {
+    //println("Simplifying product")
     val simplificationResult = if (PerformSimplification()) simplify(lhs, rhs) else None
     simplificationResult match {
       case Some(toReturn) => toReturn

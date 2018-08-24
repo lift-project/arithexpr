@@ -31,7 +31,8 @@ object SimplifyPow {
         }))
 
       // Power of a product: (x*y)^(n) => x^n * y^n
-      case (Prod(terms), e) => Some(terms.map(_ pow e).reduce(_ * _))
+      case (Prod(terms), e) =>
+        Some(terms.map(_ pow e).reduce(_ * _))
 
       // Constant positive exponent
       case (Cst(b), Cst(e)) if e > 1 => Some(Cst(scala.math.pow(b, e).toInt))
