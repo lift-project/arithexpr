@@ -1,20 +1,23 @@
 package lift.arithmetic.simplifier
 
-import ir.arithexpr_extension.{PrecomputedFunction, PrecomputedFunctionCall}
+import ir.arithexpr_extension.PrecomputedFunctionCall
 import lift.arithmetic.Predicate.Operator
 import lift.arithmetic._
 
 object SimplifyBigSum {
+  private def boundsOverlap(bigSum: BigSum) = {
+      bigSum.stop.isEvaluable && bigSum.start.isEvaluable && ArithExpr.isSmaller(bigSum.stop.max,bigSum.start.min).contains(true)
+  }
+
   def apply(bigSum: BigSum):ArithExpr = {
     val result = if (ArithExpr.visitUntil(bigSum.stop, {
       case _:PrecomputedFunctionCall => true
       case _ => false
     })) {
       bigSum
-    } else
-
+    }
     //preemptively attempt to lift out expression if not contained
-    if(ArithExpr.isSmaller(bigSum.stop.max, bigSum.start.min).contains(true)) {
+    else if(boundsOverlap(bigSum)) {
       Cst(0)
     }
     else

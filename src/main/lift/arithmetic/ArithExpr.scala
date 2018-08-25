@@ -754,7 +754,8 @@ object ArithExpr {
       case lu: Lookup =>
         visit(lu.index, f)
         lu.table.foreach(t => visit(t, f))
-      case Var(_, _) | Cst(_) | ArithExprFunction(_, _) =>
+      case Var(_, _) | Cst(_) =>
+      case aef:ArithExprFunction => aef.visit(f)
       case x if x.getClass == ?.getClass =>
       case PosInf | NegInf =>
       case AbsFunction(expr) => visit(expr, f)
@@ -1321,6 +1322,8 @@ abstract case class ArithExprFunction(name: String, range: Range = RangeUnknown)
   def argumentContains(subexpression:ArithExpr):Boolean
 
   def canBeEvaluated:Boolean
+
+  def visit(f:ArithExpr => Unit):Unit
 }
 
 object ArithExprFunction {
@@ -1351,6 +1354,8 @@ class Lookup private[arithmetic](val table: Seq[ArithExpr],
   override def visitAndRebuild(f: (ArithExpr) => ArithExpr): ArithExpr = {
     f(Lookup(table.map(_.visitAndRebuild(f)), index.visitAndRebuild(f), id))
   }
+
+  override def visit(f: ArithExpr => Unit) = table.foreach(e => ArithExpr.visit(e, f))
 
   override def contains(subexpression: ArithExpr) = table.exists(_.contains(subexpression)) || index.contains(subexpression)
 
