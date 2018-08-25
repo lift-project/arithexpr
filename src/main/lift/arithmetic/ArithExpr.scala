@@ -47,10 +47,7 @@ abstract sealed class ArithExpr {
     * Return the min or max of this arithmetic expression by setting all the variables to their min or max values.
     * Should be overridden by any class that extends ArithExpr and is outside the arithmetic package.
     */
-  //lazy val (min: ArithExpr, max: ArithExpr) = _minmax()
-
-  def min = _minmax()._1
-  def max = _minmax()._2
+  lazy val (min: ArithExpr, max: ArithExpr) = _minmax()
   /** This method should only be used internally or in special cases where we want to customise the behaviour
     * based on the variables
     */
@@ -1210,7 +1207,7 @@ case class BigSum private(iterationVariable: Var, start: ArithExpr, stop: ArithE
     val newStart = f(start.visitAndRebuild(f))
     val newStop = f(stop.visitAndRebuild(f))
     val newBody = f(body.visitAndRebuild(f))
-    BigSum(iterationVariable, newStart, newStop, newBody)
+    f(BigSum(iterationVariable, newStart, newStop, newBody))
   }
 
   override def contains(subexpression: ArithExpr) =
