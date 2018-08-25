@@ -30,6 +30,7 @@ object Sign extends Enumeration {
       case Mod(dividend, _) => dividend.sign
       case Pow(b, e) => b.sign
       case Var(_, range) => signVar(range)
+      case bs:BigSum => bs.body.sign
       case ? => Sign.Unknown
       case _: ArithExprFunction => Sign.Unknown
     }

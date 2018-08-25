@@ -1,17 +1,25 @@
 package lift.arithmetic.simplifier
 
+import ir.arithexpr_extension.{PrecomputedFunction, PrecomputedFunctionCall}
 import lift.arithmetic.Predicate.Operator
 import lift.arithmetic._
 
 object SimplifyBigSum {
   def apply(bigSum: BigSum):ArithExpr = {
+    val result = if (ArithExpr.visitUntil(bigSum.stop, {
+      case _:PrecomputedFunctionCall => true
+      case _ => false
+    })) {
+      bigSum
+    } else
+
     //preemptively attempt to lift out expression if not contained
-    val resut = if(ArithExpr.isSmaller(bigSum.stop.max, bigSum.start.min).contains(true)) {
+    if(ArithExpr.isSmaller(bigSum.stop.max, bigSum.start.min).contains(true)) {
       Cst(0)
     }
     else
       splitTerms(bigSum)
-    resut
+    result
   }
 
   private def splitTerms(bigSum: BigSum):ArithExpr = {

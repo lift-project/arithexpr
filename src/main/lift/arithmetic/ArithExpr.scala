@@ -1502,6 +1502,8 @@ case class Fun(param:Var, body:ArithExpr) {
     subbed
   }
 
+  override def toString = show
+
   def show:String = s"($param => $body)"
 
   def substitute(subst:collection.Map[ArithExpr, ArithExpr]) =
