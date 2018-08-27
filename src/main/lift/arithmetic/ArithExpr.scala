@@ -930,6 +930,10 @@ object ArithExpr {
 
   def fun(genFun:Var => ArithExpr):Fun = fun("funVar", RangeUnknown, genFun)
 
+  def funBinding(body:ArithExpr, binding:Var) = ArithExpr.fun(i =>
+    ArithExpr.substitute(body, Predef.Map[ArithExpr,ArithExpr](binding -> i))
+  )
+
   def fun(name:String, range:Range, genFun:Var => ArithExpr):Fun = {
     val v = new Var(name, range)
     val body = genFun(v)
