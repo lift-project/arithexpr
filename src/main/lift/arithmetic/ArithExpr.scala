@@ -219,6 +219,12 @@ abstract sealed class ArithExpr {
     case (f1: ArithExprFunction, f2: ArithExprFunction) => f1.name == f2.name
     case (v1: Var, v2: Var) => v1.id == v2.id
     case (AbsFunction(x), AbsFunction(y)) => x == y
+    case (BigSum(v1, start1, stop1, body1), BigSum(v2,start2, stop2, body2)) => {
+      val subMap = Map[ArithExpr, ArithExpr](v2 -> v1)
+      start1 == ArithExpr.substitute(start2, subMap) &&
+      stop1 == ArithExpr.substitute(stop2, subMap) &&
+      body1 == ArithExpr.substitute(body2, subMap)
+    }
     case _ =>
       System.err.println(s"$this and $that are not equal")
       false
