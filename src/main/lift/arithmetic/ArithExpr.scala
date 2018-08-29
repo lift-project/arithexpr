@@ -1520,7 +1520,16 @@ case class Fun(param:Var, body:ArithExpr) {
 
   def freeVariables = ArithExpr.freeVariables(body) - param
 
-  def visitAndRebuild(f:ArithExpr => ArithExpr) = Fun(param.visitAndRebuild(f).asInstanceOf[Var], body.visitAndRebuild(f))
+  def visitAndRebuild(f:ArithExpr => ArithExpr) = {
+    val newP = param.visitAndRebuild(f)
+    val np:Var =newP match {
+      case value: Var =>
+        value
+      case _ =>
+        Var()
+    }
+    Fun(np, body.visitAndRebuild(f))
+  }
 
   def bodyDependsOnParam:Boolean = ArithExpr.freeVariables(this.body).contains(param)
 }

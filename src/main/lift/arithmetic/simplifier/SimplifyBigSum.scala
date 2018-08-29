@@ -6,19 +6,35 @@ import lift.arithmetic._
 
 object SimplifyBigSum {
   def apply(bigSum: BigSum):ArithExpr = {
-    val result = if (ArithExpr.visitUntil(bigSum.stop, {
+    val result:ArithExpr = if (ArithExpr.visitUntil(bigSum.stop, {
       case _:PrecomputedFunctionCall => true
       case _ => false
     })) {
       bigSum
     } else
 
-    //preemptively attempt to lift out expression if not contained
-    if(ArithExpr.isSmaller(bigSum.stop.max, bigSum.start.min).contains(true)) {
-      Cst(0)
+    //If bounds are known, unroll
+    if(bigSum.start.isInstanceOf[Cst] && bigSum.stop.isInstanceOf[Cst]) {
+      unrollSum(bigSum)
+    } else bigSum.stop match {
+        //If we are at 0, then it's fine
+        case Sum(terms) if terms.count(_.isInstanceOf[IfThenElse]) == 1 =>
+          val (ifThenElse, others) = terms.partition(_.isInstanceOf[IfThenElse])
+          val newIfThenElse = pushTermsInIf(ifThenElse.head.asInstanceOf[IfThenElse], others)
+          val split = splitUpperIfThenElse(bigSum, newIfThenElse)
+          split
+        case upperIte:IfThenElse =>
+          val thenSum = SimplifyBigSum(bigSum.copy(stop = upperIte.t))
+          val elseSum = SimplifyBigSum(bigSum.copy(stop = upperIte.e))
+
+          IfThenElse(upperIte.test, thenSum, elseSum)
+
+        case _ => if (ArithExpr.isSmaller(bigSum.stop.max - bigSum.stop.min, 0).contains(true)) {
+          Cst(0)
+        }
+        else
+          splitTerms(bigSum)
     }
-    else
-      splitTerms(bigSum)
     result
   }
 
@@ -82,7 +98,10 @@ object SimplifyBigSum {
       val stop = bigSum.stop
       val start = bigSum.start
       val coeff = stop - start + 1
-      Some(coeff  * bigSum.body)
+      val if_statement = Some(IfThenElse(
+        Predicate(stop, start, Predicate.Operator.>=), coeff * bigSum.body, 0)
+      )
+      Some(coeff*bigSum.body)
     } else {
       None
     }
@@ -119,6 +138,46 @@ object SimplifyBigSum {
       case Predicate(_, _, other) =>
         println(s"WARNING: Can't simplify BigSum with operator $other")
         bigSum
+    }
+  }
+
+  private def unrollSum(sum:BigSum):ArithExpr = {
+    val startInt = sum.start.evalInt
+    val endInt = sum.stop.evalInt
+
+    //"to" is scala for inclusive ranges
+    val terms = for (i <- startInt to endInt)
+      yield ArithExpr.substitute(sum.body, Map[ArithExpr,ArithExpr](sum.iterationVariable -> Cst(i)))
+    terms.foldLeft[ArithExpr](Cst(0))(_ + _)
+  }
+
+
+  private def pushTermsInIf(ifThenElse: IfThenElse, others:Iterable[ArithExpr]):IfThenElse = {
+    val newTerm = others.foldLeft[ArithExpr](0)(_ + _)
+    IfThenElse(ifThenElse.test, ifThenElse.t + newTerm, ifThenElse.e + newTerm)
+  }
+
+  private def splitUpperIfThenElse(bigSum: BigSum, upperIte:IfThenElse) = {
+    val thenSum = SimplifyBigSum(bigSum.copy(stop = upperIte.t))
+    val elseSum = SimplifyBigSum(bigSum.copy(stop = upperIte.e))
+
+    IfThenElse(upperIte.test, thenSum, elseSum)
+  }
+
+  //Try to get the IfThenElse in a state where the conditional is always of the form
+  //if x == something, that is take x + 2 = 3 => x = 1
+  private def regularise(ifThenElse: IfThenElse, variableOfInterest:Var):IfThenElse = {
+    ifThenElse match {
+      case IfThenElse(Predicate(lhs, rhs, op), t, e) =>
+        lhs match {
+          case Sum(terms) if terms.contains(variableOfInterest) =>
+            val(myVar, others) = terms.partition(_.contains(variableOfInterest))
+            val newLhs = myVar.foldLeft[ArithExpr](0)(_ + _)
+            val newRhs = rhs - others.foldLeft[ArithExpr](0)(_ + _)
+            IfThenElse(Predicate(newLhs, newRhs, op), t, e)
+          case _ => ifThenElse
+        }
+      case _ => ifThenElse
     }
   }
 }
