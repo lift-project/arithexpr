@@ -5,6 +5,7 @@ import java.util.concurrent.atomic.AtomicLong
 
 import lift.arithmetic.NotEvaluableException._
 import lift.arithmetic.NotEvaluableToIntException._
+import lift.arithmetic.Sign.Sign
 import lift.arithmetic.simplifier._
 
 import scala.language.implicitConversions
@@ -577,6 +578,7 @@ object ArithExpr {
       case x if x.getClass == ?.getClass => Set()
       case PosInf | NegInf => Set()
       case AbsFunction(expr) => freeVariables(expr)
+      case _:ArithMacro => Set()
     }
   }
 
@@ -763,6 +765,7 @@ object ArithExpr {
       case x if x.getClass == ?.getClass =>
       case PosInf | NegInf =>
       case AbsFunction(expr) => visit(expr, f)
+      case m:ArithMacro => m.visit(f)
     }
   }
 
@@ -1541,4 +1544,8 @@ abstract class ArithMacro extends ArithExpr  with SimplifiedExpr {
   override val simplified = true
 
   override def visitAndRebuild(f: ArithExpr => ArithExpr) = f(this)
+
+  def visit(f:ArithExpr => Unit) = f(this)
+
+  def determineSign:Sign
 }
