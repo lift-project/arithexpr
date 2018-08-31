@@ -152,7 +152,7 @@ abstract sealed class ArithExpr {
     ArithExpr.freeVariables(this).isEmpty && !ArithExpr.visitUntil(this, {
       case s:BigSum => !s.isEvaluable
       case f:ArithExprFunction => !f.canBeEvaluated
-      case x => x == PosInf || x == NegInf || x == ? || x.isInstanceOf[IfThenElse]
+      case x => x == PosInf || x == NegInf || x == ? || x.isInstanceOf[IfThenElse] || x.isInstanceOf[ArithMacro]
     })
   }
 
@@ -777,6 +777,7 @@ object ArithExpr {
 
   private def enumerateChildren(e:ArithExpr):Iterable[ArithExpr] = {
     e match {
+      case m:ArithMacro => Iterable()
       case Pow(base, exp) => Iterable(base, exp)
       case IntDiv(n, d) => Iterable(n, d)
       case Mod(dividend, divisor) => Iterable(dividend, divisor)
