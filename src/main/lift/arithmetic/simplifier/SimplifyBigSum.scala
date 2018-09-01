@@ -98,10 +98,10 @@ object SimplifyBigSum {
       val stop = bigSum.stop
       val start = bigSum.start
       val coeff = stop - start + 1
-      val if_statement = Some(IfThenElse(
+      val if_statement = IfThenElse(
         Predicate(stop, start, Predicate.Operator.>=), coeff * bigSum.body, 0)
-      )
-      Some(coeff*bigSum.body)
+
+      Some(if_statement)
     } else {
       None
     }
