@@ -31,32 +31,33 @@ object SimplifyIfThenElse {
   }
 
     def alwaysTrue(left:ArithExpr, right:ArithExpr, op:Predicate.Operator.Operator):Boolean = {
-      val canonical = ExprSimplifier(left - right)
 
       op match {
         case Predicate.Operator.< =>
-          canonical.atMax match {
-            case NegInf => true
-            case PosInf => false
+          val canonical = ExprSimplifier(left.atMax - right)
+          canonical.max match {
             case other => Try(other.evalInt < 0).getOrElse(false)
           }
         case Predicate.Operator.<= =>
-          canonical.atMax match {
-            case NegInf => true
-            case PosInf => false
+          val canonical = ExprSimplifier(left.atMax - right)
+          canonical.max match {
+            //case NegInf => true
+            //case PosInf => false
             case other => Try(other.evalInt <= 0).getOrElse(false)
           }
 
         case Predicate.Operator.> =>
-          canonical.atMin match {
-            case NegInf => false
-            case PosInf => true
+          val canonical = ExprSimplifier(left.atMin - right)
+          canonical.min match {
+            //case NegInf => false
+            //case PosInf => true
             case other => Try(other.evalInt > 0).getOrElse(false)
           }
         case Predicate.Operator.>= =>
-          canonical.atMin match {
-            case NegInf => false
-            case PosInf => true
+          val canonical = ExprSimplifier(left.atMin - right)
+          canonical.min match {
+            //case NegInf => false
+            //case PosInf => true
             case other => Try(other.evalInt >= 0).getOrElse(false)
           }
         case _ => false
@@ -68,28 +69,32 @@ object SimplifyIfThenElse {
 
       op match {
         case Predicate.Operator.< =>
-          canonical.atMin match {
-            case NegInf => false
-            case PosInf => true
+          val canonical = ExprSimplifier(left.atMin - right)
+          canonical.min match {
+            //case NegInf => false
+            //case PosInf => true
             case other => Try(other.evalInt >= 0).getOrElse(false)
           }
         case Predicate.Operator.<= =>
-          canonical.atMin match {
-            case NegInf => false
-            case PosInf => true
+          val canonical = ExprSimplifier(left.atMin - right)
+          canonical.min match {
+            //case NegInf => false
+            //case PosInf => true
             case other => Try(other.evalInt > 0).getOrElse(false)
           }
 
         case Predicate.Operator.> =>
-          canonical.atMax match {
-            case NegInf => true
-            case PosInf => false
+          val canonical = ExprSimplifier(left.atMax - right)
+          canonical.max match {
+            //case NegInf => true
+            //case PosInf => false
             case other => Try(other.evalInt <= 0).getOrElse(false)
           }
         case Predicate.Operator.>= =>
-          canonical.atMax match {
-            case NegInf => true
-            case PosInf => false
+          val canonical = ExprSimplifier(left.atMax - right)
+          canonical.max match {
+            //case NegInf => true
+            //case PosInf => false
             case other => Try(other.evalInt < 0).getOrElse(false)
           }
         case _ => false
