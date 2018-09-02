@@ -2,8 +2,6 @@ package lift
 package arithmetic
 package simplifier
 
-import com.sun.corba.se.spi.activation.NoSuchEndPoint
-
 import scala.util.Try
 
 object SimplifyIfThenElse {
@@ -36,6 +34,8 @@ object SimplifyIfThenElse {
         case Predicate.Operator.< =>
           val canonical = ExprSimplifier(left.atMax - right)
           canonical.max match {
+            //case NegInf => true
+            //case PosInf => false
             case other => Try(other.evalInt < 0).getOrElse(false)
           }
         case Predicate.Operator.<= =>
@@ -47,16 +47,16 @@ object SimplifyIfThenElse {
           }
 
         case Predicate.Operator.> =>
-          val canonical = ExprSimplifier(left.atMin - right)
+          val canonical = ExprSimplifier(left.min - right)
           canonical.min match {
             //case NegInf => false
             //case PosInf => true
             case other => Try(other.evalInt > 0).getOrElse(false)
           }
         case Predicate.Operator.>= =>
-          val canonical = ExprSimplifier(left.atMin - right)
+          val canonical = ExprSimplifier(left.min - right)
           canonical.min match {
-            //case NegInf => false
+            case NegInf => false
             //case PosInf => true
             case other => Try(other.evalInt >= 0).getOrElse(false)
           }
@@ -65,18 +65,16 @@ object SimplifyIfThenElse {
     }
 
     def alwaysFalse(left:ArithExpr, right:ArithExpr, op:Predicate.Operator.Operator):Boolean = {
-      val canonical = ExprSimplifier(left - right)
-
       op match {
         case Predicate.Operator.< =>
-          val canonical = ExprSimplifier(left.atMin - right)
+          val canonical = ExprSimplifier(left.min - right)
           canonical.min match {
-            //case NegInf => false
+            case NegInf => false
             //case PosInf => true
             case other => Try(other.evalInt >= 0).getOrElse(false)
           }
         case Predicate.Operator.<= =>
-          val canonical = ExprSimplifier(left.atMin - right)
+          val canonical = ExprSimplifier(left.min - right)
           canonical.min match {
             //case NegInf => false
             //case PosInf => true
@@ -102,8 +100,6 @@ object SimplifyIfThenElse {
     }
 
   def apply(test: Predicate, t : ArithExpr, e : ArithExpr): ArithExpr = {
-
-  import scala.util.Try
 
   val simplificationResult = if (PerformSimplification()) simplify(test, t, e) else None
     simplificationResult match {
