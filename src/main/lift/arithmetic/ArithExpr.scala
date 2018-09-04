@@ -933,10 +933,16 @@ object ArithExpr {
   }
 
   def fun(genFun:Var => ArithExpr):Fun = fun("funVar", RangeUnknown, genFun)
+  def rangedFun(genFun:Var => ArithExpr, maxValue:ArithExpr):RangedFun = rangedFun("funVar", maxValue, genFun)
 
   def funBinding(body:ArithExpr, binding:Var) = ArithExpr.fun(i =>
     ArithExpr.substitute(body, Predef.Map[ArithExpr,ArithExpr](binding -> i))
   )
+
+  def rangedFun(name:String, maxValue:ArithExpr, genFun:Var => ArithExpr) = {
+    val innerF = fun(name, RangeAdd(0, maxValue+1, 1), genFun)
+    RangedFun(innerF, maxValue)
+  }
 
   def fun(name:String, range:Range, genFun:Var => ArithExpr):Fun = {
     val v = new Var(name, range)
@@ -1505,6 +1511,10 @@ abstract class ExtensibleVar(override val name: String,
   override def copy(r: Range): Var
 
   override def visitAndRebuild(f: (ArithExpr) => ArithExpr): ArithExpr
+}
+
+case class RangedFun(f:Fun, maxValue:ArithExpr) {
+  def apply(value:ArithExpr):ArithExpr = f.apply(value)
 }
 
 case class Fun(param:Var, body:ArithExpr) {
