@@ -1,18 +1,11 @@
 package lift.arithmetic.simplifier
 
-import ir.arithexpr_extension.{PrecomputedFunction, PrecomputedFunctionCall}
 import lift.arithmetic.Predicate.Operator
 import lift.arithmetic._
 
 object SimplifyBigSum {
   def apply(bigSum: BigSum):ArithExpr = {
-    val result:ArithExpr = if (ArithExpr.visitUntil(bigSum.stop, {
-      case _:PrecomputedFunctionCall => true
-      case _ => false
-    })) {
-      bigSum
-    } else
-
+    val result:ArithExpr =
     //If bounds are known, unroll
     if(bigSum.start.isInstanceOf[Cst] && bigSum.stop.isInstanceOf[Cst]) {
       unrollSum(bigSum)
