@@ -21,11 +21,32 @@ object SimplifyIfThenElse {
             (v != 0 && op == Operator.!=)) Some(t)
           else Some(e)
         case _ =>
-          if (alwaysTrue(test.lhs, test.rhs, test.op)) Some(t)
-          else if (alwaysFalse(test.lhs, test.rhs, test.op)) Some(e)
-          else None
+          specialCase(test.lhs, test.rhs, test.op, t, e) match {
+            case Some(simplified) =>
+              Some(simplified)
+            case None =>
+              if (alwaysTrue(test.lhs, test.rhs, test.op)) Some(t)
+              else if (alwaysFalse(test.lhs, test.rhs, test.op)) Some(e)
+              else None
+          }
       }
     }
+  }
+
+  def specialCase(left:ArithExpr, right:ArithExpr, op:Predicate.Operator.Operator, yes:ArithExpr, no:ArithExpr):Option[ArithExpr] = {
+    //if (-1 + x) >= 0 ? x*e : 0 => e
+    if(op == Predicate.Operator.>=  && right == Cst(0) && no == Cst(0)) {
+      left match {
+        case Sum(List(x, y)) =>
+          if(x == Cst(-1) && y.min == Cst(0)) {
+            yes match {
+              case Prod(factors) if factors.contains(y) => Some(yes)
+              case _ => if(y == yes) Some(y) else None
+            }
+          } else None
+        case _ => None
+      }
+    } else None
   }
 
     def alwaysTrue(left:ArithExpr, right:ArithExpr, op:Predicate.Operator.Operator):Boolean = {
