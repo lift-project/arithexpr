@@ -137,8 +137,8 @@ abstract sealed class ArithExpr {
     // Evaluating is quite expensive, traverse the tree to check assess evaluability
     //TODO: The lazy initialisation of isEvaluable is causing trouble with dealing with sometimes-evaluable
     //things such as arith expr fun
-    if (!isEvaluable)
-      throw NotEvaluable
+    //if (!isEvaluable)
+      //throw NotEvaluable
 
     val dblResult = ArithExpr.evalDouble(this)
     if (dblResult.isWhole())
@@ -872,7 +872,8 @@ object ArithExpr {
 
     case f:ArithExprFunction => f.evalDouble
 
-    case `?` | NegInf | PosInf | _: Var | _: SimplifiedExpr => throw NotEvaluable
+    case `?` | NegInf | PosInf | _: Var | _: SimplifiedExpr =>
+      throw NotEvaluable
   }
 
 
@@ -1325,11 +1326,9 @@ abstract case class ArithExprFunction(name: String, range: Range = RangeUnknown)
 
   override lazy val toString: String = s"$name($range)"
 
-  override lazy val evalDouble:Double = throw NotEvaluable
-
   override def contains(subexpression: ArithExpr) = range.contains(subexpression) || this.argumentContains(subexpression)
 
-  def freeVariables: Set[Var] = Set()
+  def freeVariables: Set[Var]
 
   def argumentContains(subexpression:ArithExpr):Boolean
 
@@ -1368,6 +1367,8 @@ class Lookup private[arithmetic](val table: Seq[ArithExpr],
   override def contains(subexpression: ArithExpr) = table.exists(_.contains(subexpression)) || index.contains(subexpression)
 
   override def argumentContains(subexpression: ArithExpr) = false
+
+  override def freeVariables = Set()
 }
 
 object Lookup {
