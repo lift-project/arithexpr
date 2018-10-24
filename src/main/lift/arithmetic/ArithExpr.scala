@@ -870,7 +870,9 @@ object ArithExpr {
 
     case IfThenElse(_, _, _) => throw NotEvaluable
 
-    case f:ArithExprFunction => f.evalDouble
+    case f:ArithExprFunction => if(f.canBeEvaluated) {
+      f.evalDouble
+    } else throw NotEvaluable
 
     case `?` | NegInf | PosInf | _: Var | _: SimplifiedExpr =>
       throw NotEvaluable
@@ -1330,9 +1332,9 @@ abstract case class ArithExprFunction(name: String, range: Range = RangeUnknown)
 
   def freeVariables: Set[Var]
 
-  def argumentContains(subexpression:ArithExpr):Boolean
+  def argumentContains(subexpression: ArithExpr): Boolean
 
-  def canBeEvaluated:Boolean
+  def canBeEvaluated: Boolean
 }
 
 object ArithExprFunction {
