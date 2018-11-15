@@ -924,13 +924,13 @@ object ArithExpr {
   }
 
   def bigSum(start:ArithExpr, stop:ArithExpr, makeBody:Var => ArithExpr):ArithExpr = {
-    val freshVar = Var("SumVar")
+    val freshVar = Var("SumVar", RangeAdd(start, stop, 1))
     val body = makeBody(freshVar)
     SimplifyBigSum(BigSum(freshVar, start, stop, body))
   }
 
   def bigSumBinding(start:ArithExpr, stop:ArithExpr, body:ArithExpr, replacing:Var):ArithExpr = {
-    val freshVar = Var("SumVar")
+    val freshVar = Var("SumVar", RangeAdd(start, stop, 1))
     val boundBody = ArithExpr.substitute(body, Map(replacing -> freshVar))
     SimplifyBigSum(BigSum(freshVar, start, stop, boundBody))
   }
