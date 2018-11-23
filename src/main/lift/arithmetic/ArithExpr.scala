@@ -1247,13 +1247,7 @@ class Var private[arithmetic](val name: String,
     if (fixedId.isDefined)
       fixedId.get
     else {
-      var _id: Long = 0
-      do {
-        _id = Var.cnt.incrementAndGet()
-        if (_id < 0)
-          Var.cnt.compareAndSet(_id, 0)
-      } while (_id < 0)
-      _id
+      Var.incCnt
     }
   }
 
@@ -1266,6 +1260,16 @@ class Var private[arithmetic](val name: String,
 
 object Var {
   private val cnt = new AtomicLong(-1) /* Instance counter */
+
+  def incCnt() : Long = {
+    var _id: Long = 0
+    do {
+      _id = Var.cnt.incrementAndGet()
+      if (_id < 0)
+       Var.cnt.compareAndSet(_id, 0)
+    } while (_id < 0)
+    _id
+  }
 
   def apply(name: String = ""): Var = new Var(name)
 
