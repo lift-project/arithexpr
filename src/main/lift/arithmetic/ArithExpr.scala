@@ -825,6 +825,46 @@ object ArithExpr {
   }
 
   /**
+    * Recursively converts an arithmetic expression to a Scala notation String which can be evaluated into a
+    * valid ArithExpr
+    */
+  def printToScalaString(ae: ArithExpr): String = ae match {
+    case Cst(v) =>                   s"Cst($v)"
+    case IntDiv(numer, denom) =>     s"(${printToScalaString(numer)}) / (${printToScalaString(denom)})"
+    case Pow(b, e) => e match {
+      case Cst(-1) =>                s"Cst(1)/^(${printToScalaString(b)})"
+      case _ =>                      s"Pow(${printToScalaString(b)}, ${printToScalaString(e)})"
+    }
+    case Log(b, x) =>                s"Log (${printToScalaString(b)}, ${printToScalaString(x)})"
+    case Prod(factors) =>
+      if (factors.nonEmpty)          factors.map(printToScalaString).mkString("Prod(List(", ", ", "))")
+      else                           s"Prod(List())"
+    case Sum(terms) =>
+      if (terms.nonEmpty)            terms.map(printToScalaString).mkString("Sum(List(", ", ", "))")
+      else                           s"Sum(List())"
+    case Mod(dividend, divisor) =>   s"Mod(${printToScalaString(dividend)}, ${printToScalaString(divisor)})"
+    case AbsFunction(e) =>           s"AbsFunction(${printToScalaString(e)})"
+    case FloorFunction(e) =>         s"FloorFunction(${printToScalaString(e)})"
+    case CeilingFunction(e) =>       s"CeilingFunction(${printToScalaString(e)})"
+    case IfThenElse(test, t, e) =>   s"IfThenElse(${Predicate.printToScalaString(test)}, " +
+      s"${printToScalaString(t)}, ${printToScalaString(e)})"
+    case ArithExprFunction(name, range) =>
+                                      "ArithExprFunction(\"" + s"$name" + "\"" + s", ${Range.printToScalaString(range)})"
+    case BitwiseXOR(a, b) =>         s"BitwiseXOR(${printToScalaString(a)}, ${printToScalaString(b)})"
+    case BitwiseAND(a, b) =>         s"BitwiseAND(${printToScalaString(a)}, ${printToScalaString(b)})"
+    case LShift(a, b) =>             s"LShift(${printToScalaString(a)}, ${printToScalaString(b)})"
+    case v@Var(name, range) =>        "Var(\"" + s"$name" + "\"" + s", ${Range.printToScalaString(range)}" +
+      {v.fixedId match {
+        case Some(fixedId) =>             s", $fixedId)"
+        case None =>                      s")"
+      }}
+    case e =>
+      throw new NotImplementedError(
+        s"Arithmetic expression $e is not supported in printing ArithExpr to Scala notation String")
+  }
+
+
+  /**
     * Math operations derived from the basic operations
     */
   object Math {
@@ -1227,7 +1267,7 @@ case class LShift private[arithmetic](a: ArithExpr, b: ArithExpr) extends ArithE
   */
 class Var private[arithmetic](val name: String,
                               val range: Range = RangeUnknown,
-                              fixedId: Option[Long] = None) extends ArithExpr with SimplifiedExpr {
+                              val fixedId: Option[Long] = None) extends ArithExpr with SimplifiedExpr {
   override lazy val hashCode: Int = 8 * 79 + id.hashCode
 
   override val HashSeed = 0x54e9bd5e
