@@ -34,4 +34,10 @@ object Predicate {
     val == = Value("==")
   }
 
+  /**
+    * Converts a Predicate to a Scala notation String which can be evaluated into a valid Predicate
+    */
+  def printToScalaString(p: Predicate): String =
+    s"Predicate(${ArithExpr.printToScalaString(p.lhs)}, ${ArithExpr.printToScalaString(p.rhs)}, ${p.op})"
+
 }
