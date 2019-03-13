@@ -859,11 +859,8 @@ object ArithExpr {
     case BitwiseXOR(a, b) =>         s"BitwiseXOR(${printToScalaString(a)}, ${printToScalaString(b)})"
     case BitwiseAND(a, b) =>         s"BitwiseAND(${printToScalaString(a)}, ${printToScalaString(b)})"
     case LShift(a, b) =>             s"LShift(${printToScalaString(a)}, ${printToScalaString(b)})"
-    case v@Var(name, range) =>        "Var(\"" + s"$name" + "\"" + s", ${Range.printToScalaString(range)}" +
-      {v.fixedId match {
-        case Some(fixedId) =>             s", $fixedId)"
-        case None =>                      s")"
-      }}
+    case v@Var(name, range) =>        "Var(\"" + s"$name" + "\"" + s", ${Range.printToScalaString(range)}, " +
+                                     s"Some(${v.id}))"
     case e =>
       throw new NotImplementedError(
         s"Arithmetic expression $e is not supported in printing ArithExpr to Scala notation String")
@@ -1322,6 +1319,8 @@ object Var {
   def apply(range: Range): Var = new Var("", range)
 
   def apply(name: String, range: Range): Var = new Var(name, range)
+
+  def apply(name: String, range: Range, fixedId: Option[Long]): Var = new Var(name, range, fixedId)
 
   def unapply(v: Var): Option[(String, Range)] = Some((v.name, v.range))
 }
