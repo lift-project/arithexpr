@@ -365,11 +365,12 @@ object ArithExpr {
 
   implicit def LongToCst(i: Long): Cst = Cst(i)
 
+  // TODO: worth renaming
   val sort: (ArithExpr, ArithExpr) => Boolean = (x: ArithExpr, y: ArithExpr) => (x, y) match {
     case (Cst(a), Cst(b)) => a < b
     case (_: Cst, _) => true // constants first
     case (_, _: Cst) => false
-    case (x: Var, y: Var) => x.toString < y.toString // order variables lexicographically
+    case (x: Var, y: Var) => x.id < y.id // order variables based on id
     case (_: Var, _) => true // variables always after constants second
     case (_, _: Var) => false
     case (x: Prod, y: Prod) => x.factors.zip(y.factors).map(x => sort(x._1, x._2)).foldLeft(false)(_ || _)
@@ -546,7 +547,7 @@ object ArithExpr {
     }
 
     try {
-      return Some(ae1.max.eval < ae2.min.eval)
+      return Some(ae1.max.evalLong < ae2.min.evalLong)
     } catch {
       case NotEvaluableException() =>
     }
@@ -821,7 +822,12 @@ object ArithExpr {
         case Some((x, xs)) => (x :: com, unmatched, xs)
       }
     })
-    (Prod(common), Sum(List(Prod(newE1), Prod(newE2))))
+    (Prod(common), Sum((newE1, newE2) match {
+      case (Nil, Nil) =>  throw new IllegalArgumentException(f"Could not factorize $e1 and $e2")
+      case (_, Nil) => List(Prod(newE1))
+      case (Nil, _) => List(Prod(newE2))
+      case (_, _) => List(Prod(newE1), Prod(newE2))
+    }))
   }
 
   /**
