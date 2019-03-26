@@ -1144,7 +1144,7 @@ case class Prod private[arithmetic](factors: List[ArithExpr]) extends ArithExpr 
     */
   def withoutFactors(list: List[ArithExpr]): ArithExpr = {
 //    assert(simplified, "This function only works on simplified products")
-    val rest: List[ArithExpr] = factors.diff(list)
+    val rest: List[ArithExpr] = Prod.removeFactors(list, factors)
     // If we took all the elements out, return neutral (1 for product)
     if (rest.isEmpty) Cst(1)
     // If there is only one left, return it
