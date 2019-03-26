@@ -247,7 +247,7 @@ abstract sealed class ArithExpr {
     * @param that Right-hand side (divisor).
     * @return The expression multiplied by the divisor exponent -1.
     */
-  def /^(that: ArithExpr) = SimplifyDivision(this, that)
+  def /^(that: ArithExpr) = SimplifyProd(this, SimplifyPow(that, -1))
 
   /**
     * Transform subtraction into sum of product with -1
