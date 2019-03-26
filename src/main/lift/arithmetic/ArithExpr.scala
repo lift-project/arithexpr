@@ -373,7 +373,7 @@ object ArithExpr {
     case (x: Var, y: Var) => x.id < y.id // order variables based on id
     case (_: Var, _) => true // variables always after constants second
     case (_, _: Var) => false
-    case (x: Prod, y: Prod) => x.factors.zip(y.factors).map(x => sort(x._1, x._2)).foldLeft(false)(_ || _)
+    case (Prod(factors1), Prod(factors2)) => factors1.zip(factors2).map(x => sort(x._1, x._2)).foldLeft(false)(_ || _)
     case _ => x.HashSeed() < y.HashSeed() || (x.HashSeed() == y.HashSeed() && x.digest() < y.digest())
   }
 
@@ -392,8 +392,8 @@ object ArithExpr {
           case (v: Var, c: Cst) => minmax(v, c)
           case (c: Cst, v: Var) => minmax(v, c).swap
 
-          case (p: Prod, c: Cst) => minmax(p, c)
-          case (c: Cst, p: Prod) => minmax(p, c).swap
+          case (Prod(factors), c: Cst) => minmax(factors.reduce(_*_), c)
+          case (c: Cst, Prod(factors)) => minmax(factors.reduce(_*_), c).swap
 
           case _ => throw NotEvaluable
         }
@@ -799,7 +799,7 @@ object ArithExpr {
 
   // factorize(e1, e2) returns a pair `(c, s)` such as
   //     `e1 + e2 = c * (e1' + e2')`
-  // and `s = e1 + e2'`
+  // and `s = e1' + e2'`
   def factorize(e1: Prod, e2: Prod): (Prod, Sum) = {
     def find[T](l: List[T], p: T => Boolean): Option[(T, List[T])] = {
       l match {
@@ -1023,7 +1023,7 @@ case class Prod private[arithmetic](factors: List[ArithExpr]) extends ArithExpr 
   override lazy val digest: Int = factors.foldRight(HashSeed)((x, hash) => hash ^ x.digest())
 
   override def equals(that: Any): Boolean = that match {
-    case p: Prod => factors.length == p.factors.length && factors.intersect(p.factors).length == factors.length
+    case Prod(factors2)=> factors.length == factors2.length && factors.intersect(factors2).length == factors.length
     case _ => false
   }
 
@@ -1075,6 +1075,32 @@ case class Sum private[arithmetic](terms: List[ArithExpr]) extends ArithExpr {
   override val HashSeed = 0x8e535130
 
   override lazy val digest: Int = terms.foldRight(HashSeed)((x, hash) => hash ^ x.digest())
+
+  // c*a + c*b : c * SimplifySum(a, b)
+  lazy val asProd: Option[Prod] = {
+    val prodTerms: List[Prod] = terms.flatMap {
+      case Prod(factors) => Some(Prod(factors))
+      case _ => None
+    }
+    // Check that all terms of the sum are products (pattern matching)
+    if (prodTerms.length != terms.length)
+      None
+    else {
+      val commonFactors = prodTerms.tail.foldLeft(prodTerms.head.factors) {
+        case (accumulatedCommonTerms: List[ArithExpr], p: Prod) =>
+          SimplifySum.getCommonFactors(accumulatedCommonTerms, p.factors)
+      }
+
+      commonFactors match {
+        case Nil => // No common factors
+          None
+        case _ =>
+          val factorisedProdTerms: List[ArithExpr] = prodTerms.map(prodTerm => prodTerm.withoutFactors(commonFactors))
+
+          Some(Prod(commonFactors :+ factorisedProdTerms.reduce(_ + _)))
+      }
+    }
+  }
 
   override def equals(that: Any): Boolean = that match {
     case s: Sum => terms.length == s.terms.length && terms.intersect(s.terms).length == terms.length
