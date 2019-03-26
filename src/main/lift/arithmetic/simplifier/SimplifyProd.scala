@@ -1,25 +1,21 @@
 package lift
 package arithmetic
 package simplifier
+import ArithExprUtils.replaceAt
 
 /**
  * Product simplifier
  */
 object SimplifyProd {
 
-  /**
-   * Add a factor to a an existing product.
-   * @param factor The factor to add.
-   * @param prod An existing Prod object.
-   * @return A re-written expression if the factor can be optimized with another from the list, a Prod otherwise.
-   */
-  def addFactor(factor: ArithExpr, prod: Prod): ArithExpr = {
-    prod.factors.foreach(x => {
-      val newfac = combineFactors(factor, x)
-      if (newfac.isDefined) return prod.withoutFactor(x) * newfac.get
-    })
-
-    new Prod((factor :: prod.factors).sortWith(ArithExpr.sort)) with SimplifiedExpr
+  // TODO: documentation
+  def addFactor(factors: List[ArithExpr], factor: ArithExpr): ArithExpr = {
+    factors.zipWithIndex.foreach{
+      case (x, i) => {
+        val newfac = combineFactors(factor, x)
+        if (newfac.isDefined) return replaceAt(i, newfac.get, factors).reduce(_ * _)
+      }}
+    new Prod((factor +: factors).sortWith(ArithExpr.sort)) with SimplifiedExpr
   }
 
   /**
@@ -29,33 +25,6 @@ object SimplifyProd {
    * @return An option containing an expression if the factors can be combined, None otherwise
    */
   def combineFactors(lhs: ArithExpr, rhs: ArithExpr): Option[ArithExpr] = (lhs, rhs) match {
-    case (Cst(x), Cst(y)) => Some(Cst(x*y))
-
-    case (x, y) if x == y => Some(x pow 2)
-
-    case (Pow(b1,e1),Pow(b2,e2)) if b1 == b2 => Some(b1 pow (e1 + e2))
-    // Not efficient: two calls to `simplify`
-    case (Pow(b1, e1), Pow(b2, e2)) if e1 == e2 && simplify(b1, b2).isDefined => Some((b1 * b2) pow e1)
-    case (base,Pow(b,e)) if base == Cst(1) => Some(base /^ b * (b pow (e + 1)))
-    case (Pow(b,e),base) if base == Cst(1) => Some(base /^ b * (b pow (e + 1)))
-    case (base,Pow(b,e)) if ArithExpr.gcd(base,b) == b => Some(base /^ b * (b pow (e + 1)))
-    case (Pow(b,e),base) if ArithExpr.gcd(base,b) == b => Some(base /^ b * (b pow (e + 1)))
-    case (base,Pow(b,e)) if ArithExpr.gcd(base,b) != Cst(1) && e == Cst(-1) =>
-      val gcd = ArithExpr.gcd(base,b)
-      Some(base /^ gcd * ((b /^ gcd) pow e))
-    case (Pow(b,e),base) if ArithExpr.gcd(base,b) != Cst(1) && e == Cst(-1) =>
-      val gcd = ArithExpr.gcd(base,b)
-      Some(base /^ gcd * ((b /^ gcd) pow e))
-    case (x,y) => None
-  }
-
-  /**
-   * Promote the product to another operation.
-   * @param lhs The left-hand side.
-   * @param rhs The right-hand side.
-   * @return An option containing a different operation if the product can be re-written, None otherwise
-   */
-  def simplify(lhs: ArithExpr, rhs: ArithExpr): Option[ArithExpr] = (lhs, rhs) match {
 
     case (lift.arithmetic.?,_) | (_,lift.arithmetic.?) => Some( lift.arithmetic.? )
 
@@ -82,13 +51,12 @@ object SimplifyProd {
       case Sign.Negative => Some(PosInf)
     }
 
-
     // Factor simplification
     case (x, y) if !x.simplified => Some(ExprSimplifier(x) * y)
     case (x, y) if !y.simplified => Some(x * ExprSimplifier(y))
 
     // Constant product
-    case (Cst(x), Cst(y)) => Some(Cst(x*y))
+    case (Cst(x), Cst(y)) => Some(Cst(x * y))
 
     // Multiplication by zero
     case (Cst(0), _) | (_, Cst(0)) => Some(Cst(0))
@@ -102,40 +70,67 @@ object SimplifyProd {
     case (Cst(1), _) => Some(rhs)
     case (_, Cst(1)) => Some(lhs)
 
-    // Distribute sums
-    case (x, s: Sum) => Some(s.terms.map(_*x).reduce(_+_))
-    case (s: Sum, x) => Some(s.terms.map(_*x).reduce(_+_))
+    /********** Constant cases **********/
 
-    // Combine products
-    case (p1: Prod, p2: Prod) if p1.factors.length >= p2.factors.length => Some(addFactor(p2.factors.head,p1) * p2.withoutFactor(p2.factors.head))
-    case (p1: Prod, p2: Prod) => Some(p2 * p1)
-    case (p: Prod, x) => Some(addFactor(x, p))
-    case (x, p: Prod) => Some(addFactor(x, p))
+    // Compute powers when all bases and exponents are positive constants
+    case (Pow(Cst(b1), Cst(e1)), Pow(Cst(b2), Cst(e2))) if e1 > 0 && e2 > 0 =>
+      Some(Cst((Math.pow(b1, e1) * Math.pow(b2, e2)).toInt))
+
+    // Compute powers when all bases and exponents are negative constants
+    case (Pow(Cst(b1), Cst(e1)), Pow(Cst(b2), Cst(e2))) if e1 < 0 && e2 < 0 =>
+      Some(Pow(Cst((Math.pow(b1, -e1) * Math.pow(b2, -e2)).toInt), -1))
+
+    case (Cst(x), Pow(Cst(y), Cst(e2))) if e2 < 0 && x % y == 0 =>
+      Some(Cst(x / y) * Pow(Cst(y), Cst(e2 + 1)))
+    case (Pow(Cst(y), Cst(e1)), Cst(x)) if e1 < 0 && x % y == 0 =>
+      Some(Cst(x / y) * Pow(Cst(y), Cst(e1 + 1)))
+
+    /********** Non-constant cases **********/
+
+    case (x, y) if x == y => Some(x pow Cst(2))
+
+    case (x, Pow(b2, e2)) if x == b2 => Some(x pow (e2 + 1))
+    case (Pow(b1, e1), x) if x == b1 => Some(x pow (e1 + 1))
+    case (Pow(b1, e1), Pow(b2, e2)) if b1 == b2 => Some(b1 pow (e1 + e2))
 
     case (v: Var, y) if v.range.min == v.range.max && v.range.min != ? => Some(v.range.min * y)
     case (x, v: Var) if v.range.min == v.range.max && v.range.min != ? => Some(x * v.range.min)
 
-    // Actual product
+//    case (x, y) if x == y => Some(x pow 2)
+    case (Pow(b1, e1), Pow(b2, e2)) if e1 == e2 => Some((b1 * b2) pow e1)
+
+    // Distribute sums
+    case (x, s: Sum) => Some(s.terms.map(_ * x).reduce(_ + _))
+    case (s: Sum, x) => Some(s.terms.map(_ * x).reduce(_ + _))
+
+
     case (x, y) => None
   }
 
   /**
+    * TODO: update documentation
    * Try to promote the product into another expression, then try to combine factors. If all fails the expression is simplified.
    * @param lhs The left-hand side.
    * @param rhs The right-hand side.
    * @return A promoted expression or a simplified Prod object.
    */
   def apply(lhs: ArithExpr, rhs: ArithExpr): ArithExpr = {
-    val simplificationResult = if (PerformSimplification()) simplify(lhs, rhs) else None
-    simplificationResult match {
-      case Some(toReturn) => toReturn
-      case None =>
-        val combineResult = if (PerformSimplification()) combineFactors(lhs,rhs) else None
-        combineResult match {
-          case Some(toReturn) => toReturn
-          case None => new Prod(List(lhs, rhs).sortWith(ArithExpr.sort)) with SimplifiedExpr
-        }
-    }
+    if (PerformSimplification())
+      (lhs, rhs) match {
+        case (Prod(lhsFactors), Prod(rhsFactors)) =>
+          addFactor(lhsFactors, rhsFactors.head) * (
+            if (rhsFactors.tail.length == 1)
+              rhsFactors.tail.head
+            else
+              new Prod(rhsFactors.tail) with SimplifiedExpr)
+        case (Prod(lhsFactors), _) => addFactor(lhsFactors, rhs)
+        case (_, Prod(rhsFactors)) => addFactor(rhsFactors, lhs)
+        case _ =>                     addFactor(List(lhs), rhs)
+      }
+    else
+      new Prod(List(lhs, rhs).sortWith(ArithExpr.sort)) with SimplifiedExpr
+    // TODO: There might be simplifications that require access to all or a subset of
+    //  factors in the two products (lhs and rhs), then they have to be handled in
+    //  apply() after addFactor.
   }
-
 }
