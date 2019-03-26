@@ -15,7 +15,7 @@ object ExprSimplifier {
   def apply(expr: ArithExpr): ArithExpr = expr match {
     case e:SimplifiedExpr => e
     case Pow(x,y) => SimplifyPow(x,y)
-    case p: Prod => p.factors.reduce(_*_)
+    case Prod(factors) => factors.reduce(_*_)
     case s: Sum => s.terms.reduce(_+_)
     case Mod(a,b) => SimplifyMod(a,b)
     case IntDiv(a,b) => SimplifyIntDiv(a,b)
