@@ -20,31 +20,38 @@ object SimplifyPow {
     // Power of one
     case (b, Cst(1)) => Some(b)
 
+    // Negative base with the power of minus one
+      // (-b)^-1 => -1 * b^-1
+    case (Cst(b), Cst(-1)) if b < 0 => Some(Prod(List(Cst(-1), Pow(Cst(-b), Cst(-1)))))
+
     // 0 or 1 to any power
     case (Cst(x), _) if x == 0 || x == 1 => Some(base)
 
-    // Distribute product: x^(m+n) => x^m * x^n
-    case (b, Sum(terms)) => Some(terms.map(b pow).reduce(_*_))
-
-    // Power of a product: (x*y)^(n) => x^n * y^n
-    case (Prod(terms), e) => Some(terms.map(_ pow e).reduce(_*_))
+    case (Cst(b), Cst(e)) if e >= 0 => Some(Cst(Math.pow(b, e).toInt))
 
     // Constant positive exponent
     case (Cst(b), Cst(e)) if e > 1 => Some(Cst(scala.math.pow(b,e).toInt))
 
-    // Constant negative exponents: pow(x,-y) = pow(pow(x,y), -1)
+    // Constant negative exponents: pow(x,-y) = pow(pow(x,y), -1)  (closed form)
     case (Cst(b), Cst(e)) if e < -1 => Some(Cst(scala.math.pow(b, -e).toInt) pow Cst(-1))
+
+    // Distribute product: x^(m+n) => x^m * x^n
+    case (b, Sum(terms)) => Some(terms.map(b pow).reduce(_*_))
 
     // Simplify Operands
     case (x, y) if !x.simplified => Some(ExprSimplifier(x) pow y)
     case (x, y) if !y.simplified => Some(x pow ExprSimplifier(y))
 
     // Power of power: (x^e1)^e2 => x^(e1*e2)
-    case (Pow(b, e1), e2) => Some(b pow (e1 * e2))
+    case (Pow(b, e1), e2) if (e1 match {
+      case Cst(1) => false
+      case _ => true
+    })  => Some(b pow (e1 * e2))
 
     // x^(a*log(x,b)*c) => b^(a*b)
-    case (x,p@Prod(factors)) =>
-      val log = factors.find{
+    case (x, Prod(factors)) =>
+      val p = Prod(factors)
+      val log = p.factors.find{
         case Log(x1,_) if x1 == x => true
         case _ => false
       }
