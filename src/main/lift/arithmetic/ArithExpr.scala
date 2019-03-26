@@ -1054,7 +1054,7 @@ case class Prod private[arithmetic](factors: List[ArithExpr]) extends ArithExpr 
 
   lazy val cstFactor: Cst = {
     if (simplified) factors.find(_.isInstanceOf[Cst]).getOrElse(Cst(1)).asInstanceOf[Cst]
-    else Cst(factors.filter(_.isInstanceOf[Cst]).foldLeft[Long](1)(_ + _.asInstanceOf[Cst].c))
+    else Cst(factors.filter(_.isInstanceOf[Cst]).foldLeft[Long](1)(_ * _.asInstanceOf[Cst].c))
   }
 
   override def visitAndRebuild(f: (ArithExpr) => ArithExpr): ArithExpr =
