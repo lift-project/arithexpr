@@ -209,7 +209,7 @@ abstract sealed class ArithExpr {
     case (v1: Var, v2: Var) => v1.id == v2.id
     case (AbsFunction(x), AbsFunction(y)) => x == y
     case _ =>
-      System.err.println(s"$this and $that are not equal")
+//      System.err.println(s"$this and $that are not equal")
       false
   }
 
@@ -361,6 +361,109 @@ abstract sealed class ArithExpr {
 }
 
 object ArithExpr {
+  def main(args: Array[String]): Unit = {
+    val a = Var("a")//Var("nInputs")
+    val b = Var("b")//Var("inputWidthHeight")
+    val c = Var("c")//Var("kernelWidthHeight")
+    val d = Var("d")//Var("kernelStride")
+    val e = Var("e")//Var("tileStride")
+
+//    val expr =
+//      (-2 * a * b * c * 1/^(((-1 * c * 1/^(e)) + (b * 1/^(e)) + (d * 1/^(e)))) * SimplifyPow(e,-2)) +
+//      (-2 * a * c * d * 1/^(((-1 * c * 1/^(e)) + (b * 1/^(e)) + (d * 1/^(e)))) * SimplifyPow(e,-2)) +
+//      (2 * a * b * d * 1/^(((-1 * c * 1/^(e)) + (b * 1/^(e)) + (d * 1/^(e)))) * SimplifyPow(e,-2)) +
+//      (a * SimplifyPow(c,2) * 1/^(((-1 * c * 1/^(e)) + (b * 1/^(e)) + (d * 1/^(e)))) * SimplifyPow(e,-2)) +
+//      (a * SimplifyPow(b,2) * 1/^(((-1 * c * 1/^(e)) + (b * 1/^(e)) + (d * 1/^(e)))) * SimplifyPow(e,-2)) +
+//      (a * SimplifyPow(d,2) * 1/^(((-1 * c * 1/^(e)) + (b * 1/^(e)) + (d * 1/^(e)))) * SimplifyPow(e,-2))
+
+    val expr_3 = 2 * a * b /^ a
+    assume(expr_3 === 2 * b)
+
+    val expr_4 = a + b
+    assume(expr_4 === a + b)
+
+    val expr_5_1 = Pow(a, 2) + 2*a*b + Pow(b, 2)
+    val expr_5_2 = (a + b).pow(2)
+    assume(expr_5_1 === expr_5_2)
+//
+    val expr_6 = Pow(a, 2) + Pow(b, 2) + Pow(c, 2) + 2*a*b + 2*a*c + 2*b*c
+    assume(expr_6 === (a + b + c).pow(2))
+//
+//    println(expr4.asInstanceOf[Sum].powOfSumRepresentation)
+
+    val expr_7_1 = 1/^(a + b + c)
+    val expr_7_2 = a.pow(2) + b.pow(2) + c.pow(2) + 2*a*b + 2*a*c + 2*b*c
+    val expr_7 = expr_7_1 * expr_7_2
+    assume(expr_7 === (a + b + c))
+
+    val expr_8_1 = 1/^(a + b)
+    val expr_8_2 =
+      d * a +
+        d * b
+    val expr_8 = expr_8_1 * expr_8_2
+    assume(expr_8 === d)
+
+    val expr_9_1 = 1/^(a + b)
+    val expr_9_2 =
+      1/^d * a.pow(2) +
+        1/^d * b.pow(2) +
+        1/^d * 2*a*b
+    val expr_9 = expr_9_1 * expr_9_2
+    assume(expr_9 === (1/^d * (a + b)))
+
+    val expr_10 =
+      a * a.pow(2) +
+        a * b.pow(2)
+//        (a + b) * 2*a*b
+    assume(expr_10 === (a * (a.pow(2) + b.pow(2))))
+
+    val expr_11_1 = 2 * a * b * 1/^(a+b)
+    val expr_11_2 = a * a * 1/^(a+b)
+    val expr_11 = ArithExpr.gcd(expr_11_1, expr_11_2)
+//    assume(expr_11 === (a * 1/^(a+b)))
+
+    val expr_12_1_1 = a * 1/^(a+b)
+    val expr_12_1_2 = a.pow(2)  *  1/^(a+b)
+    val expr_12_2 = expr_12_1_1 + expr_12_1_2
+    val expr_12 =  a * 1/^(a+b) * (1 + a)
+    assume(expr_12_2 === expr_12)
+
+    val expr_13_1 = a * 1/^(a+b) + a.pow(2) * 1/^(a+b)
+    val expr_13_2 = 1/^(a+b)
+    val expr_13 = expr_13_1 /^ expr_13_2
+    assume(expr_13 === a + a.pow(2))
+
+    val expr_14_1 = 2 * a * b * 1/^(a+b) + a.pow(2) * 1/^(a+b)
+    val expr_14_2 = 1/^(a+b)
+    val expr_14 = expr_14_1 /^ expr_14_2
+    assume(expr_14 === 2 * a * b + a.pow(2))
+
+    val expr15_1 = 1/^(a + b) * a.pow(2) + 1/^(a + b) * 2*a*b
+    val expr15_2 = 1/^(a + b) * b.pow(2)
+
+    val expr15 = expr15_1 + expr15_2
+    assume(expr15 === (a + b))
+
+    val expr_16_1 = 1/^(a + b) * c * a.pow(2) + 1/^(a+b) * c * 2*a*b
+    val expr_16_2 = 1/^(a + b) * c * b.pow(2)
+
+    val expr_16 = expr_16_1 + expr_16_2
+    assume(expr_16 === (c * (a + b)))
+
+    val expr17_1 = 1/^(a + b) * a.pow(2) + 1/^(a + b) * 2*a*b
+    val expr17_2 = 1/^(a + b) * b.pow(2) + c
+
+    val expr_17 = expr17_1 + expr17_2
+    assume(expr_17 === (a + b) + c)
+
+    val expr_18_1 = 1/^(a + b) * 3 * a.pow(2) + 1/^(a+b) * 3 * 2*a*b
+    val expr_18_2 = 1/^(a + b) * 3 * b.pow(2)
+
+    val expr_18 = expr_18_1 + expr_18_2
+    assume(expr_18 === (3 * (a + b)))
+
+  }
+
   implicit def IntToCst(i: Int): ArithExpr = Cst(i)
 
   implicit def LongToCst(i: Long): Cst = Cst(i)
@@ -1040,14 +1143,14 @@ case class Prod private[arithmetic](factors: List[ArithExpr]) extends ArithExpr 
     * Removing factors does not create new optimization opportunity, therefore the resulting prod is still simplified.
     */
   def withoutFactors(list: List[ArithExpr]): ArithExpr = {
-    assert(simplified, "This function only works on simplified products")
+//    assert(simplified, "This function only works on simplified products")
     val rest: List[ArithExpr] = factors.diff(list)
     // If we took all the elements out, return neutral (1 for product)
     if (rest.isEmpty) Cst(1)
     // If there is only one left, return it
     else if (rest.length == 1) rest.head
     // Otherwise create a new product, which is also simplified by construction
-    else new Prod(rest) with SimplifiedExpr
+    else new Prod(rest)// with SimplifiedExpr
   }
 
   def withoutFactor(factor: ArithExpr): ArithExpr = withoutFactors(List(factor))
@@ -1059,6 +1162,50 @@ case class Prod private[arithmetic](factors: List[ArithExpr]) extends ArithExpr 
 
   override def visitAndRebuild(f: (ArithExpr) => ArithExpr): ArithExpr =
     f(factors.map(_.visitAndRebuild(f)).reduce(_ * _))
+
+  // a^n * b^n : (a * b)^n
+  lazy val asPowOfProd: Option[Pow] = {
+    // Collect
+    val prodFactorsAsPowers = Some(factors.map{
+      case Pow(b, e) => Some((b, e))
+      case _ => None
+    })
+
+    val firstExponent = prodFactorsAsPowers.get.head.get._2
+
+    // Check if all product factors are powers
+    if (prodFactorsAsPowers.get.forall(_.isDefined) &&
+      !(firstExponent == Cst(1)) &&
+      // Check if all exponents are the same
+      prodFactorsAsPowers.get.forall(_.get._2 == firstExponent))
+      Some(Pow(
+        b = prodFactorsAsPowers.get.map(_.get._1).reduce(_ * _),
+        e = firstExponent))
+    else
+      None
+  }
+}
+
+
+object Prod {
+  def unapply(ae: Any): Option[List[ArithExpr]] = ae match {
+    case aexpr: ArithExpr => aexpr match {
+      // (a * b * c)^e  :  a^e * b^e * c^e
+      case Pow(Prod(factors), e) => Some(factors.map(Pow(_, e)))
+
+      // (x*a + x*b + x*c) = x*(a + b + c)
+      case s: Sum =>
+        s.asProd match {
+          case Some(productWithCommonFactor) => Some(productWithCommonFactor.factors)
+          case None => None
+        }
+      case p: Prod => Some(p.factors)
+      case _ => None
+    }
+    case _ => None
+  }
+
+  def removeFactors(toRemove: List[ArithExpr], from: List[ArithExpr]): List[ArithExpr] = from.diff(toRemove)
 }
 
 
