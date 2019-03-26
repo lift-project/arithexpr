@@ -42,30 +42,31 @@ private[arithmetic] object ComputeGCD {
       case (x, Prod(f)) if f.contains(x) && !ArithExpr.hasDivision(f) => x
 
       // GCD of sums: find common factor across all terms
-      case (s1: Sum, s2: Sum) =>
-        // Compute the common factors
-        val fac1 = factorizeSum(s1)
-        if (fac1 == Cst(1)) return Cst(1)
-        val fac2 = factorizeSum(s2)
-        if (fac2 == Cst(1)) return Cst(1)
-
-        // The GCD could be either the factor or the remainder, so we compute the intersection
-        val common = List(fac1, s1 /^ fac1).intersect(List(fac2, s2 /^ fac2))
-        if (common.isEmpty) Cst(1)
-        else common.head
-
-      case (x, s: Sum) => ComputeGCD(b, a)
-      case (s: Sum, x) =>
-        // compute the common factor
-        val factor = factorizeSum(s)
-        // If there is none, there is no possible common factor
-        if (factor == Cst(1)) factor
-        // otherwise see if there is a common factor with the sum's terms
-        else ComputeGCD(factor, x) match {
-          // If there isn't, we still have a chance with the remainder
-          //case Cst(x) if x == 1 => gcd(x, s /^ factor)
-          case y => y
-        }
+        // Naums: sums are handled iby Sum.asProd inside Prod.unapply()
+//      case (s1: Sum, s2: Sum) =>
+//        // Compute the common factors
+//        val fac1 = factorizeSum(s1)
+//        if (fac1 == Cst(1)) return Cst(1)
+//        val fac2 = factorizeSum(s2)
+//        if (fac2 == Cst(1)) return Cst(1)
+//
+//        // The GCD could be either the factor or the remainder, so we compute the intersection
+//        val common = List(fac1, s1 /^ fac1).intersect(List(fac2, s2 /^ fac2))
+//        if (common.isEmpty) Cst(1)
+//        else common.head
+//
+//      case (x, s: Sum) => ComputeGCD(b, a)
+//      case (s: Sum, x) =>
+//        // compute the common factor
+//        val factor = factorizeSum(s)
+//        // If there is none, there is no possible common factor
+//        if (factor == Cst(1)) factor
+//        // otherwise see if there is a common factor with the sum's terms
+//        else ComputeGCD(factor, x) match {
+//          // If there isn't, we still have a chance with the remainder
+//          //case Cst(x) if x == 1 => gcd(x, s /^ factor)
+//          case y => y
+//        }
 
       case (x, y) => Cst(1)
     }
