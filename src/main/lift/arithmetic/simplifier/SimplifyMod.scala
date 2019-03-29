@@ -163,8 +163,8 @@ object SimplifyMod {
       Some((s - c + c%d) % d)
 
     // Isolate the terms which are multiple of the mod and eliminate
-    case (s@Sum(terms), d) if !ArithExpr.mightBeNegative(s) =>
-      val (multiple, _) = terms.partition(t => (t, d) match {
+    case (s: Sum, d) if !ArithExpr.mightBeNegative(s) =>
+      val (multiple, _) = s.terms.partition(t => (t, d) match {
         case (Prod(factors1), Prod(factors2)) => factors2 forall (factors1 contains)
         case (Prod(factors), x) if factors.contains(x) => true
         case (x, y) if ArithExpr.multipleOf(x, y) => true
