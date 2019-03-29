@@ -22,7 +22,7 @@ object SimplifyPow {
 
     // Negative base with the power of minus one
       // (-b)^-1 => -1 * b^-1
-    case (Cst(b), Cst(-1)) if b < 0 => Some(Prod(List(Cst(-1), Pow(Cst(-b), Cst(-1)))))
+    case (Cst(b), Cst(-1)) if b < 0 => Some(SimplifyProd(List(Cst(-1), SimplifyPow(Cst(-b), Cst(-1)))))
 
     // 0 or 1 to any power
     case (Cst(x), _) if x == 0 || x == 1 => Some(base)
@@ -50,12 +50,11 @@ object SimplifyPow {
 
     // x^(a*log(x,b)*c) => b^(a*b)
     case (x, Prod(factors)) =>
-      val p = Prod(factors)
-      val log = p.factors.find{
+      val log = factors.find{
         case Log(x1,_) if x1 == x => true
         case _ => false
       }
-      if (log.nonEmpty) Some(log.get.asInstanceOf[Log].x pow p.withoutFactors(List(log.get)))
+      if (log.nonEmpty) Some(log.get.asInstanceOf[Log].x pow SimplifyProd(Prod.removeFactors(factors, List(log.get))))
       else None
 
     // x^log(x,b) => b

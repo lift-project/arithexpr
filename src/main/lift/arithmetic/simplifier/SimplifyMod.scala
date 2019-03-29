@@ -38,7 +38,7 @@ object SimplifyMod {
               Nil),
           Sum(Cst(c2) :: (m2: Var) :: Nil))
       if m1 == m2 && a1 == a2 && c1 == c2 =>
-      Some(SimplifyMod(Sum(k :: i :: Nil), Sum(Cst(c1) :: m1 :: Nil)))
+      Some(SimplifyMod(SimplifySum(k :: i :: Nil), SimplifySum(Cst(c1) :: m1 :: Nil)))
 
     // j + ck + ci + ni + nk % c+n == (n+2)(i+k)+j % 2+n => j%(2+n)
     case (Sum(

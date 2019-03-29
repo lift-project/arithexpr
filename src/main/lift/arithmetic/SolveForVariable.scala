@@ -43,13 +43,13 @@ object SolveForVariable {
         if(c.length != 1)
           throw NotSolvable
 
-        solve(c.head, IntDiv(b, Prod(nc)), v)
+        solve(c.head, SimplifyIntDiv(b, SimplifyProd(nc)), v)
 
       // Var/Cst = Expr -> Var = Expr*Cst
       case (IntDiv(x1, x2), y) =>
         (ArithExpr.contains(x1, v), ArithExpr.contains(x2, v)) match {
-          case (true, false) => solve(x1, Prod(x2 :: b :: Nil), v)
-          case (false, true) => solve(x2, IntDiv(x1, y), v)
+          case (true, false) => solve(x1, SimplifyProd(x2 :: b :: Nil), v)
+          case (false, true) => solve(x2, SimplifyIntDiv(x1, y), v)
           case _ => throw NotSolvable
         }
 
@@ -63,7 +63,7 @@ object SolveForVariable {
         if (c.length != 1)
           throw NotSolvable
 
-        solve(c.head, Sum(b :: nc.map(t => 0 - t)), v)
+        solve(c.head, SimplifySum(b :: nc.map(t => 0 - t)), v)
 
       // otherwise, we don't support it yet...
       case _ =>

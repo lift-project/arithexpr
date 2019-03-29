@@ -89,8 +89,8 @@ object SimplifyIntDiv {
               Nil),
           Sum(Cst(c2) :: (m2: Var) :: Nil))
       if m1 == m2 && a1 == a2 && c1 == c2 =>
-      Some(SimplifySum(a2, SimplifyIntDiv(Sum((k: ArithExpr) :: (i: ArithExpr) :: Nil),
-                                          Sum(Cst(c2) :: (m2: Var) :: Nil))))
+      Some(SimplifySum(a2, SimplifyIntDiv(SimplifySum((k: ArithExpr) :: (i: ArithExpr) :: Nil),
+                                          SimplifySum(Cst(c2) :: (m2: Var) :: Nil))))
 
     // j + ck + ci + ni + nk / c+n == ((c+n)(i+k) + j) / c+n => i+k [+ j/c+n] //rather create intdiv instead?
     case (Sum(
@@ -102,8 +102,8 @@ object SimplifyIntDiv {
               Nil),
           Sum((Cst(c3)) :: (n3: Var) :: Nil))
       if n1 == n2 && n1 == n3 && i1 == i2 && k1 == k2 && c1 == c2 && c1 == c3 &&
-        ArithExpr.isSmaller(j, Sum(Cst(c3) :: (n3: Var) :: Nil)).getOrElse(false) =>
-      Some(Sum((i1: Var) :: (k1: Var) :: Nil))
+        ArithExpr.isSmaller(j, SimplifySum(Cst(c3) :: (n3: Var) :: Nil)).getOrElse(false) =>
+      Some(SimplifySum((i1: Var) :: (k1: Var) :: Nil))
 
     // b + ca + ma / (cn + mn) == (a(m + c) + b) / n(m + c) => 0 [b/(n(c+m)) + a/n] // a=x%n
     case (Sum(
@@ -116,7 +116,7 @@ object SimplifyIntDiv {
               Prod((m2: Var) :: (n1: Var) :: Nil) ::
               Nil))
       if m1 == m2 && n1 == n2  && c1 == c2 && a1 == a2 &&
-        ArithExpr.isSmaller(b, Prod(Sum(m1 :: Cst(c1) :: Nil) :: n1 :: Nil)).getOrElse(false) &&
+        ArithExpr.isSmaller(b, SimplifyProd(SimplifySum(m1 :: Cst(c1) :: Nil) :: n1 :: Nil)).getOrElse(false) &&
         ArithExpr.isSmaller(a1, n1).getOrElse(false) =>
       Some(Cst(0))
 
@@ -151,7 +151,7 @@ object SimplifyIntDiv {
               Cst(c1) :: (n1: Var) :: (j: Var) :: Nil),
           Sum(Cst(c2) :: (n2: Var) :: Nil))
       if n1 == n2 && c1 == c2 &&
-        ArithExpr.isSmaller(j, Sum(c1 :: n2 :: Nil)).getOrElse(false) =>
+        ArithExpr.isSmaller(j, SimplifySum(c1 :: n2 :: Nil)).getOrElse(false) =>
       Some(Cst(1))
 
     // 3+n+j / 2+n = 1 true if 1+j < 2+n

@@ -537,7 +537,7 @@ object ArithExpr {
   }
 
   private def upperBound(p: Prod): Option[Long] = {
-    Some(Prod(p.factors.map({
+    Some(SimplifyProd(p.factors.map({
       case v: Var => v.range.max match {
         case max: Cst => max
         case _ => return None
@@ -548,7 +548,7 @@ object ArithExpr {
   }
 
   private def lowerBound(p: Prod): Option[Long] = {
-    Some(Prod(p.factors.map({
+    Some(SimplifyProd(p.factors.map({
       case v: Var => v.range.min match {
         case min: Cst => min
         case _ => return None
@@ -668,8 +668,8 @@ object ArithExpr {
         return Some(true)
       // Abs(a + x) < n true if (a + x) < n and -1(a + x) < n
       case (AbsFunction(Sum((a: Cst) :: (x: Var) :: Nil)), n: Var) if
-      isSmaller(Sum(a :: x.range.max :: Nil), n).getOrElse(false) &&
-        isSmaller(Prod(Cst(-1) :: Sum(a :: x.range.min :: Nil) :: Nil), n).getOrElse(false) =>
+      isSmaller(SimplifySum(a :: x.range.max :: Nil), n).getOrElse(false) &&
+        isSmaller(SimplifyProd(Cst(-1) :: SimplifySum(a :: x.range.min :: Nil) :: Nil), n).getOrElse(false) =>
         return Some(true)
       case (Mod((_: ArithExpr), (v1: Var)), (v2: Var)) if v1 == v2 =>
         return Some(true)
@@ -678,11 +678,12 @@ object ArithExpr {
         // Fetch the terms of the form Pow(…, -1), inverse and isolate them
         val (inverses, rem) = p.partition(ArithExpr.isInverse) match {
           case (inv, r) => (
-            Prod(inv.map({
-              case Pow(x, Cst(-1)) => x
-              case _ => throw new IllegalArgumentException() // Cannot happen at this point
-            })),
-            if (r.nonEmpty) Prod(r) else Cst(1)
+            SimplifyProd(
+              inv.map({
+                case Pow(x, Cst(-1)) => x
+                case _ => throw new IllegalArgumentException() // Cannot happen at this point
+              })),
+            SimplifyProd(r)
           )
         }
         val result = inverses.sign match {
@@ -925,11 +926,11 @@ object ArithExpr {
         case Some((x, xs)) => (x :: com, unmatched, xs)
       }
     })
-    (Prod(common), Sum((newE1, newE2) match {
-      case (Nil, Nil) =>  throw new IllegalArgumentException(f"Could not factorize $e1 and $e2")
-      case (_, Nil) => List(Prod(newE1))
-      case (Nil, _) => List(Prod(newE2))
-      case (_, _) => List(Prod(newE1), Prod(newE2))
+    (SimplifyProd(common), SimplifySum((newE1, newE2) match {
+      case (Nil, Nil) =>  throw new IllegalArgumentException(f"Could not factorize $e1factors and $e2factors")
+      case (_, Nil) => List(SimplifyProd(newE1))
+      case (Nil, _) => List(SimplifyProd(newE2))
+      case (_, _) => List(SimplifyProd(newE1), SimplifyProd(newE2))
     }))
   }
 
@@ -1180,7 +1181,7 @@ case class Prod private[arithmetic](factors: List[ArithExpr]) extends ArithExpr 
       prodFactorsAsPowers.get.forall(_.get._2 == firstExponent))
       Some(Pow(
         b = prodFactorsAsPowers.get.map(_.get._1).reduce(_ * _),
-        e = firstExponent))
+        e = firstExponent)) // Not simplifying on purpose, since it is a temporary representation
     else
       None
   }
@@ -1191,9 +1192,9 @@ object Prod {
   def unapply(ae: Any): Option[List[ArithExpr]] = ae match {
     case aexpr: ArithExpr => aexpr match {
       // (a * b * c)^e  :  a^e * b^e * c^e
-      case Pow(Prod(factors), e) => Some(factors.map(Pow(_, e)))
+      case Pow(Prod(factors), e) => Some(factors.map(SimplifyPow(_ , e)))
 
-      // (x*a + x*b + x*c) = x*(a + b + c)
+      // (x*a + x*b + x*c)  :  x*(a + b + c)
       case s: Sum =>
         s.asProd match {
           case Some(productWithCommonFactor) => Some(productWithCommonFactor.factors)
