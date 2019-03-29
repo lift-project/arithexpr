@@ -44,6 +44,6 @@ class TestGCD {
     assertEquals(a,       ArithExpr.gcd(2*a,-1*a))
 
 
-    assertEquals(Cst(1), ArithExpr.gcd(Cst(2)*a + Pow(a,Cst(2)), Cst(2) + a))
+    assertEquals(Cst(1), ArithExpr.gcd(Cst(2)*a + a.pow(Cst(2)), Cst(2) + a))
   }
 }
