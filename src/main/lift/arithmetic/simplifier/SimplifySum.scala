@@ -115,8 +115,8 @@ object SimplifySum {
         val (term1CstFactor, term1NonCstFactors) = Prod.partitionFactorsOnCst(term1factors, simplified = true)
         val (term2CstFactor, term2NonCstFactors) = Prod.partitionFactorsOnCst(term2factors, simplified = true)
 
-        val term1WithoutCommonFactors = SimplifyProd((term1CstFactor /^ cstCommonFactor) +: Prod.removeFactors(term1NonCstFactors, nonCstCommonFactors))
-        val term2WithoutCommonFactors = SimplifyProd((term2CstFactor /^ cstCommonFactor) +: Prod.removeFactors(term2NonCstFactors, nonCstCommonFactors))
+        val term1WithoutCommonFactors = SimplifyProd(Cst(term1CstFactor.c / cstCommonFactor.c) +: Prod.removeFactors(term1NonCstFactors, nonCstCommonFactors))
+        val term2WithoutCommonFactors = SimplifyProd(Cst(term2CstFactor.c / cstCommonFactor.c) +: Prod.removeFactors(term2NonCstFactors, nonCstCommonFactors))
 
         val commonFactors = cstCommonFactor match {
           case Cst(1) => nonCstCommonFactors
