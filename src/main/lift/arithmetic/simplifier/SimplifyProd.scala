@@ -12,14 +12,14 @@ object SimplifyProd {
   // Power merge is prohibited in case one of the factors is the result of temporary power
   // distribution (i.e. through extractor) since merging the powers again won't make the product simpler
   def addFactor(factors: List[ArithExpr], factor: ArithExpr,
-                distributionAllowed: Boolean = true,
-                powerMergeAllowed: Boolean = true): ArithExpr = {
+                listComesFromSum: Boolean = true,
+                listComesFromPow: Boolean = true): ArithExpr = {
 
     factors.zipWithIndex.foreach{
       case (x, i) => {
         val newfac = combineFactors(factor, x,
-          distributionAllowed = distributionAllowed,
-          powerMergeAllowed = powerMergeAllowed)
+          distributionAllowed = listComesFromSum,
+          powerMergeAllowed = listComesFromPow)
 
         if (newfac.isDefined)
           return replaceAt(i, newfac.get, factors).reduce(_ * _)
@@ -44,8 +44,13 @@ object SimplifyProd {
       // If simplified combination is not possible, it is safe to just prepend the factor to `factors`
       // for a simplified product
       case None =>
-        // Example 2: new Prod(d * e * f * y) with SimplifiedExpr
-        new Prod((factor +: factors).sortWith(ArithExpr.sort)) with SimplifiedExpr
+        new Prod(
+          (simplifiedOriginalProd match {
+            case p: Prod =>
+              factor +: p.factors
+            case _ =>
+              List(factor, simplifiedOriginalProd)
+          }).sortWith(ArithExpr.sort)) with SimplifiedExpr
     }
   }
 
@@ -165,28 +170,30 @@ object SimplifyProd {
       // powerMergeAllowed) based on the original type of the unpacked expression
       (lhs, rhs) match {
         case (p1: Prod, p2: Prod) => p2.factors.foldLeft[ArithExpr](p1)(_ * _)
-        case (p1: Prod, p2@Prod(_)) => p1.factors.foldLeft[ArithExpr](p2)(_ * _)
-        case (p1@Prod(_), p2: Prod) => rhs * lhs
 
         case (p@Prod(lhsFactors), Prod(rhsFactors)) =>
           lhsFactors.tail.foldLeft[ArithExpr](
             addFactor(rhsFactors, lhsFactors.head,
-              distributionAllowed = !rhs.isInstanceOf[Sum],
-              powerMergeAllowed = !rhs.isInstanceOf[Pow])) {
+              listComesFromSum = !rhs.isInstanceOf[Sum],
+              listComesFromPow = !rhs.isInstanceOf[Pow])) {
+
+            case (acc: Prod, lhsFactor) => addFactor(acc.factors, lhsFactor,
+              listComesFromSum = !rhs.isInstanceOf[Sum],
+              listComesFromPow = !rhs.isInstanceOf[Pow])
 
             case (acc: ArithExpr, lhsFactor) => addFactor(List(acc), lhsFactor,
-              distributionAllowed = !rhs.isInstanceOf[Sum],
-              powerMergeAllowed = !rhs.isInstanceOf[Pow])
+              listComesFromSum = !rhs.isInstanceOf[Sum],
+              listComesFromPow = !rhs.isInstanceOf[Pow])
           }
 
 
         case (Prod(lhsFactors), _) => addFactor(lhsFactors, rhs,
-          distributionAllowed = !lhs.isInstanceOf[Sum],
-          powerMergeAllowed = !lhs.isInstanceOf[Pow])
+          listComesFromSum = !lhs.isInstanceOf[Sum],
+          listComesFromPow = !lhs.isInstanceOf[Pow])
 
         case (_, Prod(rhsFactors)) => addFactor(rhsFactors, lhs,
-          distributionAllowed = !rhs.isInstanceOf[Sum],
-          powerMergeAllowed = !rhs.isInstanceOf[Pow])
+          listComesFromSum = !rhs.isInstanceOf[Sum],
+          listComesFromPow = !rhs.isInstanceOf[Pow])
 
         case _ => addFactor(List(lhs), rhs)
       }
