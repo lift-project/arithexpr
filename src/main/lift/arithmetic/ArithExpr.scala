@@ -361,117 +361,6 @@ abstract sealed class ArithExpr {
 }
 
 object ArithExpr {
-  def main(args: Array[String]): Unit = {
-    val a = Var("a")//Var("nInputs")
-    val b = Var("b")//Var("inputWidthHeight")
-    val c = Var("c")//Var("kernelWidthHeight")
-    val d = Var("d")//Var("kernelStride")
-    val e = Var("e")//Var("tileStride")
-
-    val expr0_1 = a * b * c.pow(-1)
-    val expr0 = expr0_1 * d.pow(-1)
-
-    val expr_1 = a*b + c*d
-    assume(expr_1 == a*b + c*d)
-
-    val expr_2 = a.pow(2) * a
-    assume(expr_2 == a.pow(3))
-
-//    val expr =
-//      (-2 * a * b * c * 1/^(((-1 * c * 1/^(e)) + (b * 1/^(e)) + (d * 1/^(e)))) * SimplifyPow(e,-2)) +
-//      (-2 * a * c * d * 1/^(((-1 * c * 1/^(e)) + (b * 1/^(e)) + (d * 1/^(e)))) * SimplifyPow(e,-2)) +
-//      (2 * a * b * d * 1/^(((-1 * c * 1/^(e)) + (b * 1/^(e)) + (d * 1/^(e)))) * SimplifyPow(e,-2)) +
-//      (a * SimplifyPow(c,2) * 1/^(((-1 * c * 1/^(e)) + (b * 1/^(e)) + (d * 1/^(e)))) * SimplifyPow(e,-2)) +
-//      (a * SimplifyPow(b,2) * 1/^(((-1 * c * 1/^(e)) + (b * 1/^(e)) + (d * 1/^(e)))) * SimplifyPow(e,-2)) +
-//      (a * SimplifyPow(d,2) * 1/^(((-1 * c * 1/^(e)) + (b * 1/^(e)) + (d * 1/^(e)))) * SimplifyPow(e,-2))
-
-    val expr_3 = 2 * a * b /^ a
-    assume(expr_3 === 2 * b)
-
-    val expr_4 = a + b
-    assume(expr_4 === a + b)
-
-    val expr_5_1 = a.pow(2) + 2*a*b + b.pow(2)
-    val expr_5_2 = (a + b).pow(2)
-    assume(expr_5_1 === expr_5_2)
-//
-    val expr_6 = SimplifyPow(a, 2) + SimplifyPow(b, 2) + SimplifyPow(c, 2) + 2*a*b + 2*a*c + 2*b*c
-    assume(expr_6 === (a + b + c).pow(2))
-//
-//    println(expr4.asInstanceOf[Sum].powOfSumRepresentation)
-
-    val expr_7_1 = 1/^(a + b + c)
-    val expr_7_2 = a.pow(2) + b.pow(2) + c.pow(2) + 2*a*b + 2*a*c + 2*b*c
-    val expr_7 = expr_7_1 * expr_7_2
-    assume(expr_7 === (a + b + c))
-
-    val expr_8_1 = 1/^(a + b)
-    val expr_8_2 =
-      d * a +
-        d * b
-    val expr_8 = expr_8_1 * expr_8_2
-    assume(expr_8 === d)
-
-    val expr_9_1 = 1/^(a + b)
-    val expr_9_2 =
-      1/^d * a.pow(2) +
-        1/^d * b.pow(2) +
-        1/^d * 2*a*b
-    val expr_9 = expr_9_1 * expr_9_2
-    assume(expr_9 === (1/^d * (a + b)))
-
-    val expr_10 =
-      a * a.pow(2) +
-        a * b.pow(2)
-//        (a + b) * 2*a*b
-    assume(expr_10 === (a * (a.pow(2) + b.pow(2))))
-
-    val expr_11_1 = 2 * a * b * 1/^(a+b)
-    val expr_11_2 = a * a * 1/^(a+b)
-    val expr_11 = ArithExpr.gcd(expr_11_1, expr_11_2)
-//    assume(expr_11 === (a * 1/^(a+b)))
-
-    val expr_12_1_1 = a * 1/^(a+b)
-    val expr_12_1_2 = a.pow(2)  *  1/^(a+b)
-    val expr_12_2 = expr_12_1_1 + expr_12_1_2
-    val expr_12 =  a * 1/^(a+b) * (1 + a)
-    assume(expr_12_2 === expr_12)
-
-    val expr_13_1 = a * 1/^(a+b) + a.pow(2) * 1/^(a+b)
-    val expr_13_2 = 1/^(a+b)
-    val expr_13 = expr_13_1 /^ expr_13_2
-    assume(expr_13 === a + a.pow(2))
-
-    val expr_14_1 = 2 * a * b * 1/^(a+b) + a.pow(2) * 1/^(a+b)
-    val expr_14_2 = 1/^(a+b)
-    val expr_14 = expr_14_1 /^ expr_14_2
-    assume(expr_14 === 2 * a * b + a.pow(2))
-
-    val expr15_1 = 1/^(a + b) * a.pow(2) + 1/^(a + b) * 2*a*b
-    val expr15_2 = 1/^(a + b) * b.pow(2)
-
-    val expr15 = expr15_1 + expr15_2
-    assume(expr15 === (a + b))
-
-    val expr_16_1 = 1/^(a + b) * c * a.pow(2) + 1/^(a+b) * c * 2*a*b
-    val expr_16_2 = 1/^(a + b) * c * b.pow(2)
-
-    val expr_16 = expr_16_1 + expr_16_2
-    assume(expr_16 === (c * (a + b)))
-
-    val expr17_1 = 1/^(a + b) * a.pow(2) + 1/^(a + b) * 2*a*b
-    val expr17_2 = 1/^(a + b) * b.pow(2) + c
-
-    val expr_17 = expr17_1 + expr17_2
-    assume(expr_17 === (a + b) + c)
-
-    val expr_18_1 = 1/^(a + b) * 3 * a.pow(2) + 1/^(a+b) * 3 * 2*a*b
-    val expr_18_2 = 1/^(a + b) * 3 * b.pow(2)
-
-    val expr_18 = expr_18_1 + expr_18_2
-    assume(expr_18 === (3 * (a + b)))
-
-  }
 
   implicit def IntToCst(i: Int): ArithExpr = Cst(i)
 
@@ -1085,7 +974,7 @@ case class IntDiv private[arithmetic](numer: ArithExpr, denom: ArithExpr) extend
 
   override lazy val digest: Int = HashSeed ^ numer.digest() ^ ~denom.digest()
 
-  override def toString: String = s"($numer) / ($denom)"
+  override def toString: String = s"(($numer) / ($denom))"
 
   override def visitAndRebuild(f: (ArithExpr) => ArithExpr): ArithExpr =
     f(numer.visitAndRebuild(f) / denom.visitAndRebuild(f))
@@ -1097,7 +986,7 @@ case class Pow private[arithmetic](b: ArithExpr, e: ArithExpr) extends ArithExpr
   override lazy val digest: Int = HashSeed ^ b.digest() ^ e.digest()
 
   override def toString: String = e match {
-    case Cst(-1) => "1/^(" + b + ")"
+    case Cst(-1) => "(1/^(" + b + "))"
     case _ => "pow(" + b + "," + e + ")"
   }
 
