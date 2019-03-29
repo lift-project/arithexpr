@@ -368,6 +368,15 @@ object ArithExpr {
     val d = Var("d")//Var("kernelStride")
     val e = Var("e")//Var("tileStride")
 
+    val expr0_1 = a * b * c.pow(-1)
+    val expr0 = expr0_1 * d.pow(-1)
+
+    val expr_1 = a*b + c*d
+    assume(expr_1 == a*b + c*d)
+
+    val expr_2 = a.pow(2) * a
+    assume(expr_2 == a.pow(3))
+
 //    val expr =
 //      (-2 * a * b * c * 1/^(((-1 * c * 1/^(e)) + (b * 1/^(e)) + (d * 1/^(e)))) * SimplifyPow(e,-2)) +
 //      (-2 * a * c * d * 1/^(((-1 * c * 1/^(e)) + (b * 1/^(e)) + (d * 1/^(e)))) * SimplifyPow(e,-2)) +
@@ -382,11 +391,11 @@ object ArithExpr {
     val expr_4 = a + b
     assume(expr_4 === a + b)
 
-    val expr_5_1 = Pow(a, 2) + 2*a*b + Pow(b, 2)
+    val expr_5_1 = a.pow(2) + 2*a*b + b.pow(2)
     val expr_5_2 = (a + b).pow(2)
     assume(expr_5_1 === expr_5_2)
 //
-    val expr_6 = Pow(a, 2) + Pow(b, 2) + Pow(c, 2) + 2*a*b + 2*a*c + 2*b*c
+    val expr_6 = SimplifyPow(a, 2) + SimplifyPow(b, 2) + SimplifyPow(c, 2) + 2*a*b + 2*a*c + 2*b*c
     assume(expr_6 === (a + b + c).pow(2))
 //
 //    println(expr4.asInstanceOf[Sum].powOfSumRepresentation)
@@ -694,9 +703,9 @@ object ArithExpr {
         if (result.isDefined) return result
       // z < c*(x + y)  iff  z/c < x + y  Especially useful when c = 1 /^ something
       case (_, Sum(List(Prod(x), Prod(y)))) =>
-        val (fact, sum) = factorize(Prod(x), Prod(y))
+        val (fact, sum) = factorize(x, y)
         // We have to check that a factorization has actually been performed
-        if (fact.factors.nonEmpty) {
+        if (!(fact == Cst(1))) {
           val result = fact.sign match {
             case Sign.Positive => isSmaller(ae1 /^ fact, sum)
             case Sign.Negative => isSmaller(sum, ae1 /^ fact)
@@ -904,7 +913,8 @@ object ArithExpr {
   // factorize(e1, e2) returns a pair `(c, s)` such as
   //     `e1 + e2 = c * (e1' + e2')`
   // and `s = e1' + e2'`
-  def factorize(e1: Prod, e2: Prod): (Prod, Sum) = {
+  // TODO: refactor to 1. return lists of factors/terms and 2. use factorisation in Sum.asProd
+  def factorize(e1factors: List[ArithExpr], e2factors: List[ArithExpr]): (ArithExpr, ArithExpr) = {
     def find[T](l: List[T], p: T => Boolean): Option[(T, List[T])] = {
       l match {
         case Nil => None
@@ -919,8 +929,8 @@ object ArithExpr {
       }
     }
 
-    val init = (List(): List[ArithExpr], List(): List[ArithExpr], e2.factors)
-    val (common, newE2, newE1) = e1.factors.foldLeft(init)({
+    val init = (List(): List[ArithExpr], List(): List[ArithExpr], e2factors)
+    val (common, newE2, newE1) = e1factors.foldLeft(init)({
       case ((com, unmatched, rem), e) => find(rem, (_: ArithExpr) == e) match {
         case None => (com, e :: unmatched, rem)
         case Some((x, xs)) => (x :: com, unmatched, xs)
@@ -1112,10 +1122,10 @@ case class Log private[arithmetic](b: ArithExpr, x: ArithExpr) extends ArithExpr
   * @param factors The list of factors. The list should contain at least 2 operands and should not contain other products.
   */
 case class Prod private[arithmetic](factors: List[ArithExpr]) extends ArithExpr {
+  Debug.Assert(factors.length > 1, s"Factors should have at least two terms in $toString")
 
   if (Debug.SanityCheck && simplified) {
     Debug.Assert(factors.view.zip(factors.tail).forall(x => ArithExpr.sort(x._1, x._2)), "Factors should be sorted")
-    Debug.Assert(factors.length > 1, s"Factors should have at least two terms in $toString")
     factors.foreach(x => {
       Debug.AssertNot(x.isInstanceOf[Prod], s"Prod cannot contain a Prod in $toString")
       Debug.AssertNot(x.isInstanceOf[Sum], "Prod should not contain a Sum")
@@ -1145,21 +1155,16 @@ case class Prod private[arithmetic](factors: List[ArithExpr]) extends ArithExpr 
     */
   def withoutFactors(list: List[ArithExpr]): ArithExpr = {
 //    assert(simplified, "This function only works on simplified products")
-    val rest: List[ArithExpr] = Prod.removeFactors(list, factors)
-    // If we took all the elements out, return neutral (1 for product)
-    if (rest.isEmpty) Cst(1)
+    val rest: List[ArithExpr] = Prod.removeFactors(factors, list)
     // If there is only one left, return it
-    else if (rest.length == 1) rest.head
+    if (rest.length == 1) rest.head
     // Otherwise create a new product, which is also simplified by construction
     else new Prod(rest)// with SimplifiedExpr
   }
 
   def withoutFactor(factor: ArithExpr): ArithExpr = withoutFactors(List(factor))
 
-  lazy val cstFactor: Cst = {
-    if (simplified) factors.find(_.isInstanceOf[Cst]).getOrElse(Cst(1)).asInstanceOf[Cst]
-    else Cst(factors.filter(_.isInstanceOf[Cst]).foldLeft[Long](1)(_ * _.asInstanceOf[Cst].c))
-  }
+  lazy val cstFactor: Cst = Prod.cstFactor(factors, simplified)
 
   override def visitAndRebuild(f: (ArithExpr) => ArithExpr): ArithExpr =
     f(factors.map(_.visitAndRebuild(f)).reduce(_ * _))
@@ -1206,15 +1211,32 @@ object Prod {
     case _ => None
   }
 
-  def removeFactors(toRemove: List[ArithExpr], from: List[ArithExpr]): List[ArithExpr] = from.diff(toRemove)
+  def removeFactors(from: List[ArithExpr], toRemove: List[ArithExpr]): List[ArithExpr] =
+    from.diff(toRemove) match {
+      // If we took all the elements out, return neutral (1 for product)
+      case Nil => List(Cst(1))
+      case x => x
+    }
+
+  def cstFactor(factors: List[ArithExpr], simplified: Boolean): Cst = {
+    if (simplified) factors.find(_.isInstanceOf[Cst]).getOrElse(Cst(1)).asInstanceOf[Cst]
+    else Cst(factors.filter(_.isInstanceOf[Cst]).foldLeft[Long](1)(_ * _.asInstanceOf[Cst].c))
+  }
+
+  def partitionFactorsOnCst(factors: List[ArithExpr], simplified: Boolean): (Cst, List[ArithExpr]) = {
+    factors.partition(_.isInstanceOf[Cst]) match {
+      case (Nil, nonCstFactors) => (Cst(1), nonCstFactors)
+      case (cstFactor, nonCstFactors) => (Cst(cstFactor.foldLeft[Long](1)(_ * _.asInstanceOf[Cst].c)), nonCstFactors)
+    }
+  }
 }
 
 
 case class Sum private[arithmetic](terms: List[ArithExpr]) extends ArithExpr {
+  Debug.Assert(terms.length > 1, s"Terms should have at least two terms in $toString")
 
   if (Debug.SanityCheck && simplified) {
     Debug.Assert(terms.view.zip(terms.tail).forall(x => ArithExpr.sort(x._1, x._2)), "Terms should be sorted")
-    Debug.Assert(terms.length > 1, s"Terms should have at least two terms in $toString")
     terms.foreach(x => {
       Debug.AssertNot(x.isInstanceOf[Sum], "Sum cannot contain a Sum")
     })
@@ -1226,27 +1248,44 @@ case class Sum private[arithmetic](terms: List[ArithExpr]) extends ArithExpr {
 
   // c*a + c*b : c * SimplifySum(a, b)
   lazy val asProd: Option[Prod] = {
-    val prodTerms: List[Prod] = terms.flatMap {
-      case Prod(factors) => Some(Prod(factors))
-      case _ => None
+    // We should never have a sum with one term
+    assume(terms.length > 1)
+
+    // Convert each term into a list of factors (if a term is not a prod, the result will be a list of 1 element)
+    val prodTerms: List[List[ArithExpr]] = terms.map {
+      case Prod(factors) => factors
+      case x => List(x)
     }
-    // Check that all terms of the sum are products (pattern matching)
-    if (prodTerms.length != terms.length)
-      None
-    else {
-      val commonFactors = prodTerms.tail.foldLeft(prodTerms.head.factors) {
-        case (accumulatedCommonTerms: List[ArithExpr], p: Prod) =>
-          SimplifySum.getCommonFactors(accumulatedCommonTerms, p.factors)
+
+    val (cstCommonFactor: Cst, nonCstCommonFactors: List[ArithExpr]) =
+      prodTerms.tail.foldLeft(Prod.partitionFactorsOnCst(prodTerms.head, simplified = true)) {
+        case ((cstCommonFactorAcc: Cst, nonCstCommonFactorsAcc: List[ArithExpr]), nextTerm: List[ArithExpr]) =>
+          SimplifySum.getCommonFactors(cstCommonFactorAcc +: nonCstCommonFactorsAcc, nextTerm)
       }
 
-      commonFactors match {
-        case Nil => // No common factors
-          None
-        case _ =>
-          val factorisedProdTerms: List[ArithExpr] = prodTerms.map(prodTerm => prodTerm.withoutFactors(commonFactors))
+    // First, remove all non-constant factors using simple matching
+    val prodTermsWithoutCommonNonCstFactors: List[ArithExpr] = nonCstCommonFactors match {
+      case Nil => // No common non-constant factors
+        prodTerms.map(SimplifyProd(_))
+      case _ =>
+        prodTerms.map(prodTermFactors =>
+          // (c*a => 1 * c * a), (c*b +> 1 * c * b)
+          SimplifyProd(Prod.removeFactors(prodTermFactors, nonCstCommonFactors)))
+    }
 
-          Some(Prod(commonFactors :+ factorisedProdTerms.reduce(_ + _)))
-      }
+    // Then, remove the constant factor using division
+    val prodTermsWithoutCommonFactors = prodTermsWithoutCommonNonCstFactors.map(_ /^ cstCommonFactor)
+
+    // Finally, construct the common factor
+    ((cstCommonFactor, nonCstCommonFactors) match {
+      case (Cst(1), Nil) => None
+      case (Cst(1), _) => Some(nonCstCommonFactors)
+      case (_, Nil) => Some(List(cstCommonFactor))
+      case _ => Some(cstCommonFactor +: nonCstCommonFactors)
+    }) match {
+      case None => None // We have found neither constant, nor non-constant common factors
+      // The Prod below is not simplified and we don't want to simplify it because we are creating a non-normal "view" here
+      case Some(commonFactors) => Some(Prod(commonFactors :+ prodTermsWithoutCommonFactors.reduce(_ + _)))
     }
   }
 
@@ -1280,6 +1319,18 @@ case class Sum private[arithmetic](terms: List[ArithExpr]) extends ArithExpr {
 
   override def visitAndRebuild(f: (ArithExpr) => ArithExpr): ArithExpr =
     f(terms.map(_.visitAndRebuild(f)).reduce(_ + _))
+}
+
+object Sum {
+  // This is an empty extractor to support SimplifySum that tries to be safe when we represent
+  // other classes as sums (we might want to do it in the future)
+  def unapply(ae: Any): Option[List[ArithExpr]] = ae match {
+    case aexpr: ArithExpr => aexpr match {
+      case s: Sum => Some(s.terms)
+      case _ => None
+    }
+    case _ => None
+  }
 }
 
 // this is really the remainder and not modulo! (I.e. it implements the C semantics of modulo)
