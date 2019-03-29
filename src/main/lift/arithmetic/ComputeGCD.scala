@@ -13,7 +13,7 @@ private[arithmetic] object ComputeGCD {
   def apply(a: ArithExpr, b: ArithExpr): ArithExpr = {
     val g: ArithExpr = (a, b) match {
       // GCD of constants
-      case (Cst(x), Cst(y)) => if (y == 0) scala.math.abs(x) else ComputeGCD(scala.math.abs(y), scala.math.abs(x) % y)
+      case (Cst(x), Cst(y)) => gcdLong(x, y)
 
       case (i: IntDiv, _) => Cst(1)
 
@@ -80,14 +80,30 @@ private[arithmetic] object ComputeGCD {
 
   // Factorize a sum: find a factor common to all terms
   private def factorizeSum(s: Sum): ArithExpr = {
-    assert(s.terms.length > 1)
+    factorizeList(s.terms)
+  }
+
+  def factorizeList(terms: List[ArithExpr]): ArithExpr = {
     val fac = for {
-      t1 <- s.terms
-      t2 <- s.terms
+      t1 <- terms
+      t2 <- terms
       if t1.HashSeed < t2.HashSeed || (t1.HashSeed == t2.HashSeed && t1.digest < t2.digest)
     } yield ComputeGCD(t1, t2)
 
     if (fac.isEmpty) Cst(1)
     else fac.reduce((l, r) => ComputeGCD(l, r))
   }
+
+  def gcdLong(terms: List[Long]): Long = {
+    terms.length match {
+      case 0 => throw new IllegalArgumentException
+      case 1 => terms.head
+      case _ => terms.foldLeft[Long](terms.head)(gcdLong)
+    }
+  }
+
+  def gcdLong(x: Long, y: Long): Long = {
+    if (y == 0) scala.math.abs(x) else gcdLong(scala.math.abs(y), scala.math.abs(x) % y)
+  }
+
 }
