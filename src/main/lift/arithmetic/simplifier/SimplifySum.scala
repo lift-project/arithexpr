@@ -18,12 +18,27 @@ object SimplifySum {
     * @return
     */
   def addTerm(terms: List[ArithExpr], term: ArithExpr): ArithExpr = {
-    terms.zipWithIndex.foreach{
+    terms.zipWithIndex.foreach {
       case (x, i) => {
         val newterm = combineTerms(term, x)
         if (newterm.isDefined) return replaceAt(i, newterm.get, terms).reduce(_ + _)
       }}
-    new Sum((term +: terms).sortWith(ArithExpr.sort)) with SimplifiedExpr
+
+    // We didn't manage to combine the new term with any of the old terms.
+    // At this point, `terms` are either terms of a sum in a normal form, or a non-normal "view" of another
+    // operator expressed as a sum.
+    // Note: such examples exist only if there is Sum.unapply which can construct non-normal views. Currently,
+    // Sum.unapply does not exist and the logic below is in just in case it is added in the future.
+    // First, transform `terms` back into normal form
+    val simplifiedOriginalSum: ArithExpr = if (terms.length > 1) SimplifySum(terms) else terms.head
+    // Then, try to combine `term` with reconstructed normal-form sum of `terms`
+    combineTerms(simplifiedOriginalSum, term) match {
+      case Some(simplifiedResult) => simplifiedResult
+      // If simplified combination is not possible, it is safe to just prepend the term to `terms`
+      // for a simplified sum
+      case None =>
+        new Sum((term +: terms).sortWith(ArithExpr.sort)) with SimplifiedExpr
+    }
   }
 
   /**
@@ -31,29 +46,11 @@ object SimplifySum {
    * Try to combine a pair of terms.
     *
     * @param lhs The first term.
-   * @param rhs The second term.
-   * @return An option containing an expression if the terms can be combined, None otherwise
-   */
+    * @param rhs The second term.
+    * @return An option containing an expression if the terms can be combined, None otherwise
+    */
   def combineTerms(lhs: ArithExpr, rhs: ArithExpr): Option[ArithExpr] = {
-    var factorisedExpr: Option[ArithExpr] = None
-
-    // Try to factorise a sum of products in hope that the sum without common factors can be simplified
-    def simplifiableByFactorisation(factors1: List[ArithExpr], factors2: List[ArithExpr]): Boolean = {
-      getCommonFactors(factors1, factors2) match {
-        case Nil => false
-        case commonFactors =>
-          (Prod.removeFactors(commonFactors, factors1) ++
-            Prod.removeFactors(commonFactors, factors2)).reduce(_ + _) match {
-            // If the the sum of two factor lists without common factors is still a sum, it is not simplifiable
-            case _: Sum => false // Doesn't use the extractor; only matches actual sums
-            case other =>
-              factorisedExpr = Some(other * new Prod(commonFactors) with SimplifiedExpr)
-              true
-          }
-      }
-
-    }
-
+    assert(lhs.simplified && rhs.simplified)
     (lhs, rhs) match {
 
       case (lift.arithmetic.?, _) | (_, lift.arithmetic.?) => Some(lift.arithmetic.?)
@@ -67,6 +64,7 @@ object SimplifySum {
       case (_, Cst(0)) => Some(lhs)
 
       // Simplify terms
+      // TODO: get rid of this
       // Expressions should be simplified at this point, so we shouldn't need this
       case (x, y) if !x.simplified => Some(ExprSimplifier(x) + y)
       case (x, y) if !y.simplified => Some(x + ExprSimplifier(y))
@@ -82,34 +80,91 @@ object SimplifySum {
       // Avoid duplicates in the term list
       case (x, y) if x == y => Some(2 * x)
 
-      // Try to factorise in hope that the factorised sum will be simplier
-      case (Prod(factors1), Prod(factors2)) if simplifiableByFactorisation(factors1, factors2) =>
-        assume(factorisedExpr.isDefined); factorisedExpr
+      case x =>
+        val termsAsProds = x match {
+          /* First, convert lhs and rhs to a list of factors */
+          // Try to factorise in hope that the factorised sum will be simpler
+          case (Prod(fs1), Prod(fs2)) => Some((fs1, fs2))
 
-      // Merge products if they only differ by a constant factor
-//      case (x, p: Prod) if p.withoutFactor(p.cstFactor) == x => Some(x * (p.cstFactor + 1))
-      case (x, Prod(factors2)) if simplifiableByFactorisation(List(x), factors2) =>
-        assume(factorisedExpr.isDefined); factorisedExpr
+          // Merge products if they only differ by a constant fac?tor
+          //      case (x, p: Prod) if p.withoutFactor(p.cstFactor) == x => Some(x * (p.cstFactor + 1))
+          case (ox, Prod(fs2)) => Some((List(ox), fs2))
 
-//      case (p: Prod, x) if p.withoutFactor(p.cstFactor) == x => Some(x * (p.cstFactor + 1))
-      case (Prod(factors1), x) if simplifiableByFactorisation(factors1, List(x)) =>
-        assume(factorisedExpr.isDefined); factorisedExpr
+          //      case (p: Prod, x) if p.withoutFactor(p.cstFactor) == x => Some(x * (p.cstFactor + 1))
+          case (Prod(fs1), ox) => Some((fs1, List(ox)))
+          case _ => None
+        }
 
-      case _ => None
+        termsAsProds match {
+          case Some((factors1, factors2)) => simplifiableByFactorisation(factors1, factors2)
+          case None => None
+        }
     }
   }
 
+
+
+  /**
+    * Try to factorise a sum of products in hope that the sum without common factors can be simplified
+    */
+  def simplifiableByFactorisation(term1factors: List[ArithExpr], term2factors: List[ArithExpr]): Option[ArithExpr] = {
+    getCommonFactors(term1factors, term2factors) match {
+      case (Cst(1), Nil) => None
+      case (cstCommonFactor, nonCstCommonFactors) =>
+
+        val (term1CstFactor, term1NonCstFactors) = Prod.partitionFactorsOnCst(term1factors, simplified = true)
+        val (term2CstFactor, term2NonCstFactors) = Prod.partitionFactorsOnCst(term2factors, simplified = true)
+
+        val term1WithoutCommonFactors = SimplifyProd((term1CstFactor /^ cstCommonFactor) +: Prod.removeFactors(term1NonCstFactors, nonCstCommonFactors))
+        val term2WithoutCommonFactors = SimplifyProd((term2CstFactor /^ cstCommonFactor) +: Prod.removeFactors(term2NonCstFactors, nonCstCommonFactors))
+
+        val commonFactors = cstCommonFactor match {
+          case Cst(1) => nonCstCommonFactors
+          case _ => cstCommonFactor +: nonCstCommonFactors
+        }
+
+        combineTerms(term1WithoutCommonFactors, term2WithoutCommonFactors) match {
+
+          case Some(simplifiedAE) =>
+            // Remaining sum has been collapsed (simplified)
+            Some(simplifiedAE * SimplifyProd(commonFactors))
+
+          case None =>
+            val sumWithoutCommonFactors = term1WithoutCommonFactors + term2WithoutCommonFactors
+            // No simplification of remaining sum is possible.
+            // Check if it can be simplified by multiplying it by each common factor
+            // We prevent infinite loop here using a flag preventing us from distributing that will lead us back here
+            var simplificationAchieved: Boolean = false
+
+            val possiblySimplifiedCommonFactors = commonFactors.map(commonFactor =>
+              if (!simplificationAchieved) {
+                SimplifyProd.combineFactors(sumWithoutCommonFactors, commonFactor,
+                  distributionAllowed = false) match {
+                  case Some(simplifiedExpr) =>
+                    simplificationAchieved = true
+                    simplifiedExpr
+
+                  case None => commonFactor
+                }
+              } else commonFactor
+            )
+
+            if (simplificationAchieved) Some(possiblySimplifiedCommonFactors.reduce(_ * _)) else None
+        }
+    }
+  }
+
+
   // toPowOfSum is specific to the power of 2, but is generic to any length of the sum
-  def toPowOfSum(terms: List[ArithExpr]): Option[Pow] = {
+  def toPowOfSum(terms: List[ArithExpr]): Option[ArithExpr] = {
     // (a^2 + b^2 + c^2) + (2ab + 2ac + 2bc) == (a + b + c)^2
     // powerTerms + productTerms == squaredSumTerms^2
     val powerTerms: List[Pow] = terms.flatMap {
-      case p: Pow => Some(Pow(p.b, p.e))
+      case p: Pow => Some(p)
       case _ => None
     }
     val productTerms: List[Prod] = terms.flatMap {
-      // The conditional prevents us from matching powers as products
-      case p: Prod/* if !p.isInstanceOf[Pow]*/ => Some(Prod(p.factors))
+      case p: Prod => Some(p) // TODO: maybe use unapply here
       case _ => None
     }
 
@@ -195,21 +250,29 @@ object SimplifySum {
       }
       signs match {
         case Some(signCombination) =>
-          Some(Pow(
-            b = squaredSumTerms.map(term => signCombination(term) match {
+          Some(SimplifyPow(
+            base = squaredSumTerms.map(term => signCombination(term) match {
               case Sign.Positive => term
-              case Sign.Negative => Prod(List(Cst(-1), term))
+              case Sign.Negative => SimplifyProd(List(Cst(-1), term)) // TODO check if we want to use SimplifyProd here
               case _ => throw new IllegalArgumentException("The sign cannot be unknown at this point")
             }).reduce(_ + _),
-            e = 2))
+            exp = 2))
         case None => None
       }
     }
   }
 
-  /* Get common factors from factors of two simplified Prods */
-  def getCommonFactors(factors1: List[ArithExpr], factors2: List[ArithExpr]): List[ArithExpr] =
-    factors1.intersect(factors2)
+  /* Get non-constant and constant common factors from factors of two simplified Prods */
+  def getCommonFactors(factors1: List[ArithExpr], factors2: List[ArithExpr]): (Cst, List[ArithExpr]) = {
+    val (prod1CstFactor, nonCstFactors1) = Prod.partitionFactorsOnCst(factors1, simplified = true)
+    val (prod2CstFactor, nonCstFactors2) = Prod.partitionFactorsOnCst(factors2, simplified = true)
+
+    val cstFactors: List[Long] = List(prod1CstFactor.c, prod2CstFactor.c)
+
+    val cstCommonFactor = ComputeGCD.gcdLong(cstFactors)
+
+    (Cst(cstCommonFactor), nonCstFactors1.intersect(nonCstFactors2))
+  }
 
 
     /**
@@ -222,38 +285,39 @@ object SimplifySum {
     def apply(lhs: ArithExpr, rhs: ArithExpr): ArithExpr = {
       if (PerformSimplification())
         ((lhs, rhs) match {
-          case (Sum(lhsTerms), Sum(rhsTerms)) =>
-            addTerm(lhsTerms, rhsTerms.head) + (
-              if (rhsTerms.tail.length == 1)
-                rhsTerms.tail.head
-              else
-                new Sum(rhsTerms.tail) with SimplifiedExpr)
+          case (s1: Sum, s2: Sum) => s2.terms.foldLeft[ArithExpr](s1)(_ + _)
+          case (s1: Sum, s2@Sum(_)) => s1.terms.foldLeft[ArithExpr](s2)(_ + _)
+          case (s1@Sum(_), s2: Sum) => rhs + lhs
+
+          case (s@Sum(lhsTerms), Sum(rhsTerms)) =>
+            lhsTerms.tail.foldLeft[ArithExpr](addTerm(rhsTerms, lhsTerms.head)) {
+              case (acc: ArithExpr, lhsTerm) => addTerm(List(acc), lhsTerm)
+            }
+
           case (Sum(lhsTerms), _) => addTerm(lhsTerms, rhs)
           case (_, Sum(rhsTerms)) => addTerm(rhsTerms, lhs)
           case _ =>                  addTerm(List(lhs), rhs)
         }) match {
-
+        // Simplify by looking at all the resulting terms / factors
         // example: a^2 + 2ab + b^2 => (a + b)^2
         case s@Sum(terms) =>
           toPowOfSum(terms) match {
-            case Some(p: Pow) => p
+            case Some(x) => x
             case _ => s
           }
-
-        // example: x * (a^2 + 2ab + b^2) => x * (a + b)^2
-        case Prod(factors) =>
-            new Sum(factors.map {
-              case s@Sum(terms) =>
-                toPowOfSum(terms) match {
-                  case Some(p: Pow) => p
-                  case _ => s
-                }
-              case x => x
-            }) with SimplifiedExpr
 
         case x => x
       }
       else
         new Sum(List(lhs, rhs).sortWith(ArithExpr.sort)) with SimplifiedExpr
     }
+
+  /**
+    * TODO: documentation
+    */
+  def apply(terms: List[ArithExpr]): ArithExpr = {
+//    assume(terms.length > 1)
+    if (terms.length > 1) terms.reduce(_ + _)
+    else terms.head
+  }
 }
