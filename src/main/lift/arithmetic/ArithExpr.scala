@@ -97,7 +97,8 @@ abstract sealed class ArithExpr {
         case Pow(b, e) =>
           (b.sign, e.sign) match {
             case (Sign.Positive, Sign.Positive) => (b.min pow e.min, b.max pow e.max)
-            case (Sign.Positive, Sign.Negative) => (b.max pow e.min, b.min pow e.max)
+            case (Sign.Positive, Sign.Negative) => (b.min pow e.min, b.max pow e.max)
+            case (Sign.Negative, Sign.Positive) => (b.max pow e.min, b.min pow e.max)
             case (Sign.Positive, _) => (?, ?) // could be anything
             case (Sign.Negative, _) => (?, ?) // could be anything
             case (Sign.Unknown, _) => (?, ?) // unkown
@@ -842,20 +843,20 @@ object ArithExpr {
     case IntDiv(numer, denom) =>     s"(${printToScalaString(numer)}) / (${printToScalaString(denom)})"
     case Pow(b, e) => e match {
       case Cst(-1) =>                s"Cst(1)/^(${printToScalaString(b)})"
-      case _ =>                      s"Pow(${printToScalaString(b)}, ${printToScalaString(e)})"
+      case _ =>                      s"SimplifyPow(${printToScalaString(b)}, ${printToScalaString(e)})"
     }
-    case Log(b, x) =>                s"Log (${printToScalaString(b)}, ${printToScalaString(x)})"
+    case Log(b, x) =>                s"Log(${printToScalaString(b)}, ${printToScalaString(x)})"
     case Prod(factors) =>
-      if (factors.nonEmpty)          factors.map(printToScalaString).mkString("Prod(List(", ", ", "))")
-      else                           s"Prod(List())"
+      if (factors.nonEmpty)          factors.map(printToScalaString).mkString("SimplifyProd(List(", ", ", "))")
+      else                           s"SimplifyProd(List())"
     case Sum(terms) =>
-      if (terms.nonEmpty)            terms.map(printToScalaString).mkString("Sum(List(", ", ", "))")
-      else                           s"Sum(List())"
-    case Mod(dividend, divisor) =>   s"Mod(${printToScalaString(dividend)}, ${printToScalaString(divisor)})"
-    case AbsFunction(e) =>           s"AbsFunction(${printToScalaString(e)})"
-    case FloorFunction(e) =>         s"FloorFunction(${printToScalaString(e)})"
-    case CeilingFunction(e) =>       s"CeilingFunction(${printToScalaString(e)})"
-    case IfThenElse(test, t, e) =>   s"IfThenElse(${Predicate.printToScalaString(test)}, " +
+      if (terms.nonEmpty)            terms.map(printToScalaString).mkString("SimplifySum(List(", ", ", "))")
+      else                           s"SimplifySum(List())"
+    case Mod(dividend, divisor) =>   s"SimplifyMod(${printToScalaString(dividend)}, ${printToScalaString(divisor)})"
+    case AbsFunction(e) =>           s"SimplifyAbs(${printToScalaString(e)})"
+    case FloorFunction(e) =>         s"SimplifyFloor(${printToScalaString(e)})"
+    case CeilingFunction(e) =>       s"SimplifyCeiling(${printToScalaString(e)})"
+    case IfThenElse(test, t, e) =>   s"SimplifyIfThenElse(${Predicate.printToScalaString(test)}, " +
       s"${printToScalaString(t)}, ${printToScalaString(e)})"
     case ArithExprFunction(name, range) =>
                                       "ArithExprFunction(\"" + s"$name" + "\"" + s", ${Range.printToScalaString(range)})"
