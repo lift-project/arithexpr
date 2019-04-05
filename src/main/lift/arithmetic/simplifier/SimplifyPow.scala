@@ -60,6 +60,9 @@ object SimplifyPow {
     // x^log(x,b) => b
     case (x1,Log(x2,b)) if x1 == x2 => Some(b)
 
+    case (v: Var, e) if v.range.min == v.range.max && v.range.min != ? => Some(v.range.min pow e)
+    case (x, v: Var) if v.range.min == v.range.max && v.range.min != ? => Some(x pow v.range.min)
+
     case _ => None
   }
 
