@@ -1089,6 +1089,9 @@ object Prod {
       // (a * b * c)^e  :  a^e * b^e * c^e
       case Pow(Prod(factors), e) => Some(factors.map(SimplifyPow(_ , e)))
 
+      // b^(a + c + d)  :  b^a * b^c * b ^d
+      case Pow(b, Sum(exps)) => Some(exps.map(SimplifyPow(b, _)))
+
       // (x*a + x*b + x*c)  :  x*(a + b + c)
       case s: Sum =>
         s.asProd match {

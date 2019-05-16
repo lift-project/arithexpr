@@ -36,7 +36,9 @@ object SimplifyPow {
     case (Cst(b), Cst(e)) if e < -1 => Some(Cst(scala.math.pow(b, -e).toInt) pow Cst(-1))
 
     // Distribute product: x^(m+n) => x^m * x^n
-    case (b, Sum(terms)) => Some(terms.map(b pow).reduce(_*_))
+    // This is not a closed form -- hence, this is now a "temporary view" for simplification
+    // implemented in Prod.unapply()
+//    case (b, Sum(terms)) => Some(terms.map(b pow).reduce(_*_))
 
     // Simplify Operands
     case (x, y) if !x.simplified => Some(ExprSimplifier(x) pow y)
