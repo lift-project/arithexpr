@@ -146,7 +146,7 @@ object SimplifyMod {
 
     case (m: Mod, d) if m.divisor == d => Some(m)
 
-    // If the divident is a product, try to find the divisor. Finding the GCD below should make this redundant, but the
+    // If the dividend is a product, try to find the divisor. Finding the GCD below should make this redundant, but the
     // GCD method does not return fractions, but the divisor could be one.
     case (Prod(factors), x) if factors.contains(x) && !ArithExpr.hasDivision(factors) => Some(Cst(0))
 

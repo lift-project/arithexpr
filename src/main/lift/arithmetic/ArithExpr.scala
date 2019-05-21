@@ -97,7 +97,6 @@ abstract sealed class ArithExpr {
             case (Sign.Negative, Sign.Negative) => (0 - ((0 - divisor).max - 1), 0)
             case _ => (?, ?) // impossible to determine the min and max
           }
-//        case Pow(Cst(b), Cst(e)) if b > 0 && e < 0 => (b.min pow e.min, )
         case Pow(b, e) =>
           (b.sign, e.sign) match {
             case (Sign.Positive, Sign.Positive) => (b.min pow e.min, b.max pow e.max)
@@ -105,7 +104,7 @@ abstract sealed class ArithExpr {
             case (Sign.Negative, Sign.Positive) => (b.max pow e.min, b.min pow e.max)
             case (Sign.Positive, _) => (?, ?) // could be anything
             case (Sign.Negative, _) => (?, ?) // could be anything
-            case (Sign.Unknown, _) => (?, ?) // unknown
+            case (_, _) => (?, ?) // unknown
           }
         case v: Var => (v.range.min.min: ArithExpr, v.range.max.max: ArithExpr)
         case ? => (?, ?)
