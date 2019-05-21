@@ -583,7 +583,10 @@ object ArithExpr {
       case (Prod((v1: Var) :: Pow(Cst(c), Cst(-1)) :: Nil), v2: Var) if v1 == v2 && c > 1 =>
         return Some(true)
       // a < b (true if a.max < b)
-      case (v1: Var, v2: Var) if isSmaller(v1.range.max, v2).getOrElse(false) =>
+      // Adding 1 seems to be a simple heuristic: if range is RangeAdd, then range.max
+      // has -1 in it. By adding 1, we make the max simpler to compare, and if a + 1 < b,
+      // then a < b, so it is safe
+      case (v1: Var, v2: Var) if isSmaller(v1.range.max + 1, v2).getOrElse(false) =>
         return Some(true)
       // Abs(a + x) < n true if (a + x) < n and -1(a + x) < n
       case (AbsFunction(Sum((a: Cst) :: (x: Var) :: Nil)), n: Var) if
