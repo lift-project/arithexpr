@@ -6,13 +6,15 @@ import scala.language.postfixOps
 
 object SimplifyMod {
 
-  def simplify(dividend: ArithExpr, divisor: ArithExpr): Option[ArithExpr] = (dividend, divisor) match {
+  def simplify(dividend: ArithExpr with SimplifiedExpr, divisor: ArithExpr with SimplifiedExpr):
+  Option[ArithExpr with SimplifiedExpr] =
+    (dividend, divisor) match {
   
     case (arithmetic.?, _) | (_, arithmetic.?) => Some(?)
 
     // Simplify operands
-    case (x, y) if !x.simplified => Some(ExprSimplifier(x) % y)
-    case (x, y) if !y.simplified => Some(x % ExprSimplifier(y))
+//    case (x, y) if !x.simplified => Some(ExprSimplifier(x) % y)
+//    case (x, y) if !y.simplified => Some(x % ExprSimplifier(y))
 
     ///////////////////////////////////////////////////////////////////////////////////
     // SPECIAL CASES //todo combine cases which only differ in order of args
@@ -179,7 +181,8 @@ object SimplifyMod {
     case _ => None
   }
 
-  def apply(dividend: ArithExpr, divisor: ArithExpr): ArithExpr = {
+  def apply(dividend: ArithExpr with SimplifiedExpr, divisor: ArithExpr with SimplifiedExpr):
+  ArithExpr with SimplifiedExpr = {
     val simplificationResult = if (PerformSimplification()) simplify(dividend, divisor) else None
     simplificationResult match {
       case Some(toReturn) => toReturn

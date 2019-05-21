@@ -1,12 +1,15 @@
 package lift
 package arithmetic
 
+import lift.arithmetic.Predicate.Operator.Operator
 import lift.arithmetic.simplifier.SimplifyIfThenElse
 
 /**
   * Predicate object. Stores two arithmetic expressions and an operator
   */
-case class Predicate(lhs: ArithExpr, rhs: ArithExpr, op: Predicate.Operator.Operator) {
+case class Predicate(lhs: ArithExpr with SimplifiedExpr,
+                     rhs: ArithExpr with SimplifiedExpr,
+                     op: Predicate.Operator.Operator) {
 
   override lazy val toString: String = s"($lhs $op $rhs)"
 

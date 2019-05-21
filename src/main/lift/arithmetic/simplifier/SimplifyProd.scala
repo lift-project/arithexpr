@@ -11,9 +11,9 @@ object SimplifyProd {
   // TODO: documentation
   // Power merge is prohibited in case one of the factors is the result of temporary power
   // distribution (i.e. through extractor) since merging the powers again won't make the product simpler
-  def addFactor(factors: List[ArithExpr], factor: ArithExpr,
+  def addFactor(factors: List[ArithExpr with SimplifiedExpr], factor: ArithExpr with SimplifiedExpr ,
                 listComesFromSum: Boolean = true,
-                listComesFromPow: Boolean = true): ArithExpr = {
+                listComesFromPow: Boolean = true): ArithExpr with SimplifiedExpr = {
 
     factors.zipWithIndex.foreach{
       case (x, i) => {
@@ -60,10 +60,10 @@ object SimplifyProd {
    * @param rhs The second factor.
    * @return An option containing an expression if the factors can be combined, None otherwise
    */
-  def combineFactors(lhs: ArithExpr, rhs: ArithExpr,
+  def combineFactors(lhs: ArithExpr with SimplifiedExpr, rhs: ArithExpr with SimplifiedExpr,
                      distributionAllowed: Boolean = true,
-                     powerMergeAllowed: Boolean = true): Option[ArithExpr] = {
-    assert(lhs.simplified && rhs.simplified)
+                     powerMergeAllowed: Boolean = true): Option[ArithExpr with SimplifiedExpr] = {
+//    assert(lhs.simplified && rhs.simplified)
     (lhs, rhs) match {
 
       case (lift.arithmetic.?,_) | (_,lift.arithmetic.?) => Some( lift.arithmetic.? )
@@ -93,8 +93,8 @@ object SimplifyProd {
 
       // Factor simplification
       // TODO: get rid of this since we expect the arguments to be simplified
-      case (x, y) if !x.simplified => Some(ExprSimplifier(x) * y)
-      case (x, y) if !y.simplified => Some(x * ExprSimplifier(y))
+//      case (x, y) if !x.simplified => Some(ExprSimplifier(x) * y)
+//      case (x, y) if !y.simplified => Some(x * ExprSimplifier(y))
 
       // Constant product
       case (Cst(x), Cst(y)) => Some(Cst(x * y))
@@ -164,15 +164,15 @@ object SimplifyProd {
    * @param rhs The right-hand side.
    * @return A promoted expression or a simplified Prod object.
    */
-  def apply(lhs: ArithExpr, rhs: ArithExpr): ArithExpr = {
+  def apply(lhs: ArithExpr with SimplifiedExpr, rhs: ArithExpr with SimplifiedExpr): ArithExpr with SimplifiedExpr = {
     if (PerformSimplification()) {
       // Whenever we unpack an expression using an extractor, set the safety flags (distributionAllowed and
       // powerMergeAllowed) based on the original type of the unpacked expression
       (lhs, rhs) match {
-        case (p1: Prod, p2: Prod) => p2.factors.foldLeft[ArithExpr](p1)(_ * _)
+        case (p1: Prod, p2: Prod) => p2.factors.foldLeft[ArithExpr with SimplifiedExpr](p1)(_ * _)
 
         case (p@Prod(lhsFactors), Prod(rhsFactors)) =>
-          lhsFactors.tail.foldLeft[ArithExpr](
+          lhsFactors.tail.foldLeft[ArithExpr with SimplifiedExpr](
             addFactor(rhsFactors, lhsFactors.head,
               listComesFromSum = !rhs.isInstanceOf[Sum],
               listComesFromPow = !rhs.isInstanceOf[Pow])) {
@@ -208,9 +208,9 @@ object SimplifyProd {
   /**
     * TODO: documentation
     */
-  def apply(factors: List[ArithExpr]): ArithExpr = {
+  def apply(factors: List[ArithExpr with SimplifiedExpr]): ArithExpr with SimplifiedExpr = {
 //    assume(factors.length > 1)
-    factors.foldLeft[ArithExpr](Cst(1)) {
+    factors.foldLeft[ArithExpr with SimplifiedExpr](Cst(1)) {
       case (acc, factor) => acc * factor
     }
   }

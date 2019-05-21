@@ -17,7 +17,8 @@ object SimplifySum {
     * @param term
     * @return
     */
-  def addTerm(terms: List[ArithExpr], term: ArithExpr): ArithExpr = {
+  def addTerm(terms: List[ArithExpr with SimplifiedExpr], term: ArithExpr with SimplifiedExpr):
+  ArithExpr with SimplifiedExpr = {
     terms.zipWithIndex.foreach {
       case (x, i) => {
         val newterm = combineTerms(term, x)
@@ -30,7 +31,7 @@ object SimplifySum {
     // Note: such examples exist only if there is Sum.unapply which can construct non-normal views. Currently,
     // Sum.unapply does not exist and the logic below is in just in case it is added in the future.
     // First, transform `terms` back into normal form
-    val simplifiedOriginalSum: ArithExpr = if (terms.length > 1) SimplifySum(terms) else terms.head
+    val simplifiedOriginalSum: ArithExpr with SimplifiedExpr = if (terms.length > 1) SimplifySum(terms) else terms.head
     // Then, try to combine `term` with reconstructed normal-form sum of `terms`
     combineTerms(simplifiedOriginalSum, term) match {
       case Some(simplifiedResult) => simplifiedResult
@@ -49,7 +50,8 @@ object SimplifySum {
     * @param rhs The second term.
     * @return An option containing an expression if the terms can be combined, None otherwise
     */
-  def combineTerms(lhs: ArithExpr, rhs: ArithExpr): Option[ArithExpr] = {
+  def combineTerms(lhs: ArithExpr with SimplifiedExpr, rhs: ArithExpr with SimplifiedExpr):
+  Option[ArithExpr with SimplifiedExpr] = {
     assert(lhs.simplified && rhs.simplified)
     (lhs, rhs) match {
 
@@ -66,8 +68,8 @@ object SimplifySum {
       // Simplify terms
       // TODO: get rid of this
       // Expressions should be simplified at this point, so we shouldn't need this
-      case (x, y) if !x.simplified => Some(ExprSimplifier(x) + y)
-      case (x, y) if !y.simplified => Some(x + ExprSimplifier(y))
+//      case (x, y) if !x.simplified => Some(ExprSimplifier(x) + y)
+//      case (x, y) if !y.simplified => Some(x + ExprSimplifier(y))
 
       // Prune zeroed vars (a Var with a range that can only be 0 should have been simplified!)
       case (x, v: Var) if v.range.min == v.range.max && v.range.min != ? => Some(x + v.range.min)
@@ -107,7 +109,9 @@ object SimplifySum {
   /**
     * Try to factorise a sum of products in hope that the sum without common factors can be simplified
     */
-  def simplifiableByFactorisation(term1factors: List[ArithExpr], term2factors: List[ArithExpr]): Option[ArithExpr] = {
+  def simplifiableByFactorisation(term1factors: List[ArithExpr with SimplifiedExpr],
+                                  term2factors: List[ArithExpr with SimplifiedExpr]):
+  Option[ArithExpr with SimplifiedExpr] = {
     getCommonFactors(term1factors, term2factors) match {
       case (Cst(1), Nil) => None
       case (cstCommonFactor, nonCstCommonFactors) =>
@@ -156,7 +160,7 @@ object SimplifySum {
 
 
   // toPowOfSum is specific to the power of 2, but is generic to any length of the sum
-  def toPowOfSum(terms: List[ArithExpr]): Option[ArithExpr] = {
+  def toPowOfSum(terms: List[ArithExpr with SimplifiedExpr]): Option[ArithExpr] = {
     // (a^2 + b^2 + c^2) + (2ab + 2ac + 2bc) == (a + b + c)^2
     // powerTerms + productTerms == squaredSumTerms^2
     val powerTerms: List[Pow] = terms.flatMap {
@@ -263,7 +267,8 @@ object SimplifySum {
   }
 
   /* Get non-constant and constant common factors from factors of two simplified Prods */
-  def getCommonFactors(factors1: List[ArithExpr], factors2: List[ArithExpr]): (Cst, List[ArithExpr]) = {
+  def getCommonFactors(factors1: List[ArithExpr with SimplifiedExpr], factors2: List[ArithExpr with SimplifiedExpr]):
+  (Cst, List[ArithExpr]) = {
     val (prod1CstFactor, nonCstFactors1) = Prod.partitionFactorsOnCst(factors1, simplified = true)
     val (prod2CstFactor, nonCstFactors2) = Prod.partitionFactorsOnCst(factors2, simplified = true)
 
@@ -282,7 +287,7 @@ object SimplifySum {
       * @param rhs The right-hand side.
       * @return A promoted expression or a simplified sum object.
       */
-    def apply(lhs: ArithExpr, rhs: ArithExpr): ArithExpr = {
+    def apply(lhs: ArithExpr with SimplifiedExpr, rhs: ArithExpr with SimplifiedExpr): ArithExpr with SimplifiedExpr = {
       if (PerformSimplification())
         ((lhs, rhs) match {
           case (s1: Sum, s2: Sum) => s2.terms.foldLeft[ArithExpr](s1)(_ + _)
@@ -315,7 +320,7 @@ object SimplifySum {
   /**
     * TODO: documentation
     */
-  def apply(terms: List[ArithExpr]): ArithExpr = {
+  def apply(terms: List[ArithExpr with SimplifiedExpr]): ArithExpr with SimplifiedExpr = {
 //    assume(terms.length > 1)
     if (terms.length > 1) terms.reduce(_ + _)
     else terms.head

@@ -6,7 +6,7 @@ import lift.arithmetic.Predicate.Operator
 
 object SimplifyIfThenElse {
 
-  def simplify(test: Predicate, t : ArithExpr, e : ArithExpr): Option[ArithExpr] = {
+  def simplify(test: Predicate, t: ArithExpr with SimplifiedExpr, e: ArithExpr with SimplifiedExpr): Option[ArithExpr with SimplifiedExpr] = {
     // If both branches are the same, it doesn't matter which one we take
 
     if (e == t) return Some(t)
@@ -60,11 +60,12 @@ object SimplifyIfThenElse {
     }
   }
 
-  def apply(test: Predicate, t : ArithExpr, e : ArithExpr): ArithExpr = {
+  def apply(test: Predicate, t: ArithExpr with SimplifiedExpr, e: ArithExpr with SimplifiedExpr):
+  ArithExpr with SimplifiedExpr = {
     val simplificationResult = if (PerformSimplification()) simplify(test, t, e) else None
     simplificationResult match {
       case Some(toReturn) => toReturn
-      case None => new IfThenElse(Predicate(ExprSimplifier(test.lhs), ExprSimplifier(test.rhs), test.op), ExprSimplifier(t), ExprSimplifier(e)) with SimplifiedExpr
+      case None => new IfThenElse(Predicate(test.lhs, test.rhs, test.op), t, e) with SimplifiedExpr
     }
   }
 }

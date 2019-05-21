@@ -12,7 +12,9 @@ object SimplifyPow {
    * @param exp The exponent.
    * @return An option containing a promoted expression if the expression can be re-written, None otherwise.
    */
-  def simplify(base: ArithExpr, exp: ArithExpr): Option[ArithExpr] = (base, exp) match {
+  def simplify(base: ArithExpr with SimplifiedExpr, exp: ArithExpr with SimplifiedExpr):
+  Option[ArithExpr with SimplifiedExpr] =
+    (base, exp) match {
 
     // Power of zero
     case (_, Cst(0)) => Some(Cst(1))
@@ -41,8 +43,8 @@ object SimplifyPow {
 //    case (b, Sum(terms)) => Some(terms.map(b pow).reduce(_*_))
 
     // Simplify Operands
-    case (x, y) if !x.simplified => Some(ExprSimplifier(x) pow y)
-    case (x, y) if !y.simplified => Some(x pow ExprSimplifier(y))
+//    case (x, y) if !x.simplified => Some(ExprSimplifier(x) pow y)
+//    case (x, y) if !y.simplified => Some(x pow ExprSimplifier(y))
 
     // Power of power: (x^e1)^e2 => x^(e1*e2)
     case (Pow(b, e1), e2) if (e1 match {
@@ -62,13 +64,13 @@ object SimplifyPow {
     // x^log(x,b) => b
     case (x1,Log(x2,b)) if x1 == x2 => Some(b)
 
-    case (v: Var, e) if v.range.min == v.range.max && v.range.min != ? => Some(v.range.min pow e)
-    case (x, v: Var) if v.range.min == v.range.max && v.range.min != ? => Some(x pow v.range.min)
+//    case (v: Var, e) if v.range.min == v.range.max && v.range.min != ? => Some(v.range.min pow e)
+//    case (x, v: Var) if v.range.min == v.range.max && v.range.min != ? => Some(x pow v.range.min)
 
     case _ => None
   }
 
-  def apply(base: ArithExpr, exp: ArithExpr) = {
+  def apply(base: ArithExpr with SimplifiedExpr, exp: ArithExpr with SimplifiedExpr): ArithExpr with SimplifiedExpr = {
     val simplificationResult = if (PerformSimplification()) simplify(base, exp) else None
     simplificationResult match {
       case Some(toReturn) => toReturn
