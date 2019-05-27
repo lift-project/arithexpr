@@ -1,8 +1,6 @@
 package lift.arithmetic.simplifier
 
-import arithmetic.TypeVar
-import ir.view.{AccessVar, CastedPointer, SizeIndex}
-import lift.arithmetic.{?, ArithExpr, OpaqueVar, PerformSimplification, Range, RangeUnknown, SimplifiedExpr, Var}
+import lift.arithmetic.{?, ArithExpr, ExtensibleVar, PerformSimplification, Range, RangeUnknown, SimplifiedExpr, Var}
 
 object SimplifyVar {
 
@@ -26,11 +24,8 @@ object SimplifyVar {
       case None =>
         v match {
           // Recreate var with the simplified trait
-          case oV: OpaqueVar =>       oV.cloneSimplified()
-          case tV: TypeVar =>         tV.cloneSimplified()
-          case aV: AccessVar =>       aV.cloneSimplified()
-          case cP: CastedPointer =>   cP.cloneSimplified()
-          case sI: SizeIndex =>       sI.cloneSimplified()
+          case eV: ExtensibleVar => eV.cloneSimplified()
+          case v: Var => v.cloneSimplified()
           // N.B. all new concrete Var subtypes have to be processed here separately
           case _ => new Var(v.name, v.range, Some(v.id)) with SimplifiedExpr
       }

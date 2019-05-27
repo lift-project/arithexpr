@@ -1457,6 +1457,8 @@ class Var private[arithmetic](val name: String,
 
   override lazy val digest: Int = HashSeed ^ name.hashCode ^ id.hashCode ^ range.digest()
 
+  def cloneSimplified(): Var with SimplifiedExpr = new Var(name, range, Some(id)) with SimplifiedExpr
+
   override def equals(that: Any): Boolean = that match {
     case v: Var => this.id == v.id
     case _ => false
@@ -1541,7 +1543,8 @@ abstract class ExtensibleVar(override val name: String,
   /* redeclare as abstract to force subclasses to implement */
   override def copy(r: Range): Var
 
-  def cloneSimplified(): Var with SimplifiedExpr
+  /* redeclare as abstract to force subclasses to implement */
+  override def cloneSimplified(): Var with SimplifiedExpr
 
   override def visitAndRebuild(f: (ArithExpr) => ArithExpr): ArithExpr
 }
