@@ -39,8 +39,8 @@ object Range {
     * Converts a Range to a Scala notation String which can be evaluated into a valid Range
     */
   def printToScalaString(r: Range): String = r match {
-    case StartFromRange(start) =>             s"StartFromRange(${ArithExpr.printToScalaString(start)}"
-    case GoesToRange(end) =>                  s"GoesToRange(${ArithExpr.printToScalaString(end)}"
+    case StartFromRange(start) =>             s"StartFromRange(${ArithExpr.printToScalaString(start)})"
+    case GoesToRange(end) =>                  s"GoesToRange(${ArithExpr.printToScalaString(end)})"
     case RangeAdd(start, stop, step) =>       s"RangeAdd(${ArithExpr.printToScalaString(start)}, " +
                                                        s"${ArithExpr.printToScalaString(stop)}, " +
                                                        s"${ArithExpr.printToScalaString(step)})"
