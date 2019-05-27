@@ -26,12 +26,11 @@ object SimplifyVar {
       case None =>
         v match {
           // Recreate var with the simplified trait
-          case oV: OpaqueVar => new OpaqueVar(oV.v, oV.range, Some(oV.id)) with SimplifiedExpr
-          case tV: TypeVar => new TypeVar(tV.range, Some(tV.id)) with SimplifiedExpr
-          case aV: AccessVar => new AccessVar(aV.array, aV.idx, aV.range, Some(aV.id)) with SimplifiedExpr
-          case cP: CastedPointer => new CastedPointer(cP.ptr, cP.ty, cP.offset, cP.addressSpace, Some(cP.id))
-            with SimplifiedExpr
-          case sI: SizeIndex => new SizeIndex(Some(sI.id)) with SimplifiedExpr
+          case oV: OpaqueVar =>       oV.cloneSimplified()
+          case tV: TypeVar =>         tV.cloneSimplified()
+          case aV: AccessVar =>       aV.cloneSimplified()
+          case cP: CastedPointer =>   cP.cloneSimplified()
+          case sI: SizeIndex =>       sI.cloneSimplified()
           // N.B. all new concrete Var subtypes have to be processed here separately
           case _ => new Var(v.name, v.range, Some(v.id)) with SimplifiedExpr
       }

@@ -76,8 +76,12 @@ abstract sealed class ArithExpr {
           (terms.map(_.min).reduce[ArithExpr](_ + _), terms.map(_.max).reduce[ArithExpr](_ + _))
         case IntDiv(numer, denom) =>
           this.sign match {
-            case Sign.Positive => (ExprSimplifier(numer.min / denom.max), ExprSimplifier(numer.max / denom.min))
-            case Sign.Negative => (ExprSimplifier(numer.max / denom.min), ExprSimplifier(numer.min / denom.max))
+            case Sign.Positive => (
+              if (denom.max != Cst(0)) ExprSimplifier(numer.min / denom.max) else PosInf,
+              if (denom.min != Cst(0)) ExprSimplifier(numer.max / denom.min) else PosInf)
+            case Sign.Negative => (
+              if (denom.min != Cst(0)) ExprSimplifier(numer.max / denom.min) else NegInf,
+              if (denom.max != Cst(0)) ExprSimplifier(numer.min / denom.max) else NegInf)
             case Sign.Unknown => (?, ?) // impossible to determine the min and max
           }
         case ite: IfThenElse =>
@@ -1518,6 +1522,8 @@ class OpaqueVar(val v: Var,
                 fixedId: Option[Long] = None) extends ExtensibleVar("", r, fixedId) {
   override def copy(r: Range) = new OpaqueVar(v, r, Some(this.id))
 
+  override def cloneSimplified() = new OpaqueVar(v, r, Some(this.id)) with SimplifiedExpr
+
   override lazy val (min: ArithExpr, max: ArithExpr) = (this, this)
   override lazy val sign: Sign.Value = v.sign
 
@@ -1534,6 +1540,8 @@ abstract class ExtensibleVar(override val name: String,
 
   /* redeclare as abstract to force subclasses to implement */
   override def copy(r: Range): Var
+
+  def cloneSimplified(): Var with SimplifiedExpr
 
   override def visitAndRebuild(f: (ArithExpr) => ArithExpr): ArithExpr
 }
