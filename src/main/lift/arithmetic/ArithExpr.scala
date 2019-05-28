@@ -193,6 +193,8 @@ abstract sealed class ArithExpr {
     else false
   }
 
+  def !==(that: ArithExpr): Boolean = ! == (that)
+
   /**
     * True equality operator. Compare each operands.
     *
@@ -200,13 +202,8 @@ abstract sealed class ArithExpr {
     * @return True iif the two expressions are equal.
     * @note This operator works only for simplified expressions.
     */
-  def ===(that: ArithExpr): Boolean = (this, that) match {
-//    case (v: Var, y) if ArithExpr.unapply(v).isDefined =>
-//      val a = ArithExpr.unapply(v).get
-//      a === y
-//    case (x, v: Var) if ArithExpr.unapply(v).isDefined =>
-//      val a = ArithExpr.unapply(v).get
-//      x === a
+  def ===(that: ArithExpr): Boolean =
+    (ExprSimplifier(this).asInstanceOf[ArithExpr], ExprSimplifier(that).asInstanceOf[ArithExpr]) match {
     case (Cst(x), Cst(y)) => x == y
     case (IntDiv(x1, y1), IntDiv(x2, y2)) => x1 == x2 && y1 == y2
     case (Pow(x1, y1), Pow(x2, y2)) => x1 == x2 && y1 == y2
@@ -226,6 +223,8 @@ abstract sealed class ArithExpr {
 //      System.err.println(s"$this and $that are not equal")
       false
   }
+
+  def !===(that: ArithExpr): Boolean = ! ===(that)
 
   def pow(that: ArithExpr): ArithExpr with SimplifiedExpr = SimplifyPow(this, that)
 
@@ -375,13 +374,6 @@ abstract sealed class ArithExpr {
 }
 
 object ArithExpr {
-
-  def main(args: Array[String]): Unit = {
-    val a = Var("a", RangeAdd(Cst(4), Cst(5), Cst(1)))
-
-    println(a)
-    println(ExprSimplifier(a))
-  }
 
   implicit def intToCst(i: Int): ArithExpr with SimplifiedExpr = Cst(i)
 
