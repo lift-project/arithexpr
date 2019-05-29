@@ -857,33 +857,47 @@ object ArithExpr {
     * Recursively converts an arithmetic expression to a Scala notation String which can be evaluated into a
     * valid ArithExpr
     */
-  def printToScalaString(ae: ArithExpr): String = ae match {
+  def printToScalaString(ae: ArithExpr, printNonFixedVarIds: Boolean): String = ae match {
     case Cst(v) =>                   s"Cst($v)"
-    case IntDiv(numer, denom) =>     s"(${printToScalaString(numer)}) / (${printToScalaString(denom)})"
+    case IntDiv(numer, denom) =>     s"(${printToScalaString(numer, printNonFixedVarIds)}) / " +
+                                        s"(${printToScalaString(denom, printNonFixedVarIds)})"
     case Pow(b, e) => e match {
-      case Cst(-1) =>                s"Cst(1)/^(${printToScalaString(b)})"
-      case _ =>                      s"SimplifyPow(${printToScalaString(b)}, ${printToScalaString(e)})"
+      case Cst(-1) =>                s"Cst(1)/^(${printToScalaString(b, printNonFixedVarIds)})"
+      case _ =>                      s"SimplifyPow(${printToScalaString(b, printNonFixedVarIds)}, " +
+                                        s"${printToScalaString(e, printNonFixedVarIds)})"
     }
-    case Log(b, x) =>                s"Log(${printToScalaString(b)}, ${printToScalaString(x)})"
+    case Log(b, x) =>                s"Log(${printToScalaString(b, printNonFixedVarIds)}, " +
+                                        s"${printToScalaString(x, printNonFixedVarIds)})"
     case Prod(factors) =>
-      if (factors.nonEmpty)          factors.map(printToScalaString).mkString("SimplifyProd(List(", ", ", "))")
+      if (factors.nonEmpty)          factors.map(printToScalaString(_, printNonFixedVarIds)).mkString(
+                                        "SimplifyProd(List(", ", ", "))")
       else                           s"SimplifyProd(List())"
     case Sum(terms) =>
-      if (terms.nonEmpty)            terms.map(printToScalaString).mkString("SimplifySum(List(", ", ", "))")
+      if (terms.nonEmpty)            terms.map(printToScalaString(_, printNonFixedVarIds)).mkString(
+                                        "SimplifySum(List(", ", ", "))")
       else                           s"SimplifySum(List())"
-    case Mod(dividend, divisor) =>   s"SimplifyMod(${printToScalaString(dividend)}, ${printToScalaString(divisor)})"
-    case AbsFunction(e) =>           s"SimplifyAbs(${printToScalaString(e)})"
-    case FloorFunction(e) =>         s"SimplifyFloor(${printToScalaString(e)})"
-    case CeilingFunction(e) =>       s"SimplifyCeiling(${printToScalaString(e)})"
-    case IfThenElse(test, t, e) =>   s"SimplifyIfThenElse(${Predicate.printToScalaString(test)}, " +
-      s"${printToScalaString(t)}, ${printToScalaString(e)})"
+    case Mod(dividend, divisor) =>   s"SimplifyMod(${printToScalaString(dividend, printNonFixedVarIds)}, " +
+                                        s"${printToScalaString(divisor, printNonFixedVarIds)})"
+    case AbsFunction(e) =>           s"SimplifyAbs(${printToScalaString(e, printNonFixedVarIds)})"
+    case FloorFunction(e) =>         s"SimplifyFloor(${printToScalaString(e, printNonFixedVarIds)})"
+    case CeilingFunction(e) =>       s"SimplifyCeiling(${printToScalaString(e, printNonFixedVarIds)})"
+    case IfThenElse(test, t, e) =>   s"SimplifyIfThenElse(${Predicate.printToScalaString(test, printNonFixedVarIds)}, " +
+                                        s"${printToScalaString(t, printNonFixedVarIds)}, " +
+                                        s"${printToScalaString(e, printNonFixedVarIds)})"
     case ArithExprFunction(name, range) =>
-                                      "ArithExprFunction(\"" + s"$name" + "\"" + s", ${Range.printToScalaString(range)})"
-    case BitwiseXOR(a, b) =>         s"BitwiseXOR(${printToScalaString(a)}, ${printToScalaString(b)})"
-    case BitwiseAND(a, b) =>         s"BitwiseAND(${printToScalaString(a)}, ${printToScalaString(b)})"
-    case LShift(a, b) =>             s"LShift(${printToScalaString(a)}, ${printToScalaString(b)})"
-    case v@Var(name, range) =>        "Var(\"" + s"$name" + "\"" + s", ${Range.printToScalaString(range)}, " +
-                                     s"Some(${v.id}))"
+                                      "ArithExprFunction(\"" + s"$name" + "\"" +
+                                        s", ${Range.printToScalaString(range, printNonFixedVarIds)})"
+    case BitwiseXOR(a, b) =>         s"BitwiseXOR(${printToScalaString(a, printNonFixedVarIds)}, " +
+                                        s"${printToScalaString(b, printNonFixedVarIds)})"
+    case BitwiseAND(a, b) =>         s"BitwiseAND(${printToScalaString(a, printNonFixedVarIds)}, " +
+                                        s"${printToScalaString(b, printNonFixedVarIds)})"
+    case LShift(a, b) =>             s"LShift(${printToScalaString(a, printNonFixedVarIds)}, " +
+                                        s"${printToScalaString(b, printNonFixedVarIds)})"
+    case v@Var(name, range) =>        "Var(\"" + s"$name" + "\"" +
+                                        s", ${Range.printToScalaString(range, printNonFixedVarIds)}, " +
+                                        (if (printNonFixedVarIds) s"Some(${v.id})" else v.fixedId match {
+                                            case Some(fixedId) => s"Some($fixedId)"
+                                            case None => "None"}) + ")"
     case e =>
       throw new NotImplementedError(
         s"Arithmetic expression $e is not supported in printing ArithExpr to Scala notation String")

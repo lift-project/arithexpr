@@ -38,15 +38,15 @@ object Range {
   /**
     * Converts a Range to a Scala notation String which can be evaluated into a valid Range
     */
-  def printToScalaString(r: Range): String = r match {
-    case StartFromRange(start) =>             s"StartFromRange(${ArithExpr.printToScalaString(start)})"
-    case GoesToRange(end) =>                  s"GoesToRange(${ArithExpr.printToScalaString(end)})"
-    case RangeAdd(start, stop, step) =>       s"RangeAdd(${ArithExpr.printToScalaString(start)}, " +
-                                                       s"${ArithExpr.printToScalaString(stop)}, " +
-                                                       s"${ArithExpr.printToScalaString(step)})"
-    case RangeMul(start, stop, mul) =>        s"RangeMul(${ArithExpr.printToScalaString(start)}, " +
-                                                       s"${ArithExpr.printToScalaString(stop)}, " +
-                                                       s"${ArithExpr.printToScalaString(mul)})"
+  def printToScalaString(r: Range, printNonFixedVarIds: Boolean): String = r match {
+    case StartFromRange(start) =>             s"StartFromRange(${ArithExpr.printToScalaString(start, printNonFixedVarIds)})"
+    case GoesToRange(end) =>                  s"GoesToRange(${ArithExpr.printToScalaString(end, printNonFixedVarIds)})"
+    case RangeAdd(start, stop, step) =>       s"RangeAdd(${ArithExpr.printToScalaString(start, printNonFixedVarIds)}, " +
+                                                       s"${ArithExpr.printToScalaString(stop, printNonFixedVarIds)}, " +
+                                                       s"${ArithExpr.printToScalaString(step, printNonFixedVarIds)})"
+    case RangeMul(start, stop, mul) =>        s"RangeMul(${ArithExpr.printToScalaString(start, printNonFixedVarIds)}, " +
+                                                       s"${ArithExpr.printToScalaString(stop, printNonFixedVarIds)}, " +
+                                                       s"${ArithExpr.printToScalaString(mul, printNonFixedVarIds)})"
     case RangeUnknown =>                      s"RangeUnknown"
     case _ =>
       throw new NotImplementedError(s"Range $r is not supported in printing Range to Scala notation String")
