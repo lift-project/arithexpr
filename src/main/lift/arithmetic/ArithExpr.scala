@@ -188,8 +188,10 @@ abstract sealed class ArithExpr {
     * @note This operator works only for simplified expressions.
     */
   def ==(that: ArithExpr): Boolean = {
-    if (this.HashSeed() == that.HashSeed() && digest() == that.digest())
-      this === that
+    val thisSimplified = ExprSimplifier(this)
+    val thatSimplified = ExprSimplifier(that)
+    if (thisSimplified.HashSeed() == thatSimplified.HashSeed() && thisSimplified.digest() == thatSimplified.digest())
+      thisSimplified === thatSimplified
     else false
   }
 
