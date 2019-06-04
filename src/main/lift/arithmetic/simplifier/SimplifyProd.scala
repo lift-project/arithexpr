@@ -171,7 +171,7 @@ object SimplifyProd {
       (lhs, rhs) match {
         case (p1: Prod, p2: Prod) => p2.factors.foldLeft[ArithExpr with SimplifiedExpr](p1)(_ * _)
 
-        case (p@Prod(lhsFactors), Prod(rhsFactors)) =>
+        case (Prod(lhsFactors), Prod(rhsFactors)) =>
           val someFactorsComeFromSum = lhs.isInstanceOf[Sum] || rhs.isInstanceOf[Sum]
           val someFactorsComeFromPow = lhs.isInstanceOf[Pow] || rhs.isInstanceOf[Pow]
 

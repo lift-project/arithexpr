@@ -217,12 +217,12 @@ object SimplifySum {
           case squaredSumTerm :: remainingTerms =>
             var updatedSigns: Map[ArithExpr, Sign.Sign] = inferredSigns
 
-            // Infer new signs based on previously inferred signs and product term signs
-            productTermSigns(squaredSumTerm).foreach {
-              case (secondFactor: ArithExpr, productTermSign: Sign.Sign) =>
-                val inferredSecondFactorSign =
-                  if (inferredSigns(squaredSumTerm) == productTermSign) Sign.Positive
-                  else Sign.Negative
+          // Infer new signs based on previously inferred signs and product term signs
+          productTermSigns(squaredSumTerm).foreach {
+            case (secondFactor: ArithExpr, productTermSign: Sign.Sign) =>
+              val inferredSecondFactorSign =
+                if (inferredSigns(squaredSumTerm) == productTermSign) Sign.Positive
+                else Sign.Negative
 
                 updatedSigns =
                   if (updatedSigns.contains(secondFactor)) {
@@ -234,8 +234,8 @@ object SimplifySum {
                   } else (updatedSigns + (secondFactor -> inferredSecondFactorSign))
             }
 
-            // Infer signs of the remaining squared sum terms
-            inferSigns(remainingTerms, updatedSigns)
+          // Infer signs of the remaining squared sum terms
+          inferSigns(remainingTerms, updatedSigns)
         }
       }
 
@@ -269,10 +269,17 @@ object SimplifySum {
   /* Get non-constant and constant common factors from factors of two simplified Prods */
   def getCommonFactors(factors1: List[ArithExpr with SimplifiedExpr], factors2: List[ArithExpr with SimplifiedExpr]):
   (Cst, List[ArithExpr]) = {
-    val (prod1CstFactor, nonCstFactors1) = Prod.partitionFactorsOnCst(factors1, simplified = true)
-    val (prod2CstFactor, nonCstFactors2) = Prod.partitionFactorsOnCst(factors2, simplified = true)
+    val (cstFactor1, nonCstFactors1) = Prod.partitionFactorsOnCst(factors1, simplified = true)
 
-    val cstFactors: List[Long] = List(prod1CstFactor.c, prod2CstFactor.c)
+    getCommonFactors(cstFactor1, nonCstFactors1, factors2)
+  }
+
+  def getCommonFactors(cstFactor1: Cst, nonCstFactors1: List[ArithExpr with SimplifiedExpr],
+                       factors2: List[ArithExpr with SimplifiedExpr]):
+  (Cst, List[ArithExpr]) = {
+    val (cstFactor2, nonCstFactors2) = Prod.partitionFactorsOnCst(factors2, simplified = true)
+
+    val cstFactors: List[Long] = List(cstFactor1.c, cstFactor2.c)
 
     val cstCommonFactor = ComputeGCD.gcdLong(cstFactors)
 

@@ -377,6 +377,23 @@ abstract sealed class ArithExpr {
 
 object ArithExpr {
 
+  def main(args: Array[String]): Unit = {
+    val a = Var("A")
+    val b = Var("B")
+    val c = Var("C")
+    val x = c * a + c * b
+    val y = a + b
+    val z = x / y
+    for (i <- 1 to 200000)
+      x match {
+        case Prod(factors) =>
+          if (i % 2 == 0) print("hii" + factors.length + i)
+        case Sum(terms) =>
+          if (i % 2 == 0) print("bye" + terms.length + i)
+      }
+    assume(z == c)
+  }
+
   implicit def intToCst(i: Int): ArithExpr with SimplifiedExpr = Cst(i)
 
   implicit def longToCst(i: Long): ArithExpr with SimplifiedExpr = Cst(i)
@@ -1031,6 +1048,14 @@ case class Pow private[arithmetic](b: ArithExpr with SimplifiedExpr, e: ArithExp
 
   override lazy val digest: Int = HashSeed ^ b.digest() ^ e.digest()
 
+  lazy val asProd: Option[List[ArithExpr with SimplifiedExpr]] = (b, e) match {
+    /**  (a * b * c)^e  :  a^e * b^e * c^e  **/
+    case (Prod(factors), _) => Some(factors.map(SimplifyPow(_, e)))
+    /**  b^(a + c + d)  :  b^a * b^c * b^d  **/
+    case (b, Sum(exps)) => Some(exps.map(SimplifyPow(b, _)))
+    case (_, _) => None
+  }
+
   override def toString: String = e match {
     case Cst(-1) => "(1/^(" + b + "))"
     case _ => "pow(" + b + "," + e + ")"
@@ -1137,12 +1162,16 @@ case class Prod private[arithmetic](factors: List[ArithExpr with SimplifiedExpr]
 
 
 object Prod {
-  def unapply(ae: Any): Option[List[ArithExpr]] = ae match {
+  def unapply(ae: Any): Option[List[ArithExpr with SimplifiedExpr]] = ae match {
     case aexpr: ArithExpr => aexpr match {
-      // (a * b * c)^e  :  a^e * b^e * c^e
-      case Pow(Prod(factors), e) => Some(factors.map(SimplifyPow(_ , e)))
+      // Concrete Pow that can be represented as Prod
+      case p: Pow if p.asProd.isDefined => p.asProd
 
-      // b^(a + c + d)  :  b^a * b^c * b ^d
+      // An ArithExpr that can be represented as Pow that can be represented as Prod
+      /**  (a * b * c)^e  :  a^e * b^e * c^e  **/
+      case Pow(Prod(factors), e) => Some(factors.map(SimplifyPow(_, e)))
+
+      /**  b^(a + c + d)  :  b^a * b^c * b^d  **/
       case Pow(b, Sum(exps)) => Some(exps.map(SimplifyPow(b, _)))
 
       // (x*a + x*b + x*c)  :  x*(a + b + c)
@@ -1206,7 +1235,7 @@ case class Sum private[arithmetic](terms: List[ArithExpr with SimplifiedExpr]) e
     val (cstCommonFactor: Cst, nonCstCommonFactors: List[ArithExpr]) =
       prodTerms.tail.foldLeft(Prod.partitionFactorsOnCst(prodTerms.head, simplified = true)) {
         case ((cstCommonFactorAcc: Cst, nonCstCommonFactorsAcc: List[ArithExpr]), nextTerm: List[ArithExpr]) =>
-          SimplifySum.getCommonFactors(cstCommonFactorAcc +: nonCstCommonFactorsAcc, nextTerm)
+          SimplifySum.getCommonFactors(cstCommonFactorAcc, nonCstCommonFactorsAcc, nextTerm)
       }
 
     // First, remove all non-constant factors using simple matching
@@ -1513,10 +1542,6 @@ object Var {
   def apply(name: String, range: Range, fixedId: Option[Long]): Var = new Var(name, range, fixedId)
 
   def unapply(v: Var): Option[(String, Range)] = Some((v.name, v.range))
-
-//  def unapply(v: Var): Option[ArithExpr] =
-//    if (v.min == v.max && v.min != ?) Some(v.min)
-//    else None
 }
 
 object PosVar {
