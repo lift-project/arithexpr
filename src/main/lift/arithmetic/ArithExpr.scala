@@ -377,23 +377,6 @@ abstract sealed class ArithExpr {
 
 object ArithExpr {
 
-  def main(args: Array[String]): Unit = {
-    val a = Var("A")
-    val b = Var("B")
-    val c = Var("C")
-    val x = c * a + c * b
-    val y = a + b
-    val z = x / y
-    for (i <- 1 to 200000)
-      x match {
-        case Prod(factors) =>
-          if (i % 2 == 0) print("hii" + factors.length + i)
-        case Sum(terms) =>
-          if (i % 2 == 0) print("bye" + terms.length + i)
-      }
-    assume(z == c)
-  }
-
   implicit def intToCst(i: Int): ArithExpr with SimplifiedExpr = Cst(i)
 
   implicit def longToCst(i: Long): ArithExpr with SimplifiedExpr = Cst(i)
@@ -429,8 +412,8 @@ object ArithExpr {
           case (v: Var, c: Cst) => minmax(v, c)
           case (c: Cst, v: Var) => minmax(v, c).swap
 
-          case (Prod(factors), c: Cst) => minmax(factors.reduce(_*_), c)
-          case (c: Cst, Prod(factors)) => minmax(factors.reduce(_*_), c).swap
+          case (Prod(factors), c: Cst) => minmax(e1, factors, c)
+          case (c: Cst, Prod(factors)) => minmax(e2, factors, c).swap
 
           case _ => throw NotEvaluable
         }
@@ -456,12 +439,12 @@ object ArithExpr {
     throw NotEvaluable
   }
 
-  def minmax(p: Prod, c: Cst): (ArithExpr, ArithExpr) = {
+  def minmax(p: ArithExpr, pFactors: List[ArithExpr], c: Cst): (ArithExpr, ArithExpr) = {
     try {
-      val lb = lowerBound(p)
+      val lb = lowerBound(pFactors)
       if (lb.isDefined && lb.get >= c.c) return (c, p)
 
-      val ub = upperBound(p)
+      val ub = upperBound(pFactors)
       if (ub.isDefined && ub.get <= c.c) return (p, c)
     } catch {
       case _: IllegalArgumentException =>
@@ -470,8 +453,8 @@ object ArithExpr {
     throw NotEvaluable
   }
 
-  private def upperBound(p: Prod): Option[Long] = {
-    Some(SimplifyProd(p.factors.map({
+  private def upperBound(factors: List[ArithExpr]): Option[Long] = {
+    Some(SimplifyProd(factors.map({
       case v: Var => v.range.max match {
         case max: Cst => max
         case _ => return None
@@ -481,8 +464,8 @@ object ArithExpr {
     })).eval)
   }
 
-  private def lowerBound(p: Prod): Option[Long] = {
-    Some(SimplifyProd(p.factors.map({
+  private def lowerBound(factors: List[ArithExpr]): Option[Long] = {
+    Some(SimplifyProd(factors.map({
       case v: Var => v.range.min match {
         case min: Cst => min
         case _ => return None
