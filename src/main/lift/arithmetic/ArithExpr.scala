@@ -1222,7 +1222,7 @@ case class Sum private[arithmetic](terms: List[ArithExpr with SimplifiedExpr]) e
   override lazy val digest: Int = terms.foldRight(HashSeed)((x, hash) => hash ^ x.digest())
 
   // c*a + c*b : c * SimplifySum(a, b)
-  lazy val asProd: Option[Prod] = {
+  lazy val asProd: Option[Prod] = if (SimplificationLevel() < SimplificationLevel.O1) None else {
     // We should never have a sum with one term
     assume(terms.length > 1)
 

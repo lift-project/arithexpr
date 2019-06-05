@@ -1,6 +1,6 @@
 package lift.testing
 
-import lift.arithmetic.{ArithExpr, RangeAdd, RangeMul, Var}
+import lift.arithmetic._
 import lift.arithmetic.simplifier.SimplifyPow
 import lift.arithmetic.ArithExpr._
 import org.junit.Assert.assertEquals
@@ -25,6 +25,8 @@ class TestSumAndProdSimplification {
 
   @Test
   def tests(): Unit = {
+    SimplificationLevel.assumeLevelNoLessThan(SimplificationLevel.O1)
+
     val a = Var("a")
     val b = Var("b")
     val c = Var("c")
