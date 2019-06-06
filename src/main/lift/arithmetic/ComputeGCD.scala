@@ -42,9 +42,9 @@ private[arithmetic] object ComputeGCD {
       case (x, Prod(f)) if f.contains(x) && !ArithExpr.hasDivision(f) => x
 
       // GCD of sums: find common factor across all terms
-      // If simplification level is O1, then Sum.asProd inside Prod.unapply() is enabled and handles the sums
-      // If simplification level is O0, then we have to handle sums here
-      case (s1: Sum, s2: Sum) if SimplificationLevel.o0 =>
+      // If new factorization of sum is enabled, then Sum.asProd inside Prod.unapply() is enabled and handles the sums
+      // Otherwise, we have to handle sums here
+      case (s1: Sum, s2: Sum) if !NewFactorizationOfSum() =>
         // Compute the common factors
         val fac1 = factorizeSum(s1)
         if (fac1 == Cst(1)) return Cst(1)
@@ -56,8 +56,8 @@ private[arithmetic] object ComputeGCD {
         if (common.isEmpty) Cst(1)
         else common.head
 
-      case (x, s: Sum) if SimplificationLevel.o0 => ComputeGCD(b, a)
-      case (s: Sum, x) if SimplificationLevel.o0 =>
+      case (x, s: Sum) if !NewFactorizationOfSum() => ComputeGCD(b, a)
+      case (s: Sum, x) if !NewFactorizationOfSum() =>
         // compute the common factor
         val factor = factorizeSum(s)
         // If there is none, there is no possible common factor

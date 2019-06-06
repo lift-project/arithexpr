@@ -1158,11 +1158,10 @@ object Prod {
       case Pow(b, Sum(exps)) => Some(exps.map(SimplifyPow(b, _)))
 
       // (x*a + x*b + x*c)  :  x*(a + b + c)
-      case s: Sum =>
-        s.asProd match {
-          case Some(productWithCommonFactor) => Some(productWithCommonFactor.factors)
-          case None => None
-        }
+      case s: Sum => s.asProd match {
+        case Some(productWithCommonFactor) => Some(productWithCommonFactor.factors)
+        case None => None
+      }
       case p: Prod => Some(p.factors)
       case _ => None
     }
@@ -1204,8 +1203,12 @@ case class Sum private[arithmetic](terms: List[ArithExpr with SimplifiedExpr]) e
 
   override lazy val digest: Int = terms.foldRight(HashSeed)((x, hash) => hash ^ x.digest())
 
-  // c*a + c*b : c * SimplifySum(a, b)
-  lazy val asProd: Option[Prod] = if (SimplificationLevel() < SimplificationLevel.O1) None else {
+  /* Factorises a sum smarter and slower than ComputeGCD.factorizeSum. Can deal with division.
+   * Consider improving computeGCD and using it here.
+   *
+   * c*a + c*b  :  c * SimplifySum(a, b)
+   */
+  lazy val asProd: Option[Prod] = if (!NewFactorizationOfSum()) None else {
     // We should never have a sum with one term
     assume(terms.length > 1)
 
@@ -1227,7 +1230,6 @@ case class Sum private[arithmetic](terms: List[ArithExpr with SimplifiedExpr]) e
         prodTerms.map(SimplifyProd(_))
       case _ =>
         prodTerms.map(prodTermFactors =>
-          // (c*a => 1 * c * a), (c*b +> 1 * c * b)
           SimplifyProd(Prod.removeFactors(prodTermFactors, nonCstCommonFactors)))
     }
 

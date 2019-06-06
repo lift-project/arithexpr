@@ -25,7 +25,8 @@ class TestSumAndProdSimplification {
 
   @Test
   def tests(): Unit = {
-    SimplificationLevel.assumeLevelNoLessThan(SimplificationLevel.O1)
+    val originalNewFactorizationEnabledStatus = NewFactorizationOfSum()
+    NewFactorizationOfSum.enabled = true
 
     val a = Var("a")
     val b = Var("b")
@@ -133,5 +134,6 @@ class TestSumAndProdSimplification {
     val expr_18 = expr_18_1 + expr_18_2
     assertEquals(expr_18, 3 * (a + b))
 
+    NewFactorizationOfSum.enabled = originalNewFactorizationEnabledStatus
   }
 }
