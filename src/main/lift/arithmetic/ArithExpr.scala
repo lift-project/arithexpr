@@ -659,8 +659,14 @@ object ArithExpr {
       val replacements = union.map(f => Var(f.name, f.range))
       val replacementsMap = (union, replacements).zipped.toMap[ArithExpr, ArithExpr]
 
-      val substitute1 = substitute(ae1, replacementsMap)
-      val substitute2 = substitute(ae2, replacementsMap)
+      // Disable simplification before rebuilding to save time
+      // This is allowed because obscuring vars (replacing them with opaques) does not add new information,
+      // so no new simplification will be possible.
+      val originalSimplificationFlag = PerformSimplification.simplify
+      PerformSimplification.simplify = false
+      val substitute1 = ArithExpr.substitute(ae1, replacementsMap)
+      val substitute2 = ArithExpr.substitute(ae2, replacementsMap)
+      PerformSimplification.simplify = originalSimplificationFlag
 
       return isSmaller(substitute1, substitute2)
     }
@@ -677,8 +683,14 @@ object ArithExpr {
       return None
 
     val replacements = commonVars.map(v => (v, new OpaqueVar(v))).toMap
+    // Disable simplification before rebuilding to save time
+    // This is allowed because obscuring vars (replacing them with opaques) does not add new information,
+    // so no new simplification will be possible.
+    val originalSimplificationFlag = PerformSimplification.simplify
+    PerformSimplification.simplify = false
     val ae1WithFixedVars = ArithExpr.substitute(ae1, replacements.toMap)
     val ae2WithFixedVars = ArithExpr.substitute(ae2, replacements.toMap)
+    PerformSimplification.simplify = originalSimplificationFlag
 
     try {
       val ae1WithFixedVarsMax = ae1WithFixedVars.max
