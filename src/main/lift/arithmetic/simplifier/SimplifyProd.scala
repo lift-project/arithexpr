@@ -12,6 +12,7 @@ object SimplifyProd {
   // Power merge is prohibited in case one of the factors is the result of temporary power
   // distribution (i.e. through extractor) since merging the powers again won't make the product simpler
   def addFactor(factors: List[ArithExpr with SimplifiedExpr], factor: ArithExpr with SimplifiedExpr,
+                factorsComeFromProd: Boolean = false,
                 someFactorsComeFromSum: Boolean = true,
                 someFactorsComeFromPow: Boolean = true): ArithExpr with SimplifiedExpr = {
 
@@ -35,7 +36,11 @@ object SimplifyProd {
     // First, transform `factors` back into normal form
     // Example 1: List(x, (a+b+c)) -> x*a + x*b + x*c
     // Example 2: List(d, e, f) -> d * e * f
-    val simplifiedOriginalProd: ArithExpr = if (factors.length > 1) SimplifyProd(factors) else factors.head
+    val simplifiedOriginalProd: ArithExpr =
+    if (factors.length > 1) {
+      if (factorsComeFromProd) new Prod(factors) with SimplifiedExpr
+      else SimplifyProd(factors)
+    } else factors.head
     // Then, try to combine `factor` with reconstructed normal-form product of `factors`
     // Example 1: combineFactors(x*a + x*b + x*c, y) => y*x*a + y*x*b + y*x*c
     // Example 2: combineFactors(d * e * f, y) => None
@@ -176,19 +181,24 @@ object SimplifyProd {
           val someFactorsComeFromPow = lhs.isInstanceOf[Pow] || rhs.isInstanceOf[Pow]
 
           lhsFactors.tail.foldLeft[ArithExpr with SimplifiedExpr](
-            addFactor(rhsFactors, lhsFactors.head, someFactorsComeFromSum, someFactorsComeFromPow)) {
+            addFactor(rhsFactors, lhsFactors.head, rhs.isInstanceOf[Prod],
+              someFactorsComeFromSum, someFactorsComeFromPow)) {
 
-            case (acc: Prod, lhsFactor) => addFactor(acc.factors, lhsFactor, someFactorsComeFromSum, someFactorsComeFromPow)
+            case (acc: Prod, lhsFactor) => addFactor(acc.factors, lhsFactor, factorsComeFromProd = true,
+              someFactorsComeFromSum = someFactorsComeFromSum, someFactorsComeFromPow = someFactorsComeFromPow)
 
-            case (acc: ArithExpr, lhsFactor) => addFactor(List(acc), lhsFactor, someFactorsComeFromSum, someFactorsComeFromPow)
+            case (acc: ArithExpr, lhsFactor) => addFactor(List(acc), lhsFactor, factorsComeFromProd = true,
+              someFactorsComeFromSum, someFactorsComeFromPow)
           }
 
 
         case (Prod(lhsFactors), _) => addFactor(lhsFactors, rhs,
+          factorsComeFromProd = lhs.isInstanceOf[Prod],
           someFactorsComeFromSum = lhs.isInstanceOf[Sum] || rhs.isInstanceOf[Sum],
           someFactorsComeFromPow = lhs.isInstanceOf[Pow] || rhs.isInstanceOf[Pow])
 
         case (_, Prod(rhsFactors)) => addFactor(rhsFactors, lhs,
+          factorsComeFromProd = rhs.isInstanceOf[Prod],
           someFactorsComeFromSum = lhs.isInstanceOf[Sum] || rhs.isInstanceOf[Sum],
           someFactorsComeFromPow = lhs.isInstanceOf[Pow] || rhs.isInstanceOf[Pow])
 

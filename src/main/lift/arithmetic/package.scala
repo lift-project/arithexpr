@@ -8,7 +8,7 @@ package object arithmetic {
   }
 
   object NewFactorizationOfSum {
-    var enabled: Boolean = System.getenv("LIFT_ARITH_FACTORIZE_SMART") == null
+    var enabled: Boolean = System.getenv("LIFT_ARITH_FACTORIZE_SMART") != null
     def apply(): Boolean = enabled
   }
 }

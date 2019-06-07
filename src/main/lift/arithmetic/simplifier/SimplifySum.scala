@@ -17,22 +17,22 @@ object SimplifySum {
     * @param term
     * @return
     */
-  def addTerm(terms: List[ArithExpr with SimplifiedExpr], term: ArithExpr with SimplifiedExpr):
+  def addTerm(terms: List[ArithExpr with SimplifiedExpr], term: ArithExpr with SimplifiedExpr,
+              termsComeFromSum: Boolean = false):
   Either[ArithExpr with SimplifiedExpr, ArithExpr with SimplifiedExpr] = {
     terms.zipWithIndex.foreach {
-      case (x, i) => {
+      case (x, i) =>
         val newterm = combineTerms(term, x)
         if (newterm.isDefined) return Right(replaceAt(i, newterm.get, terms).reduce(_ + _))
-      }}
+      }
 
     // We didn't manage to combine the new term with any of the old terms.
-    // At this point, `terms` are either terms of a sum in a normal form, or a non-normal "view" of another
-    // operator expressed as a sum.
-    // Note: such examples exist only if there is Sum.unapply which can construct non-normal views. Currently,
-    // Sum.unapply does not exist and the logic below is in just in case it is added in the future.
-    // First, transform `terms` back into normal form
-    val simplifiedOriginalSum: ArithExpr with SimplifiedExpr = if (terms.length > 1) SimplifySum(terms) else terms.head
-    // Then, try to combine `term` with reconstructed normal-form sum of `terms`
+    val simplifiedOriginalSum: ArithExpr with SimplifiedExpr =
+      if (terms.length > 1) {
+        if (termsComeFromSum) new Sum(terms) with SimplifiedExpr
+        else SimplifySum(terms)
+      } else terms.head
+    // Try to combine `term` with sum of `terms`
     combineTerms(simplifiedOriginalSum, term) match {
       case Some(simplifiedResult) => Right(simplifiedResult)
       // If simplified combination is not possible, it is safe to just prepend the term to `terms`
@@ -312,12 +312,13 @@ object SimplifySum {
       case (s1@Sum(_), s2: Sum) =>  updateStatus(simplify(rhs, lhs))
 
       case (s@Sum(lhsTerms), Sum(rhsTerms)) =>
-        lhsTerms.tail.foldLeft[ArithExpr with SimplifiedExpr](updateStatus(addTerm(rhsTerms, lhsTerms.head)))(
-          (acc, lhsTerm) =>         updateStatus(addTerm(List(acc), lhsTerm)))
+        lhsTerms.tail.foldLeft[ArithExpr with SimplifiedExpr](updateStatus(
+          addTerm(rhsTerms, lhsTerms.head, termsComeFromSum = lhs.isInstanceOf[Sum])))(
+          (acc, lhsTerm) =>         updateStatus(addTerm(List(acc), lhsTerm, termsComeFromSum = true)))
 
-      case (Sum(lhsTerms), _) =>    updateStatus(addTerm(lhsTerms, rhs))
-      case (_, Sum(rhsTerms)) =>    updateStatus(addTerm(rhsTerms, lhs))
-      case _ =>                     updateStatus(addTerm(List(lhs), rhs))
+      case (Sum(lhsTerms), _) =>    updateStatus(addTerm(lhsTerms, rhs, termsComeFromSum = lhs.isInstanceOf[Sum]))
+      case (_, Sum(rhsTerms)) =>    updateStatus(addTerm(rhsTerms, lhs, termsComeFromSum = rhs.isInstanceOf[Sum]))
+      case _ =>                     updateStatus(addTerm(List(lhs), rhs, termsComeFromSum = false))
     }
 
     // Here we look at the sum as a whole (not term-wise) and make sure it is in a normal form

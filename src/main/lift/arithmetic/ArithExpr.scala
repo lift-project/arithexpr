@@ -1297,7 +1297,7 @@ case class Sum private[arithmetic](terms: List[ArithExpr with SimplifiedExpr]) e
 object Sum {
   // This is an empty extractor to support SimplifySum that tries to be safe when we represent
   // other classes as sums (we might want to do it in the future)
-  def unapply(ae: Any): Option[List[ArithExpr]] = ae match {
+  def unapply(ae: Any): Option[List[ArithExpr with SimplifiedExpr]] = ae match {
     case aexpr: ArithExpr => aexpr match {
       case s: Sum => Some(s.terms)
       case _ => None
