@@ -18,11 +18,11 @@ object SimplifySum {
     * @return
     */
   def addTerm(terms: List[ArithExpr with SimplifiedExpr], term: ArithExpr with SimplifiedExpr):
-  ArithExpr with SimplifiedExpr = {
+  Either[ArithExpr with SimplifiedExpr, ArithExpr with SimplifiedExpr] = {
     terms.zipWithIndex.foreach {
       case (x, i) => {
         val newterm = combineTerms(term, x)
-        if (newterm.isDefined) return replaceAt(i, newterm.get, terms).reduce(_ + _)
+        if (newterm.isDefined) return Right(replaceAt(i, newterm.get, terms).reduce(_ + _))
       }}
 
     // We didn't manage to combine the new term with any of the old terms.
@@ -34,11 +34,11 @@ object SimplifySum {
     val simplifiedOriginalSum: ArithExpr with SimplifiedExpr = if (terms.length > 1) SimplifySum(terms) else terms.head
     // Then, try to combine `term` with reconstructed normal-form sum of `terms`
     combineTerms(simplifiedOriginalSum, term) match {
-      case Some(simplifiedResult) => simplifiedResult
+      case Some(simplifiedResult) => Right(simplifiedResult)
       // If simplified combination is not possible, it is safe to just prepend the term to `terms`
       // for a simplified sum
       case None =>
-        new Sum((term +: terms).sortWith(ArithExpr.sort)) with SimplifiedExpr
+        Left(new Sum((term +: terms).sortWith(ArithExpr.sort)) with SimplifiedExpr)
     }
   }
 
@@ -127,22 +127,23 @@ object SimplifySum {
           case _ => cstCommonFactor +: nonCstCommonFactors
         }
 
-        combineTerms(term1WithoutCommonFactors, term2WithoutCommonFactors) match {
+        // Here even if we fail to simplify, we might convert into normal form using asPowOfSum inside simplify
+        simplify(term1WithoutCommonFactors, term2WithoutCommonFactors) match {
 
-          case Some(simplifiedAE) =>
+          case Right(simplifiedSumWithoutCommonFactors) =>
             // Remaining sum has been collapsed (simplified)
-            Some(simplifiedAE * SimplifyProd(commonFactors))
+            Some(simplifiedSumWithoutCommonFactors * SimplifyProd(commonFactors))
 
-          case None =>
-            val sumWithoutCommonFactors = term1WithoutCommonFactors + term2WithoutCommonFactors
-            // No simplification of remaining sum is possible.
+          case Left(nonSimplifiedSumWithoutCommonFactors) =>
+            // No simplification of remaining sum is possible, but we might have converted into normal form
+            // (e.g. using asPowOfSum)
             // Check if it can be simplified by multiplying it by each common factor
             // We prevent infinite loop here using a flag preventing us from distributing that will lead us back here
             var simplificationAchieved: Boolean = false
 
             val possiblySimplifiedCommonFactors = commonFactors.map(commonFactor =>
               if (!simplificationAchieved) {
-                SimplifyProd.combineFactors(sumWithoutCommonFactors, commonFactor,
+                SimplifyProd.combineFactors(nonSimplifiedSumWithoutCommonFactors, commonFactor,
                   distributionAllowed = false) match {
                   case Some(simplifiedExpr) =>
                     simplificationAchieved = true
@@ -159,9 +160,16 @@ object SimplifySum {
   }
 
 
-  // toPowOfSum is specific to the power of 2, but is generic to any length of the sum
-  def toPowOfSum(terms: List[ArithExpr with SimplifiedExpr]): Option[ArithExpr] = {
-    // (a^2 + b^2 + c^2) + (2ab + 2ac + 2bc) == (a + b + c)^2
+  /**
+    * toPowOfSum converts a sum to power if possible as it is our chosen normal form.
+    * Example: (a^2 + b^2 + c^2) + (2ab + 2ac + 2bc) == (a + b + c)^2
+    *
+    * toPowOfSum currently only supports power of 2, but is generic to any length of the sum
+    *
+    * @param terms
+    * @return
+    */
+  def toPowOfSum(terms: List[ArithExpr with SimplifiedExpr]): Option[ArithExpr with SimplifiedExpr] = {
     // powerTerms + productTerms == squaredSumTerms^2
     val powerTerms: List[Pow] = terms.flatMap {
       case p: Pow => Some(p)
@@ -195,12 +203,7 @@ object SimplifySum {
       var productTermSigns: mutable.Map[ArithExpr, Map[ArithExpr, Sign.Sign]] = mutable.Map()
       productTerms.foreach(productTerm => {
         val factors = productTerm.factors.filter(factor => !(factor == Cst(2)) && !(factor == Cst(-2)))
-        //      val (factor0, factor1) =
-        //        if (squaredSumTerms.indexOf(factors(0)) < squaredSumTerms.indexOf(factors(1))) (factors(0), factors(1))
-        //        else (factors(1), factors(0))
-        //
-        //      if (!productTermSigns.contains(factor0)) productTermSigns += (factor0 -> Map())
-        //      productTermSigns(factor0) += (factor1 -> productTerm.sign)
+
         if (!productTermSigns.contains(factors(0))) productTermSigns += (factors(0) -> Map())
         productTermSigns(factors(0)) += (factors(1) -> productTerm.cstFactor.sign)
 
@@ -287,7 +290,55 @@ object SimplifySum {
   }
 
 
-    /**
+  def simplify(lhs: ArithExpr with SimplifiedExpr, rhs: ArithExpr with SimplifiedExpr):
+  Either[ArithExpr with SimplifiedExpr, ArithExpr with SimplifiedExpr] = {
+    var simplified: Boolean = false
+
+
+    def updateStatus(simplificationResult: Either[ArithExpr with SimplifiedExpr, ArithExpr with SimplifiedExpr]):
+    ArithExpr with SimplifiedExpr = simplificationResult match {
+      case Right(simplifiedExpr) =>
+        simplified = true
+        simplifiedExpr
+      case Left(nonSimplifiedExpr) => nonSimplifiedExpr
+    }
+
+
+    val termWiseSimplifiedExpr: ArithExpr with SimplifiedExpr = (lhs, rhs) match {
+      case (s1: Sum, s2: Sum) => s2.terms.foldLeft[ArithExpr with SimplifiedExpr](s1)(
+        (acc, s2term) =>            updateStatus(simplify(acc, s2term)))
+      case (s1: Sum, s2@Sum(_)) => s1.terms.foldLeft[ArithExpr with SimplifiedExpr](s2)(
+        (acc, s1term) =>            updateStatus(simplify(acc, s1term)))
+      case (s1@Sum(_), s2: Sum) =>  updateStatus(simplify(rhs, lhs))
+
+      case (s@Sum(lhsTerms), Sum(rhsTerms)) =>
+        lhsTerms.tail.foldLeft[ArithExpr with SimplifiedExpr](updateStatus(addTerm(rhsTerms, lhsTerms.head)))(
+          (acc, lhsTerm) =>         updateStatus(addTerm(List(acc), lhsTerm)))
+
+      case (Sum(lhsTerms), _) =>    updateStatus(addTerm(lhsTerms, rhs))
+      case (_, Sum(rhsTerms)) =>    updateStatus(addTerm(rhsTerms, lhs))
+      case _ =>                     updateStatus(addTerm(List(lhs), rhs))
+    }
+
+    // Here we look at the sum as a whole (not term-wise) and make sure it is in a normal form
+    val normalisedExpr = termWiseSimplifiedExpr match {
+      case sum@Sum(terms) => toPowOfSum(terms) match {
+        case Some(powOfSum) =>
+          simplified = true
+          powOfSum
+        case _ => sum
+      }
+      case nonSumExpr => nonSumExpr
+    }
+
+    if (simplified)
+      Right(normalisedExpr)
+    else
+      Left(normalisedExpr)
+  }
+
+
+  /**
       * Try to promote the sum into another expression, then try to combine terms. If all fails the expression is simplified.
       *
       * @param lhs The left-hand side.
@@ -296,29 +347,9 @@ object SimplifySum {
       */
     def apply(lhs: ArithExpr with SimplifiedExpr, rhs: ArithExpr with SimplifiedExpr): ArithExpr with SimplifiedExpr = {
       if (PerformSimplification())
-        ((lhs, rhs) match {
-          case (s1: Sum, s2: Sum) => s2.terms.foldLeft[ArithExpr](s1)(_ + _)
-          case (s1: Sum, s2@Sum(_)) => s1.terms.foldLeft[ArithExpr](s2)(_ + _)
-          case (s1@Sum(_), s2: Sum) => rhs + lhs
-
-          case (s@Sum(lhsTerms), Sum(rhsTerms)) =>
-            lhsTerms.tail.foldLeft[ArithExpr](addTerm(rhsTerms, lhsTerms.head)) {
-              case (acc: ArithExpr, lhsTerm) => addTerm(List(acc), lhsTerm)
-            }
-
-          case (Sum(lhsTerms), _) => addTerm(lhsTerms, rhs)
-          case (_, Sum(rhsTerms)) => addTerm(rhsTerms, lhs)
-          case _ =>                  addTerm(List(lhs), rhs)
-        }) match {
-        // Simplify by looking at all the resulting terms / factors
-        // example: a^2 + 2ab + b^2 => (a + b)^2
-        case s@Sum(terms) =>
-          toPowOfSum(terms) match {
-            case Some(x) => x
-            case _ => s
-          }
-
-        case x => x
+        simplify(lhs, rhs) match {
+          case Right(simplifiedExpr) => simplifiedExpr
+          case Left(nonSimplifiedExpr) => nonSimplifiedExpr
       }
       else
         new Sum(List(lhs, rhs).sortWith(ArithExpr.sort)) with SimplifiedExpr
