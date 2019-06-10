@@ -5,17 +5,21 @@ import ArithExprUtils.replaceAt
 
 import scala.collection.mutable
 
-
-/**
-  * Simplify binary addition.
- */
 object SimplifySum {
 
   /**
-    * TODO: documentation
-    * @param terms
-    * @param term
-    * @return
+    * Adds the term to a list of terms. First, it tries to merge the new term from rhs with one of the lhs terms
+    * from the list. If that fails, the lhs is reconstructed as a single expression; it then tries to
+    * simplify reconstructed lhs with the new term from rhs using combineTerms.
+    * The difference between addTerm and combineTerms is that addTerm handles cases with Sum as lhs,
+    * and combineTerm doesn't.
+    *
+    * @param terms A list of left hand-side (lhs) terms
+    * @param term A new term from right hand-side expression
+    * @param termsComeFromSum A flag indicating whether lhs is originally a Sum and not another arithmetic
+    *                         expression temporarily represented as a sum using Sum extractors
+    * @return A simplified expression as Right if simplification was successful; a sum where the new term is
+    *         appended to the unchanged list of old terms as Left otherwise
     */
   def addTerm(terms: List[ArithExpr with SimplifiedExpr], term: ArithExpr with SimplifiedExpr,
               termsComeFromSum: Boolean = false):
@@ -29,8 +33,11 @@ object SimplifySum {
     // We didn't manage to combine the new term with any of the old terms.
     val simplifiedOriginalSum: ArithExpr with SimplifiedExpr =
       if (terms.length > 1) {
-        if (termsComeFromSum) new Sum(terms) with SimplifiedExpr
-        else SimplifySum(terms)
+        if (termsComeFromSum) {
+          // TODO: investigate whether we can just return Left(new Sum(term, terms) with SimplifiedExpr) here since
+          // combineTerms will not simplify any further when lhs is a Sum
+          new Sum(terms) with SimplifiedExpr
+        } else SimplifySum(terms)
       } else terms.head
     // Try to combine `term` with sum of `terms`
     combineTerms(simplifiedOriginalSum, term) match {
@@ -43,8 +50,7 @@ object SimplifySum {
   }
 
   /**
-   * TODO: update documentation
-   * Try to combine a pair of terms.
+    * Try to combine a pair of terms, where neither is a sum.
     *
     * @param lhs The first term.
     * @param rhs The second term.
@@ -64,12 +70,6 @@ object SimplifySum {
       case (Cst(x), Cst(y)) => Some(Cst(x + y))
       case (Cst(0), _) => Some(rhs)
       case (_, Cst(0)) => Some(lhs)
-
-      // Simplify terms
-      // TODO: get rid of this
-      // Expressions should be simplified at this point, so we shouldn't need this
-//      case (x, y) if !x.simplified => Some(ExprSimplifier(x) + y)
-//      case (x, y) if !y.simplified => Some(x + ExprSimplifier(y))
 
       // Prune zeroed vars (a Var with a range that can only be 0 should have been simplified!)
       case (x, v: Var) if v.range.min == v.range.max && v.range.min != ? => Some(x + v.range.min)
@@ -163,11 +163,10 @@ object SimplifySum {
   /**
     * toPowOfSum converts a sum to power if possible as it is our chosen normal form.
     * Example: (a^2 + b^2 + c^2) + (2ab + 2ac + 2bc) == (a + b + c)^2
+    * Most of the effort is devoted to inferring the signs of the components of the sum
+    * in the base of the power.
     *
-    * toPowOfSum currently only supports power of 2, but is generic to any length of the sum
-    *
-    * @param terms
-    * @return
+    * toPowOfSum currently only supports power of 2
     */
   def toPowOfSum(terms: List[ArithExpr with SimplifiedExpr]): Option[ArithExpr with SimplifiedExpr] = {
     // powerTerms + productTerms == squaredSumTerms^2
@@ -198,6 +197,7 @@ object SimplifySum {
         squaredSumTerms.contains(factor))))
       None
     else {
+      /* Try to infer the signs of the components of the sum in the base of the power */
 
       // Populate the matrix where for each pair of productTerms, their corresponding sign is saved
       var productTermSigns: mutable.Map[ArithExpr, Map[ArithExpr, Sign.Sign]] = mutable.Map()
@@ -269,7 +269,12 @@ object SimplifySum {
     }
   }
 
-  /* Get non-constant and constant common factors from factors of two simplified Prods */
+  /**
+    * Get non-constant and constant common factors from factors of two simplified Prods
+    * @param factors1 First product.
+    * @param factors2 Second product
+    * @return A tuple of constant and non-constant common factors
+    */
   def getCommonFactors(factors1: List[ArithExpr with SimplifiedExpr], factors2: List[ArithExpr with SimplifiedExpr]):
   (Cst, List[ArithExpr]) = {
     val (cstFactor1, nonCstFactors1) = Prod.partitionFactorsOnCst(factors1, simplified = true)
@@ -277,6 +282,17 @@ object SimplifySum {
     getCommonFactors(cstFactor1, nonCstFactors1, factors2)
   }
 
+  /**
+    * Get non-constant and constant common factors from factors of two simplified Prods where the first
+    * product is already factorised into constant and non-constant factors.
+    * This version of getCommonFactors was added for performance, to avoid factorising the first product for
+    * the second time.
+    *
+    * @param cstFactor1 Constant factor of the first product.
+    * @param nonCstFactors1 Non-constant factors of the first product.
+    * @param factors2 Second product
+    * @return A tuple of constant and non-constant common factors
+    */
   def getCommonFactors(cstFactor1: Cst, nonCstFactors1: List[ArithExpr with SimplifiedExpr],
                        factors2: List[ArithExpr with SimplifiedExpr]):
   (Cst, List[ArithExpr]) = {
@@ -290,11 +306,26 @@ object SimplifySum {
   }
 
 
+  /**
+    * Try to simplify a sum of two terms. Indicate whether simplification was achieved by returning
+    * either Left or Right.
+    * For usages where we have to obtain the result of summing two expressions and know whether
+    * the result was simplified or two expressions were just packaged into a Sum.
+    *
+    * @param lhs First term.
+    * @param rhs Second term.
+    * @return An arithmetic expression as Right if simplification was achieved; a Sum instance with
+    *         lhs and rhs as terms as Left otherwise.
+    */
   def simplify(lhs: ArithExpr with SimplifiedExpr, rhs: ArithExpr with SimplifiedExpr):
   Either[ArithExpr with SimplifiedExpr, ArithExpr with SimplifiedExpr] = {
     var simplified: Boolean = false
 
 
+    /**
+      * Unwrap the result of simplification attempt from Either into ArithExpr and
+      * update the `simplified` flag if the result was Right
+      */
     def updateStatus(simplificationResult: Either[ArithExpr with SimplifiedExpr, ArithExpr with SimplifiedExpr]):
     ArithExpr with SimplifiedExpr = simplificationResult match {
       case Right(simplifiedExpr) =>
@@ -303,7 +334,7 @@ object SimplifySum {
       case Left(nonSimplifiedExpr) => nonSimplifiedExpr
     }
 
-
+    // Try to simplify if one or both expressions are sums or can be represented as such.
     val termWiseSimplifiedExpr: ArithExpr with SimplifiedExpr = (lhs, rhs) match {
       case (s1: Sum, s2: Sum) => s2.terms.foldLeft[ArithExpr with SimplifiedExpr](s1)(
         (acc, s2term) =>            updateStatus(simplify(acc, s2term)))
@@ -321,7 +352,9 @@ object SimplifySum {
       case _ =>                     updateStatus(addTerm(List(lhs), rhs, termsComeFromSum = false))
     }
 
-    // Here we look at the sum as a whole (not term-wise) and make sure it is in a normal form
+    // Irrespectively of whether we simplified the expression or not, consider the result as a whole and try to
+    // simplify as such.
+    // Here we make sure that the expression is in the normal form
     val normalisedExpr = termWiseSimplifiedExpr match {
       case sum@Sum(terms) => toPowOfSum(terms) match {
         case Some(powOfSum) =>
@@ -332,20 +365,18 @@ object SimplifySum {
       case nonSumExpr => nonSumExpr
     }
 
-    if (simplified)
-      Right(normalisedExpr)
-    else
-      Left(normalisedExpr)
+    if (simplified) Right(normalisedExpr)
+    else Left(normalisedExpr)
   }
 
 
   /**
-      * Try to promote the sum into another expression, then try to combine terms. If all fails the expression is simplified.
-      *
-      * @param lhs The left-hand side.
-      * @param rhs The right-hand side.
-      * @return A promoted expression or a simplified sum object.
-      */
+    * Try to simplify the sum into another expression if simplification is enabled
+    *
+    * @param lhs The left-hand side.
+    * @param rhs The right-hand side.
+    * @return A promoted expression or a simplified sum object.
+    */
     def apply(lhs: ArithExpr with SimplifiedExpr, rhs: ArithExpr with SimplifiedExpr): ArithExpr with SimplifiedExpr = {
       if (PerformSimplification())
         simplify(lhs, rhs) match {
@@ -357,10 +388,12 @@ object SimplifySum {
     }
 
   /**
-    * TODO: documentation
+    * Try to simplify the sum into another expression if simplification is enabled
+    *
+    * @param terms The terms of the sum to simplify.
+    * @return A promoted expression or a simplified sum object.
     */
   def apply(terms: List[ArithExpr with SimplifiedExpr]): ArithExpr with SimplifiedExpr = {
-//    assume(terms.length > 1)
     if (terms.length > 1) terms.reduce(_ + _)
     else terms.head
   }
