@@ -1485,7 +1485,7 @@ case class LShift private[arithmetic](a: ArithExpr with SimplifiedExpr, b: Arith
   */
 class Var private[arithmetic](val name: String,
                               val range: Range = RangeUnknown,
-                              val fixedId: Option[Long] = None) extends ArithExpr {
+                              val fixedId: Option[Long] = None) extends ArithExpr with SimplifiedExpr {
   override lazy val hashCode: Int = 8 * 79 + id.hashCode
 
   override val HashSeed = 0x54e9bd5e
