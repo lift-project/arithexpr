@@ -96,7 +96,7 @@ class TestExpr {
 
   @Test
   def issue141(): Unit = {
-    val i = SimplifyVar("i")
+    val i = SimplifyVar(Var("i"))
     val expr = (3 + ((-3 + i) % 3)) % 3
     val gold = SimplifyMod(SimplifySum(3 :: SimplifyMod(Sum(-3 :: i :: Nil), 3) :: Nil), 3)
     val incorrectSimplication = (-3 + i) % 3
@@ -910,7 +910,7 @@ class TestExpr {
 
   @Test def sumVarsDivConstant(): Unit = {
     val i = Var(GoesToRange(Cst(4)))
-    val j = Var(GoesToRange(SimplifyVar("M")))
+    val j = Var(GoesToRange(SimplifyVar(Var("M"))))
     assertEquals(Cst(4) * j, (i + Cst(16) * j ) / Cst(4))
   }
 

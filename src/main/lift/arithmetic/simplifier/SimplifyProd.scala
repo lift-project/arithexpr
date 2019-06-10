@@ -1,16 +1,38 @@
 package lift
 package arithmetic
 package simplifier
-import ArithExprUtils._
 
 /**
  * Product simplifier
  */
 object SimplifyProd {
 
-  // TODO: documentation
-  // Power merge is prohibited in case one of the factors is the result of temporary power
-  // distribution (i.e. through extractor) since merging the powers again won't make the product simpler
+  /**
+    * Tries to simplify two expressions where one is a product by adding the new factor to
+    * the list of factors of the existing product.
+    *
+    * First, it tries to merge the new factor with one of the factors from the list.
+    * Here, we make sure to indicate whether factor distribution and power merge are allowed because if
+    * either left or right hand-side expressions are temporary representations (factorised Sums or factorised Powers),
+    * the distribution and power merge would simply undo the conversion and will try to simplify the result
+    * resulting in an infinite recursion.
+    *
+    * If the factorwise simplification was not possible, we use combineFactors to simplify as if neither
+    * of the two expressions where products.
+    *
+    * @param factors The product from the first expression represented as its factors
+    * @param factor The second expression
+    * @param factorsComeFromProd    Indicates whether the first expression is a product (then we don't need
+    *                               to reconstruct the expression through costly SimplifyProd)
+    * @param someFactorsComeFromSum Indicates whether one of the factors in `factors` or the `factor` come from a
+    *                               temporary representation of a Sum as a product -- since that would be achieved
+    *                               by factorisation, we have to prevent its reversal
+    * @param someFactorsComeFromPow Indicates whether one of the factors in `factors` or the `factor` come from a
+    *                               temporary representation of a Pow as a product -- since that would be achieved
+    *                               by factorisation, we have to prevent its reversal
+    * @return                       A simplified expression as Right if simplification was successful; a Prod object
+    *                               where the new factor is appended to the unchanged list of old terms as Left otherwise
+    */
   def addFactor(factors: List[ArithExpr with SimplifiedExpr], factor: ArithExpr with SimplifiedExpr,
                 factorsComeFromProd: Boolean = false,
                 someFactorsComeFromSum: Boolean = true,
@@ -34,18 +56,23 @@ object SimplifyProd {
     // Example 2: ((a * b * c)^e) viewed as (a^e * b^e * c^e) (normal form)
 
     // First, transform `factors` back into normal form
-    // Example 1: List(x, (a+b+c)) -> x*a + x*b + x*c
-    // Example 2: List(d, e, f) -> d * e * f
     val simplifiedOriginalProd: ArithExpr =
     if (factors.length > 1) {
+      // Example 1: List(d, e, f) -> d * e * f
       if (factorsComeFromProd) new Prod(factors) with SimplifiedExpr
-      else SimplifyProd(factors)
+      else {
+        // TODO: investigate whether we can reconstruct the first expression without
+        //  simplification even if it is not a Prod
+        // Example 2: List(x, (a+b+c)) -> x*a + x*b + x*c
+        SimplifyProd(factors)
+      }
     } else factors.head
+
     // Then, try to combine `factor` with reconstructed normal-form product of `factors`
-    // Example 1: combineFactors(x*a + x*b + x*c, y) => y*x*a + y*x*b + y*x*c
-    // Example 2: combineFactors(d * e * f, y) => None
     combineFactors(simplifiedOriginalProd, factor) match {
+      // Example 2: combineFactors(x*a + x*b + x*c, y) => y*x*a + y*x*b + y*x*c
       case Some(simplifiedResult) => simplifiedResult
+      // Example 1: combineFactors(d * e * f, y) => None
       // If simplified combination is not possible, it is safe to just prepend the factor to `factors`
       // for a simplified product
       case None =>
@@ -60,11 +87,15 @@ object SimplifyProd {
   }
 
   /**
-   * Try to combine a pair of factors.
-   * @param lhs The first factor.
-   * @param rhs The second factor.
-   * @return An option containing an expression if the factors can be combined, None otherwise
-   */
+    * Try to combine a pair of factors.
+    * If one or both of the factors are Prods themselves, no Prod-specific optimisations are applied;
+    * addFactor takes care of that. If one or both of the factors are Prods that can be represented
+    * as something else using extractors, then simplification is possible.
+    *
+    * @param lhs The first factor
+    * @param rhs The second factor
+    * @return An option containing an expression if the factors can be combined, None otherwise
+    */
   def combineFactors(lhs: ArithExpr with SimplifiedExpr, rhs: ArithExpr with SimplifiedExpr,
                      distributionAllowed: Boolean = true,
                      powerMergeAllowed: Boolean = true): Option[ArithExpr with SimplifiedExpr] = {
@@ -95,11 +126,6 @@ object SimplifyProd {
         case Sign.Positive => Some(NegInf)
         case Sign.Negative => Some(PosInf)
       }
-
-      // Factor simplification
-      // TODO: get rid of this since we expect the arguments to be simplified
-//      case (x, y) if !x.simplified => Some(ExprSimplifier(x) * y)
-//      case (x, y) if !y.simplified => Some(x * ExprSimplifier(y))
 
       // Constant product
       case (Cst(x), Cst(y)) => Some(Cst(x * y))
@@ -163,12 +189,12 @@ object SimplifyProd {
   }
 
   /**
-    * TODO: update documentation
-   * Try to promote the product into another expression, then try to combine factors. If all fails the expression is simplified.
-   * @param lhs The left-hand side.
-   * @param rhs The right-hand side.
-   * @return A promoted expression or a simplified Prod object.
-   */
+    * Try to promote the product into another expression.
+    *
+    * @param lhs The left-hand side.
+    * @param rhs The right-hand side.
+    * @return A promoted expression or a simplified Prod object.
+    */
   def apply(lhs: ArithExpr with SimplifiedExpr, rhs: ArithExpr with SimplifiedExpr): ArithExpr with SimplifiedExpr = {
     if (PerformSimplification()) {
       // Whenever we unpack an expression using an extractor, set the safety flags (distributionAllowed and
@@ -185,7 +211,7 @@ object SimplifyProd {
               someFactorsComeFromSum, someFactorsComeFromPow)) {
 
             case (acc: Prod, lhsFactor) => addFactor(acc.factors, lhsFactor, factorsComeFromProd = true,
-              someFactorsComeFromSum = someFactorsComeFromSum, someFactorsComeFromPow = someFactorsComeFromPow)
+              someFactorsComeFromSum, someFactorsComeFromPow)
 
             case (acc: ArithExpr, lhsFactor) => addFactor(List(acc), lhsFactor, factorsComeFromProd = true,
               someFactorsComeFromSum, someFactorsComeFromPow)
@@ -207,16 +233,15 @@ object SimplifyProd {
     }
     else
       new Prod(List(lhs, rhs).sortWith(ArithExpr.sort)) with SimplifiedExpr
-    // TODO: There might be simplifications that require access to all or a subset of
-    //  factors in the two products (lhs and rhs), then they have to be handled in
-    //  apply() after addFactor.
   }
 
   /**
-    * TODO: documentation
+    * Try to promote the product into another expression.
+    *
+    * @param factors The factors of the product to simplify
+    * @return
     */
   def apply(factors: List[ArithExpr with SimplifiedExpr]): ArithExpr with SimplifiedExpr = {
-//    assume(factors.length > 1)
     factors.foldLeft[ArithExpr with SimplifiedExpr](Cst(1)) {
       case (acc, factor) => acc * factor
     }

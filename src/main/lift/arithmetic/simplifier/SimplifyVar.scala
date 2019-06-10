@@ -9,14 +9,12 @@ object SimplifyVar {
     else None
   }
 
-  def apply(name: String = "", r: Range = RangeUnknown, fixedId: Option[Long] = None): ArithExpr with SimplifiedExpr = {
-    val simplificationResult = if (PerformSimplification()) simplify(name, r, fixedId) else None
-    simplificationResult match {
-      case Some(toReturn) => toReturn
-      case None => new Var(name, r, fixedId) with SimplifiedExpr
-    }
-  }
-
+  /**
+    * Simplify a variable.
+    *
+    * @param v A variable to simplify
+    * @return A simplified expression
+    */
   def apply(v: Var): ArithExpr with SimplifiedExpr = {
     val simplificationResult = if (PerformSimplification()) simplify(v.name, v.range, Some(v.id)) else None
     simplificationResult match {

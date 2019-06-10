@@ -1,25 +1,26 @@
 package lift
 package arithmetic
 package simplifier
-import ArithExprUtils.replaceAt
 
 import scala.collection.mutable
 
 object SimplifySum {
 
   /**
-    * Adds the term to a list of terms. First, it tries to merge the new term from rhs with one of the lhs terms
+    * Tries to simplify two expressions where one is a Sum by adding the new term to
+    * the list of terms of the existing sum.
+    * First, it tries to merge the new term from rhs with one of the lhs terms
     * from the list. If that fails, the lhs is reconstructed as a single expression; it then tries to
     * simplify reconstructed lhs with the new term from rhs using combineTerms.
     * The difference between addTerm and combineTerms is that addTerm handles cases with Sum as lhs,
     * and combineTerm doesn't.
     *
-    * @param terms A list of left hand-side (lhs) terms
-    * @param term A new term from right hand-side expression
+    * @param terms            A list of left hand-side (lhs) terms
+    * @param term             A new term from right hand-side expression
     * @param termsComeFromSum A flag indicating whether lhs is originally a Sum and not another arithmetic
     *                         expression temporarily represented as a sum using Sum extractors
-    * @return A simplified expression as Right if simplification was successful; a sum where the new term is
-    *         appended to the unchanged list of old terms as Left otherwise
+    * @return                 A simplified expression as Right if simplification was successful; a Sum object where
+    *                         the new term is appended to the unchanged list of old terms as Left otherwise
     */
   def addTerm(terms: List[ArithExpr with SimplifiedExpr], term: ArithExpr with SimplifiedExpr,
               termsComeFromSum: Boolean = false):
@@ -33,11 +34,12 @@ object SimplifySum {
     // We didn't manage to combine the new term with any of the old terms.
     val simplifiedOriginalSum: ArithExpr with SimplifiedExpr =
       if (terms.length > 1) {
-        if (termsComeFromSum) {
-          // TODO: investigate whether we can just return Left(new Sum(term, terms) with SimplifiedExpr) here since
-          // combineTerms will not simplify any further when lhs is a Sum
-          new Sum(terms) with SimplifiedExpr
-        } else SimplifySum(terms)
+        if (termsComeFromSum) new Sum(terms) with SimplifiedExpr
+        else {
+          // TODO: investigate whether we can reconstruct the first expression without
+          //  simplification even if it is not a Sum
+          SimplifySum(terms)
+        }
       } else terms.head
     // Try to combine `term` with sum of `terms`
     combineTerms(simplifiedOriginalSum, term) match {
@@ -50,10 +52,13 @@ object SimplifySum {
   }
 
   /**
-    * Try to combine a pair of terms, where neither is a sum.
+    * Try to combine a pair of terms.
+    * If one or both of the terms are Sums, no Sum-specific simplifications are applied;
+    * addTerms takes care of that. If one or both of the terms are Sums that can be represented
+    * as something else using extractors, then simplification is possible.
     *
-    * @param lhs The first term.
-    * @param rhs The second term.
+    * @param lhs The first term
+    * @param rhs The second term
     * @return An option containing an expression if the terms can be combined, None otherwise
     */
   def combineTerms(lhs: ArithExpr with SimplifiedExpr, rhs: ArithExpr with SimplifiedExpr):
@@ -388,7 +393,7 @@ object SimplifySum {
     }
 
   /**
-    * Try to simplify the sum into another expression if simplification is enabled
+    * Try to simplify the sum into another expression.
     *
     * @param terms The terms of the sum to simplify.
     * @return A promoted expression or a simplified sum object.

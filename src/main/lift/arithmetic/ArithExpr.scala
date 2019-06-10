@@ -866,7 +866,11 @@ object ArithExpr {
 
   /**
     * Recursively converts an arithmetic expression to a Scala notation String which can be evaluated into a
-    * valid ArithExpr
+    * valid ArithExpr.
+    *
+    * @param ae An expression to print
+    * @param printNonFixedVarIds Indicates whether variables should be printed with their non-fixed IDs
+    * @return Printed result
     */
   def printToScalaString(ae: ArithExpr, printNonFixedVarIds: Boolean): String = ae match {
     case Cst(v) =>                   s"Cst($v)"
@@ -1488,6 +1492,14 @@ class Var private[arithmetic](val name: String,
 
   override lazy val digest: Int = HashSeed ^ name.hashCode ^ id.hashCode ^ range.digest()
 
+  /**
+    * Same functionality as clone(), but with a SimplifiedExpr trait.
+    * This is used in SimplifyVar when recreating subclasses of Var; since Var is inherited from outside
+    * the scope of this package (arithmetic), SimplifyVar cannot instantiate the subtypes itself and has to
+    * do it through this public interface.
+    *
+    * @return A clone with the SimplifiedExpr trait
+    */
   def cloneSimplified(): Var with SimplifiedExpr = new Var(name, range, Some(id)) with SimplifiedExpr
 
   override def equals(that: Any): Boolean = that match {
