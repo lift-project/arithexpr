@@ -188,10 +188,8 @@ abstract sealed class ArithExpr {
     * @note This operator works only for simplified expressions.
     */
   def ==(that: ArithExpr): Boolean = {
-    val thisSimplified = ExprSimplifier(this)
-    val thatSimplified = ExprSimplifier(that)
-    if (thisSimplified.HashSeed() == thatSimplified.HashSeed() && thisSimplified.digest() == thatSimplified.digest())
-      thisSimplified === thatSimplified
+    if (this.HashSeed() == that.HashSeed() && this.digest() == that.digest())
+      this === that
     else false
   }
 
@@ -204,8 +202,7 @@ abstract sealed class ArithExpr {
     * @return True iif the two expressions are equal.
     * @note This operator works only for simplified expressions.
     */
-  def ===(that: ArithExpr): Boolean =
-    (ExprSimplifier(this).asInstanceOf[ArithExpr], ExprSimplifier(that).asInstanceOf[ArithExpr]) match {
+  def ===(that: ArithExpr): Boolean = (this, that) match {
     case (Cst(x), Cst(y)) => x == y
     case (IntDiv(x1, y1), IntDiv(x2, y2)) => x1 == x2 && y1 == y2
     case (Pow(x1, y1), Pow(x2, y2)) => x1 == x2 && y1 == y2
