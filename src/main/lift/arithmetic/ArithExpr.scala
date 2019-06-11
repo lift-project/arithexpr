@@ -65,10 +65,7 @@ abstract sealed class ArithExpr {
         case c: Cst => (c, c)
         case Prod(factors) =>
           this.sign match {
-            case Sign.Positive => (factors.map(abs(_).min).reduce[ArithExpr](_ * _), {
-              val t = factors.map(abs(_).max)
-                t.reduce[ArithExpr](_ * _)
-            })
+            case Sign.Positive => (factors.map(abs(_).min).reduce[ArithExpr](_ * _), factors.map(abs(_).max).reduce[ArithExpr](_ * _))
             case Sign.Negative => (factors.map(abs(_).max).reduce[ArithExpr](_ * _) * -1, factors.map(abs(_).min).reduce[ArithExpr](_ * _) * -1)
             case Sign.Unknown => (?, ?) // impossible to determine the min and max
           }
