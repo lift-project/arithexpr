@@ -803,11 +803,11 @@ class TestExpr {
   @Test def checkOrderOfTerms(): Unit = {
     val M = Var("v_M_177") // M < j in ascii
     val j = Var("v_j_179")
-    assertTrue(ArithExpr.sorted(M, j))
+    assertTrue(ArithExpr.isCanonicallySorted(M, j))
   }
 
   @Test def checkOrderOfTerms2(): Unit = {
-    assertFalse(ArithExpr.sorted(Cst(2), Cst(2)))
+    assertFalse(ArithExpr.isCanonicallySorted(Cst(2), Cst(2)))
   }
 
   @Test def modOfVarWithConstantRange(): Unit = {

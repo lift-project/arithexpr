@@ -82,7 +82,7 @@ object SimplifyProd {
               factor +: p.factors
             case _ =>
               List(factor, simplifiedOriginalProd)
-          }).sortWith(ArithExpr.sorted)) with SimplifiedExpr
+          }).sortWith(ArithExpr.isCanonicallySorted)) with SimplifiedExpr
     }
   }
 
@@ -232,7 +232,7 @@ object SimplifyProd {
       }
     }
     else
-      new Prod(List(lhs, rhs).sortWith(ArithExpr.sorted)) with SimplifiedExpr
+      new Prod(List(lhs, rhs).sortWith(ArithExpr.isCanonicallySorted)) with SimplifiedExpr
   }
 
   /**

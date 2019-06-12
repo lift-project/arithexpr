@@ -47,7 +47,7 @@ object SimplifySum {
       // If simplified combination is not possible, it is safe to just prepend the term to `terms`
       // for a simplified sum
       case None =>
-        Left(new Sum((term +: terms).sortWith(ArithExpr.sorted)) with SimplifiedExpr)
+        Left(new Sum((term +: terms).sortWith(ArithExpr.isCanonicallySorted)) with SimplifiedExpr)
     }
   }
 
@@ -389,7 +389,7 @@ object SimplifySum {
           case Left(nonSimplifiedExpr) => nonSimplifiedExpr
       }
       else
-        new Sum(List(lhs, rhs).sortWith(ArithExpr.sorted)) with SimplifiedExpr
+        new Sum(List(lhs, rhs).sortWith(ArithExpr.isCanonicallySorted)) with SimplifiedExpr
     }
 
   /**

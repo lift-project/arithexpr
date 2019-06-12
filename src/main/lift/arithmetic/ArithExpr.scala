@@ -379,14 +379,14 @@ object ArithExpr {
   implicit def simplifyImplicitly(aes: Seq[ArithExpr]): Seq[ArithExpr with SimplifiedExpr] = ExprSimplifier(aes)
   implicit def simplifyImplicitly(aes: List[ArithExpr]): List[ArithExpr with SimplifiedExpr] = ExprSimplifier(aes)
 
-  val sorted: (ArithExpr, ArithExpr) => Boolean = (x: ArithExpr, y: ArithExpr) => (x, y) match {
+  val isCanonicallySorted: (ArithExpr, ArithExpr) => Boolean = (x: ArithExpr, y: ArithExpr) => (x, y) match {
     case (Cst(a), Cst(b)) => a < b
     case (_: Cst, _) => true // constants first
     case (_, _: Cst) => false
     case (x: Var, y: Var) => x.id < y.id // order variables based on id
     case (_: Var, _) => true // variables always after constants second
     case (_, _: Var) => false
-    case (Prod(factors1), Prod(factors2)) => factors1.zip(factors2).map(x => sorted(x._1, x._2)).foldLeft(false)(_ || _)
+    case (Prod(factors1), Prod(factors2)) => factors1.zip(factors2).map(x => isCanonicallySorted(x._1, x._2)).foldLeft(false)(_ || _)
     case _ => x.HashSeed() < y.HashSeed() || (x.HashSeed() == y.HashSeed() && x.digest() < y.digest())
   }
 
@@ -1085,7 +1085,7 @@ case class Prod private[arithmetic](factors: List[ArithExpr with SimplifiedExpr]
   Debug.Assert(factors.length > 1, s"Factors should have at least two terms in $toString")
 
   if (Debug.SanityCheck && simplified) {
-    Debug.Assert(factors.view.zip(factors.tail).forall(x => ArithExpr.sorted(x._1, x._2)), "Factors should be sorted")
+    Debug.Assert(factors.view.zip(factors.tail).forall(x => ArithExpr.isCanonicallySorted(x._1, x._2)), "Factors should be sorted")
     factors.foreach(x => {
       Debug.AssertNot(x.isInstanceOf[Prod], s"Prod cannot contain a Prod in $toString")
       Debug.AssertNot(x.isInstanceOf[Sum], "Prod should not contain a Sum")
@@ -1202,7 +1202,7 @@ case class Sum private[arithmetic](terms: List[ArithExpr with SimplifiedExpr]) e
   Debug.Assert(terms.length > 1, s"Terms should have at least two terms in $toString")
 
   if (Debug.SanityCheck && simplified) {
-    Debug.Assert(terms.view.zip(terms.tail).forall(x => ArithExpr.sorted(x._1, x._2)), "Terms should be sorted")
+    Debug.Assert(terms.view.zip(terms.tail).forall(x => ArithExpr.isCanonicallySorted(x._1, x._2)), "Terms should be sorted")
     terms.foreach(x => {
       Debug.AssertNot(x.isInstanceOf[Sum], "Sum cannot contain a Sum")
     })
