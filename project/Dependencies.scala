@@ -12,7 +12,5 @@ object Dependencies {
         "org.scalacheck" %% "scalacheck" % "1.13.0" % "test",
     // XML
         "org.scala-lang.modules" % "scala-xml_2.11" % "1.0.4",
-    // cli parser
-        "org.clapper" %% "argot" % "1.0.3"
     )
 }

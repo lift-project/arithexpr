@@ -22,7 +22,7 @@ class TestDivisionSimplification {
       (a + Cst(42) * c + b * c) /^ (Cst(42) + b)
     )
   }
-  
+
   @Test def issueNumber4(): Unit = {
     val v_O = Var("v_O", StartFromRange(1))
     val gl_id = Var("gl_id", ContinuousRange(0, Var("gl_size", ContinuousRange(1, PosInf))))

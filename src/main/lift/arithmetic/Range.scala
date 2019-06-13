@@ -1,13 +1,13 @@
 package lift
 package arithmetic
 
-import lift.arithmetic.simplifier.ExprSimplifier
-
 sealed abstract class Range {
   // default impl
-  def *(e: ArithExpr): Range = this
-  val min : ArithExpr // minimum value this range can take (note this is not recursive, if there is a var in the range somewhere, we do not try to take its minimum value
-  val max : ArithExpr // maximum value this range can take
+  def *(e: ArithExpr with SimplifiedExpr): Range = this
+  // minimum value this range can take (note this is not recursive, if there is a var in the range somewhere, we do not try to take its minimum value
+  val min : ArithExpr with SimplifiedExpr
+  // maximum value this range can take
+  val max : ArithExpr with SimplifiedExpr
 
   def digest(): Int = min.digest() ^ max.digest()
 
@@ -19,11 +19,13 @@ sealed abstract class Range {
   def visitAndRebuild(f: ArithExpr => ArithExpr): Range
 
   /* Number of different values this range can take */
-  lazy val numVals: ArithExpr = ?
+  lazy val numVals: ArithExpr with SimplifiedExpr = ?
 }
 
 object Range {
-  def substitute(r: Range, substitutions: scala.collection.Map[ArithExpr,ArithExpr]) : Range = {
+  def unapply(r: Range): Option[(ArithExpr with SimplifiedExpr, ArithExpr with SimplifiedExpr)] = Some(r.min, r.max)
+
+  def substitute(r: Range, substitutions: scala.collection.Map[ArithExpr, ArithExpr]): Range = {
     r match {
       case s: StartFromRange => StartFromRange(ArithExpr.substitute(s.start, substitutions))
       case g: GoesToRange => GoesToRange(ArithExpr.substitute(g.end, substitutions))
@@ -36,29 +38,29 @@ object Range {
   /**
     * Converts a Range to a Scala notation String which can be evaluated into a valid Range
     */
-  def printToScalaString(r: Range): String = r match {
-    case StartFromRange(start) =>             s"StartFromRange(${ArithExpr.printToScalaString(start)}"
-    case GoesToRange(end) =>                  s"GoesToRange(${ArithExpr.printToScalaString(end)}"
-    case RangeAdd(start, stop, step) =>       s"RangeAdd(${ArithExpr.printToScalaString(start)}, " +
-                                                       s"${ArithExpr.printToScalaString(stop)}, " +
-                                                       s"${ArithExpr.printToScalaString(step)})"
-    case RangeMul(start, stop, mul) =>        s"RangeMul(${ArithExpr.printToScalaString(start)}, " +
-                                                       s"${ArithExpr.printToScalaString(stop)}, " +
-                                                       s"${ArithExpr.printToScalaString(mul)})"
+  def printToScalaString(r: Range, printNonFixedVarIds: Boolean): String = r match {
+    case StartFromRange(start) =>             s"StartFromRange(${ArithExpr.printToScalaString(start, printNonFixedVarIds)})"
+    case GoesToRange(end) =>                  s"GoesToRange(${ArithExpr.printToScalaString(end, printNonFixedVarIds)})"
+    case RangeAdd(start, stop, step) =>       s"RangeAdd(${ArithExpr.printToScalaString(start, printNonFixedVarIds)}, " +
+                                                       s"${ArithExpr.printToScalaString(stop, printNonFixedVarIds)}, " +
+                                                       s"${ArithExpr.printToScalaString(step, printNonFixedVarIds)})"
+    case RangeMul(start, stop, mul) =>        s"RangeMul(${ArithExpr.printToScalaString(start, printNonFixedVarIds)}, " +
+                                                       s"${ArithExpr.printToScalaString(stop, printNonFixedVarIds)}, " +
+                                                       s"${ArithExpr.printToScalaString(mul, printNonFixedVarIds)})"
     case RangeUnknown =>                      s"RangeUnknown"
-    case r =>
+    case _ =>
       throw new NotImplementedError(s"Range $r is not supported in printing Range to Scala notation String")
   }
 }
 
 class RangeUnknownException(msg: String) extends Exception(msg)
 
-case class StartFromRange(start: ArithExpr) extends Range {
-  override def *(e: ArithExpr): Range = {
-    StartFromRange(ExprSimplifier(start * e))
+case class StartFromRange(start: ArithExpr with SimplifiedExpr) extends Range {
+  override def *(e: ArithExpr with SimplifiedExpr): Range = {
+    StartFromRange(start * e)
   }
-  override val min: ArithExpr = start
-  override val max: ArithExpr = PosInf
+  override val min: ArithExpr with SimplifiedExpr = start
+  override val max: ArithExpr with SimplifiedExpr = PosInf
 
   override def equals(that: Any): Boolean = that match {
     case r: StartFromRange => this.start == r.start
@@ -69,12 +71,12 @@ case class StartFromRange(start: ArithExpr) extends Range {
     StartFromRange(start.visitAndRebuild(f))
 }
 
-case class GoesToRange(end: ArithExpr) extends Range {
-  override def *(e: ArithExpr): Range = {
-    GoesToRange(ExprSimplifier(end * e))
+case class GoesToRange(end: ArithExpr with SimplifiedExpr) extends Range {
+  override def *(e: ArithExpr with SimplifiedExpr): Range = {
+    GoesToRange(end * e)
   }
-  override val min: ArithExpr = NegInf
-  override val max: ArithExpr = end-1
+  override val min: ArithExpr with SimplifiedExpr = NegInf
+  override val max: ArithExpr with SimplifiedExpr = end-1
 
   override def equals(that: Any): Boolean = that match {
     case r: GoesToRange => this.end == r.end
@@ -85,13 +87,15 @@ case class GoesToRange(end: ArithExpr) extends Range {
     GoesToRange(end.visitAndRebuild(f))
 }
 
-case class RangeAdd(start: ArithExpr, stop: ArithExpr, step: ArithExpr) extends Range {
-  override def *(e: ArithExpr): Range = {
-    RangeAdd(ExprSimplifier(start * e), ExprSimplifier(stop * e), step)
+case class RangeAdd(start: ArithExpr with SimplifiedExpr,
+                    stop: ArithExpr with SimplifiedExpr,
+                    step: ArithExpr with SimplifiedExpr) extends Range {
+
+  override def *(e: ArithExpr with SimplifiedExpr): Range = {
+    RangeAdd(start * e, stop * e, step)
   }
 
-  private def checkBound(up: Boolean, result: ArithExpr)
-                        : ArithExpr = {
+  private def checkBound(up: Boolean, result: ArithExpr with SimplifiedExpr): ArithExpr with SimplifiedExpr = {
     try {
       val evaluatedResult = result.evalDouble
       val evaluatedStart = start.evalDouble
@@ -106,13 +110,13 @@ case class RangeAdd(start: ArithExpr, stop: ArithExpr, step: ArithExpr) extends 
     }
   }
   
-  override val min: ArithExpr = {
+  override val min: ArithExpr with SimplifiedExpr = {
     if (step.sign == Sign.Negative)
       checkBound(up=false, stop + 1)
     else
       start
   }
-  override val max: ArithExpr = {
+  override val max: ArithExpr with SimplifiedExpr = {
     if (step.sign == Sign.Positive)
       // TODO: this maximum is too high! consider the following range: RangeAdd(0,10,5) in which case the max is 5, not 9
       checkBound(up=true, stop - 1)
@@ -125,7 +129,7 @@ case class RangeAdd(start: ArithExpr, stop: ArithExpr, step: ArithExpr) extends 
     case _ => false
   }
 
-  override lazy val numVals: ArithExpr = {
+  override lazy val numVals: ArithExpr with SimplifiedExpr = {
     // TODO: Workaround. See TestExpr.numValsNotSimplifying
     // TODO: and TestExpr.ceilNotSimplifying
     if ((
@@ -147,12 +151,14 @@ case class RangeAdd(start: ArithExpr, stop: ArithExpr, step: ArithExpr) extends 
     RangeAdd(start.visitAndRebuild(f), stop.visitAndRebuild(f), step.visitAndRebuild(f))
 }
 
-case class RangeMul(start: ArithExpr, stop: ArithExpr, mul: ArithExpr) extends Range {
-  override def *(e: ArithExpr): Range = {
-    RangeMul(ExprSimplifier(start * e), ExprSimplifier(stop * e), mul)
+case class RangeMul(start: ArithExpr with SimplifiedExpr,
+                    stop: ArithExpr with SimplifiedExpr,
+                    mul: ArithExpr with SimplifiedExpr) extends Range {
+  override def *(e: ArithExpr with SimplifiedExpr): Range = {
+    RangeMul(start * e, stop * e, mul)
   }
-  override val min: ArithExpr = start
-  override val max: ArithExpr = stop /^ mul
+  override val min: ArithExpr with SimplifiedExpr = start
+  override val max: ArithExpr with SimplifiedExpr = stop /^ mul
 
   override def equals(that: Any): Boolean = that match {
     case r: RangeMul => this.start == r.start && this.stop == r.stop && this.mul == r.mul
@@ -170,8 +176,8 @@ object ContinuousRange {
 }
 
 case object RangeUnknown extends Range {
-  override val min: ArithExpr = ?
-  override val max: ArithExpr = ?
+  override val min: ArithExpr with SimplifiedExpr = ?
+  override val max: ArithExpr with SimplifiedExpr = ?
 
   override def visitAndRebuild(f: (ArithExpr) => ArithExpr): Range = this
 }

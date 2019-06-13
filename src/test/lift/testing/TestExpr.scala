@@ -1,6 +1,7 @@
 package lift.testing
 
 import lift.arithmetic._
+import lift.arithmetic.simplifier._
 import org.junit.Assert._
 import org.junit.{Ignore, Test}
 
@@ -95,9 +96,9 @@ class TestExpr {
 
   @Test
   def issue141(): Unit = {
-    val i = Var("i")
+    val i = SimplifyVar(Var("i"))
     val expr = (3 + ((-3 + i) % 3)) % 3
-    val gold = Mod(Sum(3 :: Mod(Sum(-3 :: i :: Nil), 3) :: Nil), 3)
+    val gold = SimplifyMod(SimplifySum(3 :: SimplifyMod(Sum(-3 :: i :: Nil), 3) :: Nil), 3)
     val incorrectSimplication = (-3 + i) % 3
     assertNotEquals(incorrectSimplication, expr)
     assertEquals(gold, expr)
@@ -107,7 +108,7 @@ class TestExpr {
   def issue141_2(): Unit = {
     val i = Var("i")
     val expr = (3 + (-2 * i)) % 3
-    val gold = Mod(Sum(3 :: Prod(-2 :: i :: Nil) :: Nil), 3)
+    val gold = SimplifyMod(SimplifySum(3 :: SimplifyProd(-2 :: i :: Nil) :: Nil), 3)
     val incorrectSimplication = (-2 * i) % 3
     // wrong for example when i == 1
     // expr: 1
@@ -120,7 +121,7 @@ class TestExpr {
   def issue141_3(): Unit = {
     val i = Var("i")
     val expr = (3 - i) % 3
-    val gold = Mod(Sum(3 :: Prod(-1 :: i :: Nil) :: Nil), 3)
+    val gold = SimplifyMod(SimplifySum(3 :: SimplifyProd(-1 :: i :: Nil) :: Nil), 3)
     val incorrectSimplication = (-1 * i) % 3
     assertNotEquals(incorrectSimplication, expr)
     assertEquals(gold, expr)
@@ -647,7 +648,7 @@ class TestExpr {
     val N = Var("N", StartFromRange(2))
     val j = Var("j", ContinuousRange(0, N))
     val i = Var("i", ContinuousRange(0, M))
-    assertTrue(ArithExpr.isSmaller(AbsFunction(j-1),N).getOrElse(false))
+    assertTrue(ArithExpr.isSmaller(SimplifyAbs(j-1),N).getOrElse(false))
   }
 
   //noinspection ScalaUnnecessaryParentheses
@@ -802,11 +803,11 @@ class TestExpr {
   @Test def checkOrderOfTerms(): Unit = {
     val M = Var("v_M_177") // M < j in ascii
     val j = Var("v_j_179")
-    assertTrue(ArithExpr.sort(M, j))
+    assertTrue(ArithExpr.isCanonicallySorted(M, j))
   }
 
   @Test def checkOrderOfTerms2(): Unit = {
-    assertFalse(ArithExpr.sort(Cst(2), Cst(2)))
+    assertFalse(ArithExpr.isCanonicallySorted(Cst(2), Cst(2)))
   }
 
   @Test def modOfVarWithConstantRange(): Unit = {
@@ -909,7 +910,7 @@ class TestExpr {
 
   @Test def sumVarsDivConstant(): Unit = {
     val i = Var(GoesToRange(Cst(4)))
-    val j = Var(GoesToRange(Var("M")))
+    val j = Var(GoesToRange(SimplifyVar(Var("M"))))
     assertEquals(Cst(4) * j, (i + Cst(16) * j ) / Cst(4))
   }
 
@@ -1012,8 +1013,8 @@ class TestExpr {
   }
 
   @Test def powSimplify(): Unit = {
-    val N = SizeVar("N")
-    val expr = Pow( 1*1*Pow(2, -1), Log(2, N) + (1  * -1) ) * N
+    val N = ExprSimplifier(SizeVar("N"))
+    val expr = SimplifyPow( 1*1*SimplifyPow(2, -1), Log(2, N) + (1  * -1) ) * N
     assertEquals(Cst(2), expr)
   }
 

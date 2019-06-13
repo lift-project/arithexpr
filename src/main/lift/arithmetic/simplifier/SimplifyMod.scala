@@ -6,13 +6,15 @@ import scala.language.postfixOps
 
 object SimplifyMod {
 
-  def simplify(dividend: ArithExpr, divisor: ArithExpr): Option[ArithExpr] = (dividend, divisor) match {
+  def simplify(dividend: ArithExpr with SimplifiedExpr, divisor: ArithExpr with SimplifiedExpr):
+  Option[ArithExpr with SimplifiedExpr] =
+    (dividend, divisor) match {
   
     case (arithmetic.?, _) | (_, arithmetic.?) => Some(?)
 
     // Simplify operands
-    case (x, y) if !x.simplified => Some(ExprSimplifier(x) % y)
-    case (x, y) if !y.simplified => Some(x % ExprSimplifier(y))
+//    case (x, y) if !x.simplified => Some(ExprSimplifier(x) % y)
+//    case (x, y) if !y.simplified => Some(x % ExprSimplifier(y))
 
     ///////////////////////////////////////////////////////////////////////////////////
     // SPECIAL CASES //todo combine cases which only differ in order of args
@@ -38,7 +40,7 @@ object SimplifyMod {
               Nil),
           Sum(Cst(c2) :: (m2: Var) :: Nil))
       if m1 == m2 && a1 == a2 && c1 == c2 =>
-      Some(SimplifyMod(Sum(k :: i :: Nil), Sum(Cst(c1) :: m1 :: Nil)))
+      Some(SimplifyMod(SimplifySum(k :: i :: Nil), SimplifySum(Cst(c1) :: m1 :: Nil)))
 
     // j + ck + ci + ni + nk % c+n == (n+2)(i+k)+j % 2+n => j%(2+n)
     case (Sum(
@@ -144,7 +146,7 @@ object SimplifyMod {
 
     case (m: Mod, d) if m.divisor == d => Some(m)
 
-    // If the divident is a product, try to find the divisor. Finding the GCD below should make this redundant, but the
+    // If the dividend is a product, try to find the divisor. Finding the GCD below should make this redundant, but the
     // GCD method does not return fractions, but the divisor could be one.
     case (Prod(factors), x) if factors.contains(x) && !ArithExpr.hasDivision(factors) => Some(Cst(0))
 
@@ -163,8 +165,8 @@ object SimplifyMod {
       Some((s - c + c%d) % d)
 
     // Isolate the terms which are multiple of the mod and eliminate
-    case (s@Sum(terms), d) if !ArithExpr.mightBeNegative(s) =>
-      val (multiple, _) = terms.partition(t => (t, d) match {
+    case (s: Sum, d) if !ArithExpr.mightBeNegative(s) =>
+      val (multiple, _) = s.terms.partition(t => (t, d) match {
         case (Prod(factors1), Prod(factors2)) => factors2 forall (factors1 contains)
         case (Prod(factors), x) if factors.contains(x) => true
         case (x, y) if ArithExpr.multipleOf(x, y) => true
@@ -179,7 +181,8 @@ object SimplifyMod {
     case _ => None
   }
 
-  def apply(dividend: ArithExpr, divisor: ArithExpr): ArithExpr = {
+  def apply(dividend: ArithExpr with SimplifiedExpr, divisor: ArithExpr with SimplifiedExpr):
+  ArithExpr with SimplifiedExpr = {
     val simplificationResult = if (PerformSimplification()) simplify(dividend, divisor) else None
     simplificationResult match {
       case Some(toReturn) => toReturn

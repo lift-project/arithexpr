@@ -4,7 +4,7 @@ package simplifier
 
 object SimplifyAbs {
 
-  def apply(ae: ArithExpr): ArithExpr = {
+  def apply(ae: ArithExpr with SimplifiedExpr): ArithExpr with SimplifiedExpr = {
     if (PerformSimplification())
       ae.sign match {
         case Sign.Positive => ae

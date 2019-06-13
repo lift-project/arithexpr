@@ -4,7 +4,7 @@ package simplifier
 
 object SimplifyCeiling {
 
-  def apply(ae: ArithExpr): ArithExpr = {
+  def apply(ae: ArithExpr with SimplifiedExpr): ArithExpr with SimplifiedExpr = {
     ae match {
       case c: Cst => c
       case NegInf => NegInf

@@ -1,6 +1,7 @@
 package lift.testing
 
 import lift.arithmetic._
+import lift.arithmetic.simplifier.SimplifyProd
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
@@ -20,7 +21,7 @@ class TestComparison {
   def testInversion(): Unit = {
     val a = Var("a", range = StartFromRange(1))
     val b = Var("b", range = StartFromRange(1))
-    val rhs = Prod(List(Cst(1) /^ a, Cst(1) /^ b))
+    val rhs = SimplifyProd(List(Cst(1) /^ a, Cst(1) /^ b))
     assertEquals(Some(false), ArithExpr.isSmaller(1, rhs))
   }
 
