@@ -1705,7 +1705,7 @@ case class BigSum private[arithmetic](variable:InclusiveIndexVar, body:ArithExpr
   }
 }
 
-final case class InclusiveIndexVar(override val name:String, from:ArithExpr, upTo:ArithExpr) extends NamedVar(name) {
+case class InclusiveIndexVar(override val name:String, from:ArithExpr, upTo:ArithExpr) extends NamedVar(name) {
   override val range:RangeAdd = RangeAdd(from, upTo + 1, 1)
 
   override def cloneSimplified: InclusiveIndexVar with SimplifiedExpr = new InclusiveIndexVar(name, from, upTo) with SimplifiedExpr
