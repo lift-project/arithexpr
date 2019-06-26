@@ -71,16 +71,7 @@ object SimplifyIntDiv {
       if ms.intersect(mxs) == ms && a >= b =>
       val x = (a - b) + mxs.diff(ms).reduce(_+_)
       Some(Cst(1) + x / Sum(Cst(b) :: ms))
-
-    // SPECIAL CASES
-    // cn + mn / c+m == n(c+m) / c+m => n
-    case (Sum(
-              Prod(Cst(c1) :: (n2: Var) :: Nil) ::
-              Prod((m1: Var) :: (n1: Var) :: Nil) ::
-              Nil),
-          Sum(Cst(c2) :: (m2: Var) :: Nil))
-      if m1 == m2 && n1 == n2 && c1 == c2 =>
-      Some(n1)
+        
       // SPECIAL CASES
       // cn + mn / c+m == n(c+m) / c+m => n
       case (Sum(
