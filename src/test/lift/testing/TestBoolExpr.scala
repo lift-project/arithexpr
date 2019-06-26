@@ -5,46 +5,53 @@ import lift.arithmetic._
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
-class TestComparison {
-  import ArithPredicate.Operator
-  @Test
-  def equalsDecided = assertEquals(Some(true), ArithPredicate(1,1, Operator.==))
+class TestBoolExpr {
+  import ArithPredicate.{Operator => Op}
+  import ArithPredicate.Operator.Operator
+
+  def assertPredicate(lhs: ArithExpr, op: Operator, rhs: ArithExpr, result: Option[Boolean]): Unit = {
+    assertEquals(result, ArithPredicate(lhs, rhs, op).evaluate)
+  }
 
   @Test
-  def equalsUndecided = assertEquals(None, ArithPredicate(1, 2, Operator.==))
+  def equalsDecided = assertPredicate(1, Op.==, 1, Some(true))
 
   @Test
-  def nonEqualsDecided = assertEquals(Some(false), ArithPredicate(1,1, Operator.!=))
+  def equalsUndecided = assertPredicate(1, Op.==, 2, None)
 
   @Test
-  def nonEqualsUndecided = assertEquals(None, ArithPredicate(1, 2, Operator.!=))
+  def nonEqualsDecided = assertPredicate(1, Op.!=, 1, Some(false))
+
+  @Test
+  def nonEqualsUndecided = assertPredicate(1, Op.!=, 2, None)
   
   @Test
-  def isLT = assertEquals(Some(true), ArithPredicate(1,2, Operator.<))
+  def isLT = assertPredicate(1, Op.<, 2, Some(true))
 
   @Test
-  def nonLT = assertEquals(Some(false), ArithPredicate(1,1), Operator.<)
+  def nonLT = assertPredicate(1, Op.<, 1, Some(false))
 
   @Test
-  def undecidedLT = assertEquals(None, ArithPredicate(NamedVar("x"), NamedVar("y"), Operator.<))
+  def undecidedLT = assertPredicate(NamedVar("x"), Op.<, NamedVar("y"), None)
 
   @Test
-  def isLTE = assertEquals(Some(true), ArithPredicate(1,1), Operator.<=)
+  def isLTE = assertPredicate(1, Op.<=, 1, Some(true))
 
   @Test
-  def nonLTE = assertEquals(Some(false), ArithPredicate(2, 1), Operator.<=)
+  def nonLTE = assertPredicate(2, Op.<=, 1, Some(false))
 
   @Test
-  def isGT = assertEquals(Some(true), ArithPredicate(2,1, Operator.>))
+  def isGT = assertPredicate(2, Op.>, 1, Some(true))
 
   @Test
-  def nonGT = assertEquals(Some(false), ArithPredicate(1,1), Operator.>)
+  def nonGT = assertPredicate(1, Op.>, 1, Some(false))
 
   @Test
-  def undecidedGT = assertEquals(None, ArithPredicate(NamedVar("x"), NamedVar("y"), Operator.>))
+  def undecidedGT = assertPredicate(NamedVar("x"), Op.>, NamedVar("y"), None)
 
   @Test
-  def isGTE = assertEquals(Some(true), ArithPredicate(1,1), Operator.>=)
+  def isGTE = assertPredicate(1, Op.>=, 1, Some(true))
 
   @Test
-  def nonGTE = assertEquals(Some(false), ArithPredicate(1, 2), Operator.>=)}
+  def nonGTE = assertPredicate(1, Op.>=, 2, Some(false))
+}
