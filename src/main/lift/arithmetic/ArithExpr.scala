@@ -1640,6 +1640,8 @@ class NamedVar (override val name: String, override val range: Range = RangeUnkn
   override def visitAndRebuild(f: (ArithExpr) => ArithExpr): ArithExpr = {
     f(NamedVar(name, range.visitAndRebuild(f)))
   }
+
+  override def cloneSimplified() = new NamedVar(name, range) with SimplifiedExpr
 }
 
 object NamedVar {
@@ -1705,6 +1707,8 @@ case class BigSum private[arithmetic](variable:InclusiveIndexVar, body:ArithExpr
 
 final case class InclusiveIndexVar(override val name:String, from:ArithExpr, upTo:ArithExpr) extends NamedVar(name) {
   override val range:RangeAdd = RangeAdd(from, upTo + 1, 1)
+
+  override def cloneSimplified: InclusiveIndexVar with SimplifiedExpr = new InclusiveIndexVar(name, from, upTo) with SimplifiedExpr
 }
 
 object InclusiveIndexVar {
