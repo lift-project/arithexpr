@@ -5,7 +5,7 @@ package simplifier
 import scala.language.postfixOps
 
 object SimplifyMod {
-
+  // TODO: what are the semantics for negatives?
   def simplify(dividend: ArithExpr with SimplifiedExpr, divisor: ArithExpr with SimplifiedExpr):
   Option[ArithExpr with SimplifiedExpr] =
     (dividend, divisor) match {
@@ -97,13 +97,6 @@ object SimplifyMod {
       if m1 == m2 && m1 == m3 && j1 == j2 && c1 == c2 && c1 == c3 =>
      Some(i + c-(c1*c2))
 
-    // c1+n+j % c2+n = c1-c2+j % c+n
-    case (Sum(Cst(c1) :: (n1:Var) :: (j:Var) :: Nil),
-          Sum(Cst(c2) :: (n2: Var) :: Nil))
-      if n1 == n2 && c1 >= c2 && c1 >= 0 && c2 >= 0 &&
-        n1.sign == Sign.Positive && j.sign == Sign.Positive =>
-     Some(SimplifyMod(c1-c2+j, c2+n2))
-
     // a + j + bn / n+b = b(n+b) + j + a-2b % n+b
     // 4 + j + 2n % 2+n == 2(n+2)+j % n+2 => j % n+2
     // 5 + j + 2n % 2+n == 2(n+2)+j+1 % n+2 => j+1 % n+2
@@ -128,6 +121,16 @@ object SimplifyMod {
           Sum(Cst(2) :: (n3: Var) :: Nil))
       if n1 == n2 && n1 == n3 && i1 == i2 =>
      Some(SimplifyMod(j+1, n1+2))
+
+    // (m1 + .. + mN + x1 + .. + xN) % (m1 + .. + mN)
+    // => (x1 + .. + xN) % (m1 + .. + mN)
+    case (Sum(mxs), Sum(ms)) if ms.intersect(mxs) == ms =>
+      Some(mxs.diff(ms).reduce(_+_) % Sum(ms))
+    // (a + m1 + .. + mN + x1 + .. + xN) % (b + m1 + .. + mN)
+    // => ((a - b) + x1 + .. + xN) % (b + m1 + .. + mN)
+    case (Sum(Cst(a) :: mxs), Sum(Cst(b) :: ms)) if ms.intersect(mxs) == ms =>
+      val x = (a - b) + mxs.diff(ms).reduce(_+_)
+      Some(x % Sum(Cst(b) :: ms))
 
     // Modulo 1
     case (_, Cst(1)) => Some(Cst(0))

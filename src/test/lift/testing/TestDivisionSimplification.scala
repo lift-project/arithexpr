@@ -31,4 +31,12 @@ class TestDivisionSimplification {
 
     assertEquals(gl_id, i/inSize)
   }
+
+  @Test
+  def noSimplification(): Unit = {
+    val w = Var("w", RangeAdd(3, PosInf, 1))
+    val x = Var("x", RangeAdd(0, w, 1))
+    val expr = (Cst(1) + x + w) / (Cst(2) + w)
+    assertEquals((Cst(1) + x + w) / (Cst(2) + w), expr)
+  }
 }

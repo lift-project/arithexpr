@@ -15,6 +15,10 @@ object Sign extends Enumeration {
     }
   }
 
+  def and(a:Sign, b:Sign):Sign = {
+    if(a == b) a else Sign.Unknown
+  }
+
   private[arithmetic] def apply(ae: ArithExpr): Value = {
     ae match {
       case CeilingFunction(e) => signCeil(e)
@@ -30,6 +34,8 @@ object Sign extends Enumeration {
       case Mod(dividend, _) => dividend.sign
       case Pow(b, e) => b.sign
       case Var(_, range) => signVar(range)
+      case SteppedCase(_, cases) =>
+        cases.map(_.sign).reduceOption(and).getOrElse(Sign.Unknown)
       case ? => Sign.Unknown
       case _: ArithExprFunction => Sign.Unknown
     }

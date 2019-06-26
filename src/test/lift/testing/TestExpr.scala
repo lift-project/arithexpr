@@ -95,6 +95,65 @@ class TestExpr {
   }
 
   @Test
+  def binomial_filter_mod1(): Unit = {
+    val w = Var("w", RangeAdd(0, PosInf, 1))
+    val x = Var("x", RangeAdd(0, w, 1))
+    val k = Var("k", RangeAdd(0, PosInf, 1))
+    val expr = (k + x + w) % (k + w)
+    assertEquals(x, expr)
+  }
+
+  @Test
+  def binomial_filter_mod2(): Unit = {
+    val w = Var("a", RangeAdd(0, PosInf, 1))
+    val x = Var("b", RangeAdd(0, w, 1))
+    val expr = (Cst(4) + x + w) % (Cst(2) + w)
+    println(expr)
+    assertEquals(Cst(2) + x, expr)
+  }
+
+  @Test
+  def binomial_filter_mod3(): Unit = {
+    val w = Var("b", RangeAdd(0, PosInf, 1))
+    val x = Var("a", RangeAdd(0, w, 1))
+    val expr = (Cst(4) + x + w) % (Cst(2) + w)
+    println(expr)
+    assertEquals(Cst(2) + x, expr)
+  }
+
+  @Test
+  def binomial_filter_div1(): Unit = {
+    val w = Var("w", RangeAdd(3, PosInf, 1))
+    val i = Var("i", RangeAdd(0, 3, 1))
+    val expr = (Cst(2) + i + w) / (Cst(2) + w)
+    assertEquals(Cst(1), expr)
+  }
+
+  @Test
+  def binomial_filter_div2(): Unit = {
+    val w = Var("w", RangeAdd(3, PosInf, 1))
+    val x = Var("x", RangeAdd(0, w, 1))
+    val expr = (Cst(4) + x + w) / (Cst(2) + w)
+    assertEquals(Cst(1), expr)
+  }
+
+  @Test
+  def binomial_filter_ineq1(): Unit = {
+    var h = Var("h", RangeAdd(3, PosInf, 1))
+    val y = Var("y", RangeAdd(0, h, 1))
+    val expr = y lt (1 + h)
+    assertEquals(BoolExpr.True, expr)
+  }
+
+  @Test
+  def binomial_filter_ineq2(): Unit = {
+    var w = Var("w", RangeAdd(3, PosInf, 1))
+    val i = Var("i", RangeAdd(0, 3, 1))
+    val expr = i lt (1 + w)
+    assertEquals(BoolExpr.True, expr)
+  }
+
+  @Test
   def issue141(): Unit = {
     val i = SimplifyVar(Var("i"))
     val expr = (3 + ((-3 + i) % 3)) % 3
@@ -1162,7 +1221,7 @@ class TestExpr {
     // this should not simplify*/
     assertEquals(Max(n,n*2), Max(n,n*2))
   }
-
+/*
   @Test
   def testIfThenElse(): Unit = {
     val a = Var("a")
@@ -1180,7 +1239,7 @@ class TestExpr {
     // Unevaluable predicate with positive offset on the RHS
     assertEquals(b, (b+Cst(-2) gt b ) ?? c !! b)
   }
-
+*/
   @Test
   def testIsSmaller(): Unit = {
     val i = Var("i", ContinuousRange(0, 2))

@@ -26,6 +26,7 @@ object ExprSimplifier {
     case AbsFunction(ae) => SimplifyAbs(ae)
     case FloorFunction(ae) => SimplifyFloor(ae)
     case CeilingFunction(ae) => SimplifyCeiling(ae)
+    case bs:BigSum => SimplifyBigSum(bs)
   }
 
   def apply(aes: Seq[ArithExpr]): Seq[ArithExpr with SimplifiedExpr] = aes.map(apply)
