@@ -395,6 +395,7 @@ object ArithExpr {
     case (Cst(a), Cst(b)) => a < b
     case (_: Cst, _) => true // constants first
     case (_, _: Cst) => false
+    case (x:NamedVar, y:NamedVar) => x.name.compareTo(y.name) <= 0
     case (x: Var, y: Var) => x.id < y.id // order variables based on id
     case (_: Var, _) => true // variables always after constants second
     case (_, _: Var) => false
