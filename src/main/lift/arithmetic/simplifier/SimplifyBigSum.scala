@@ -6,7 +6,7 @@ object SimplifyBigSum {
 
   private def done(bigSum: BigSum):ArithExpr = new BigSum(bigSum.variable, bigSum.body) with SimplifiedExpr
 
-  def apply(bigSum:BigSum):ArithExpr = {
+  def apply(bigSum:BigSum):ArithExpr with SimplifiedExpr = {
       bigSum.body match {
           //Constant case
         case anything if !ArithExpr.freeVariables(anything).contains(bigSum.variable) =>

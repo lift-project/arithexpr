@@ -79,6 +79,15 @@ object BoolExpr {
       val >= = Value(">=")
       val != = Value("!=")
       val == = Value("==")
+
+      def symbolString(op:Operator): String =  op match {
+        case Operator.< => "<"
+        case Operator.> => ">"
+        case Operator.== => "=="
+        case Operator.!= => "!="
+        case Operator.>= => ">="
+        case Operator.<= => "<="
+      }
     }
   }
 

@@ -4,6 +4,7 @@ package arithmetic
 import java.util.concurrent.atomic.AtomicLong
 
 import lift.arithmetic.BoolExpr.ArithPredicate
+import lift.arithmetic.BoolExpr.ArithPredicate.Operator
 import lift.arithmetic.NotEvaluableException._
 import lift.arithmetic.NotEvaluableToIntException._
 import lift.arithmetic.simplifier._
@@ -794,6 +795,11 @@ object ArithExpr {
     false
   }
 
+  /***
+    * Returns the set of all variables in the expression which are not locally scoped.
+    * @param rootExpr
+    * @return
+    */
   def freeVariables(rootExpr:ArithExpr):Set[Var] = {
     //If we had a reverse-visit...I would not have to re-write a pattern matching cascade...
     //...but we don't...so sad :(
@@ -871,8 +877,8 @@ object ArithExpr {
     case IfThenElse(_, _, _) => throw NotEvaluable
 
     case BigSum(idxVariable, body) =>
-      val lowerBound = evalDouble(idxVariable.range.start).toInt
-      val upperBound = evalDouble(idxVariable.range.stop).toInt
+      val lowerBound = evalDouble(idxVariable.rangeAdd.start).toInt
+      val upperBound = evalDouble(idxVariable.rangeAdd.stop).toInt
 
       def mkBody = (idxValue:ArithExpr) => ArithExpr.substitute(body, Map(idxVariable -> idxValue))
 
@@ -961,6 +967,7 @@ object ArithExpr {
       if (terms.nonEmpty)            terms.map(printToScalaString(_, printNonFixedVarIds)).mkString(
                                         "SimplifySum(List(", ", ", "))")
       else                           s"SimplifySum(List())"
+    case BigSum(variable, body) =>  s"SimplifyBigSum(BigSum(${printToScalaString(variable, printNonFixedVarIds)}, ${printToScalaString(body, printNonFixedVarIds)}))"
     case Mod(dividend, divisor) =>   s"SimplifyMod(${printToScalaString(dividend, printNonFixedVarIds)}, " +
                                         s"${printToScalaString(divisor, printNonFixedVarIds)})"
     case AbsFunction(e) =>           s"SimplifyAbs(${printToScalaString(e, printNonFixedVarIds)})"
@@ -978,20 +985,30 @@ object ArithExpr {
                                         s"${printToScalaString(b, printNonFixedVarIds)})"
     case LShift(a, b) =>             s"LShift(${printToScalaString(a, printNonFixedVarIds)}, " +
                                         s"${printToScalaString(b, printNonFixedVarIds)})"
-    case v@Var(name, range) =>        "Var(\"" + s"$name" + "\"" +
-                                        s", ${Range.printToScalaString(range, printNonFixedVarIds)}, " +
-                                        (if (printNonFixedVarIds) s"Some(${v.id})" else v.fixedId match {
-                                            case Some(fixedId) => s"Some($fixedId)"
-                                            case None => "None"}) + ")"
+    case v:InclusiveIndexVar =>      printVarToScalaString("InclusiveIndexVar", v, printNonFixedVarIds)
+    case v:NamedVar =>      printVarToScalaString("NamedVar", v, printNonFixedVarIds)
+    case v:Var =>                     printVarToScalaString("Var", v, printNonFixedVarIds)
+
     case e =>
       throw new NotImplementedError(
         s"Arithmetic expression $e is not supported in printing ArithExpr to Scala notation String")
   }
 
+  private def printVarToScalaString(varTypeName:String, v:Var, printNonFixedVarIds:Boolean) = {
+    varTypeName + "(\"" + s"${v.name}" + "\"" +
+      s", ${Range.printToScalaString(v.range, printNonFixedVarIds)}, " +
+      (if (printNonFixedVarIds) s"Some(${v.id})" else v.fixedId match {
+        case Some(fixedId) => s"Some($fixedId)"
+        case None => "None"}) + ")"
+  }
+
   def printToScalaString(pred:BoolExpr, printNonFixedVarIDs:Boolean):String = pred match {
-    case BoolExpr.True => "true"
-    case BoolExpr.False => "false"
-    case BoolExpr.ArithPredicate(lhs, rhs, op) => s"${printToScalaString(lhs,printNonFixedVarIDs)} ${op.toString} ${printToScalaString(rhs, printNonFixedVarIDs)}"
+    case BoolExpr.True => "BoolExpr.True"
+    case BoolExpr.False => "BoolExpr.False"
+    case BoolExpr.ArithPredicate(lhs, rhs, op) =>
+      s"ArithPredicate(${printToScalaString(lhs,printNonFixedVarIDs)}, " +
+        s"${printToScalaString(rhs, printNonFixedVarIDs)}, " +
+        s"ArithExpr.Operator.${ArithPredicate.Operator.symbolString(op)})"
   }
 
 
@@ -1620,7 +1637,7 @@ object Var {
   def unapply(v: Var): Option[(String, Range)] = Some((v.name, v.range))
 }
 
-class NamedVar (override val name: String, override val range: Range = RangeUnknown) extends Var(name, range) {
+class NamedVar (override val name: String, override val range: Range = RangeUnknown, override val fixedId: Option[Long] = None) extends Var(name, range, fixedId) {
   override lazy val hashCode = 8 * 79 + name.hashCode
 
   override val HashSeed = 0x54e9bd5e
@@ -1706,8 +1723,8 @@ case class BigSum private[arithmetic](variable:InclusiveIndexVar, body:ArithExpr
   }
 }
 
-case class InclusiveIndexVar(override val name:String, from:ArithExpr, upTo:ArithExpr) extends NamedVar(name) {
-  override val range:RangeAdd = RangeAdd(from, upTo + 1, 1)
+case class InclusiveIndexVar(override val name:String, from:ArithExpr, upTo:ArithExpr, override val fixedId: Option[Long] = None) extends NamedVar(name, RangeAdd(from, upTo + 1, 1), fixedId) {
+  val rangeAdd:RangeAdd = this.range.asInstanceOf[RangeAdd]
 
   override def cloneSimplified: InclusiveIndexVar with SimplifiedExpr = new InclusiveIndexVar(name, from, upTo) with SimplifiedExpr
 }
@@ -1736,6 +1753,17 @@ object BigSum {
   }
 }
 
+/**
+  * This class represents a specialised chain of if then else statements, whose semantics rememble
+  * v match {
+  *   case 0 => cases(0)
+  *   case 1 => cases(1)
+  *   case _ => cases.last
+  * }
+  *
+  * Big sum simplification makes use of this to implement the "if-then-else" peeling simplifications.
+  * Always safe to transform this in a if-then-else chaine.
+  */
 final case class SteppedCase(v:NamedVar, cases:Seq[ArithExpr]) extends ArithExpr with SimplifiedExpr {
   override def HashSeed(): Int = 18022019
 
