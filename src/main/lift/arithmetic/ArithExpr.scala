@@ -1723,6 +1723,9 @@ case class BigSum private[arithmetic](variable:InclusiveIndexVar, body:ArithExpr
   }
 }
 
+/**
+  * A specialised form of NamedVar, where the Range is guaranteed to be a RangeAdd with steps of 1
+  */
 case class InclusiveIndexVar(override val name:String, from:ArithExpr, upTo:ArithExpr, override val fixedId: Option[Long] = None) extends NamedVar(name, RangeAdd(from, upTo + 1, 1), fixedId) {
   val rangeAdd:RangeAdd = this.range.asInstanceOf[RangeAdd]
 
