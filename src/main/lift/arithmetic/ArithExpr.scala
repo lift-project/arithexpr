@@ -188,7 +188,7 @@ abstract sealed class ArithExpr {
   def ==(that: ArithExpr): Boolean = {
     (this, that) match {
         //This library makes extensive use of construction-time computation for the various ArithExpr object - often coupled
-        //with lazy vals. It sometimes happen that, while evaluating this construction-time values, bit's of initialised
+        //with lazy vals. It sometimes happen that, while evaluating this construction-time values, bit's of unitialised
         //arithmetic expressions are compared. This hack guards against such cases.
       case (null, _) => return false
       case (_, null) => return false
