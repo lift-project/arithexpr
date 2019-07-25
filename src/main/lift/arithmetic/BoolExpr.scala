@@ -3,6 +3,10 @@ package lift.arithmetic
 import lift.arithmetic.BoolExpr.ArithPredicate.Operator.Operator
 import lift.arithmetic.simplifier.ExprSimplifier
 
+case class IfThenElseBuilder(test:BoolExpr, thenExpr:ArithExpr) {
+  def !!(elseExpr:ArithExpr):IfThenElse = IfThenElse(test, thenExpr, elseExpr)
+}
+
 sealed trait BoolExpr {
   def digest:Int
 
@@ -13,6 +17,10 @@ sealed trait BoolExpr {
   def simplifyInnerArithExpr:BoolExpr
 
   def freeVariables():Set[Var]
+
+  def ??(thenBranch:ArithExpr):IfThenElseBuilder = {
+    IfThenElseBuilder(this, thenBranch)
+  }
 }
 object BoolExpr {
   case object True extends BoolExpr {
