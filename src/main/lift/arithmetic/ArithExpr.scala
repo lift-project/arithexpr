@@ -1746,7 +1746,8 @@ object InclusiveIndexVar {
 
 object BigSum {
   def apply(from:ArithExpr, upTo:ArithExpr, makeBody:InclusiveIndexVar => ArithExpr):SimplifiedExpr = {
-    val idxVar = InclusiveIndexVar("sumIdx", from, upTo) //Make sure start does not overlap stop?
+    val freshID = Var.incCnt()
+    val idxVar = InclusiveIndexVar(s"sumIdx$freshID", from, upTo) //Make sure start does not overlap stop?
     val bs = BigSum(idxVar, makeBody(idxVar))
     SimplifyBigSum(bs)
   }
