@@ -8,7 +8,7 @@ import org.junit.{Ignore, Test}
 import scala.util.Random
 
 class OclTestFunction private(name: String, range: Range)
-  extends ArithExprFunction(name, range) {
+  extends ArithExprFunctionCall(name, range) {
 
   lazy val toOCLString = s"$name()"
   override lazy val digest: Int = HashSeed ^ /*range.digest() ^*/ name.hashCode
