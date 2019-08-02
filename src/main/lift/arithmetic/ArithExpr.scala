@@ -1490,6 +1490,9 @@ abstract case class ArithExprFunctionCall(name: String, range: Range = RangeUnkn
 
   def freeVariables:Set[Var] = Set()
 
+  def exposedArgs:Seq[ArithExpr]
+
+  def substituteExposedArgs(subMap:Map[ArithExpr, SimplifiedExpr]):ArithExprFunctionCall
 }
 
 object ArithExprFunctionCall {
@@ -1518,6 +1521,18 @@ class Lookup private[arithmetic](val table: Seq[ArithExpr with SimplifiedExpr],
 
   override def visitAndRebuild(f: (ArithExpr) => ArithExpr): ArithExpr = {
     f(Lookup(table.map(_.visitAndRebuild(f)), index.visitAndRebuild(f), id))
+  }
+
+  /**
+    * Arguments expressions which are exposed to the arith expr system
+    * @return
+    */
+  override def exposedArgs: Seq[ArithExpr] = table :+ index
+
+  override def substituteExposedArgs(subMap: Map[ArithExpr, SimplifiedExpr]): ArithExprFunctionCall = {
+    def sub(x:SimplifiedExpr):SimplifiedExpr = subMap.getOrElse(x, x)
+
+    new Lookup(table.map(sub), sub(index), id)
   }
 }
 
