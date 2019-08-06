@@ -13,11 +13,21 @@ object SimplifyBigSum {
           ((bigSum.upTo + 1) - bigSum.from)*bigSum.body
           //Split the sum along +
         case Sum(terms) if terms.nonEmpty =>
+          terms match {
+            case Seq(Prod(Seq(Cst(-1), fZero: ArithExprFunctionCall)),  fOne: ArithExprFunctionCall)
+              if fZero.name == fOne.name &&
+                fZero.exposedArgs == Seq(bigSum.variable) &&
+                fOne.exposedArgs == Seq(bigSum.variable + 1) =>
 
+              val x1 = fZero.substituteExposedArgs(Map((bigSum.variable -> (bigSum.upTo + 1))))
+              val x2 = fZero.substituteExposedArgs(Map(bigSum.variable -> Cst(0)))
+              x1 + x2
+            case _ =>
+              val sumTerms = terms.map(term => bigSum.modify(newBody = term))
+              (sumTerms).reduceOption(_ + _).getOrElse(Cst(0))
+          }
+        //Take out constant products
 
-          val sumTerms = terms.map(term => bigSum.modify(newBody = term))
-          (sumTerms).reduceOption(_ + _).getOrElse(Cst(0))
-          //Take out constant products
         case Prod(factors) if factors.nonEmpty =>
           val (keepIn, takeOut) = factors.partition(factor => ArithExpr.freeVariables(factor).contains(bigSum.variable))
           takeOut match {

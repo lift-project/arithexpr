@@ -223,7 +223,7 @@ abstract sealed class ArithExpr {
     case (IfThenElse(test1, t1, e1), IfThenElse(test2, t2, e2)) =>
       test1 == test2 && t1 == t2 && e1 == e2
     case (lu1: Lookup, lu2: Lookup) => lu1.table == lu2.table && lu1.index == lu2.index
-    case (f1: ArithExprFunctionCall, f2: ArithExprFunctionCall) => f1.name == f2.name
+    case (f1: ArithExprFunctionCall, f2: ArithExprFunctionCall) => f1.equals(f2)
     case (nv1: NamedVar, nv2: NamedVar) => nv1.name == nv2.name
     case (v1: Var, v2: Var) => v1.id == v2.id
     case (AbsFunction(x), AbsFunction(y)) => x == y
