@@ -21,7 +21,7 @@ object SimplifyBigSum {
 
               val x1 = fZero.substituteExposedArgs(Map((bigSum.variable -> (bigSum.upTo + 1))))
               val x2 = fZero.substituteExposedArgs(Map(bigSum.variable -> Cst(0)))
-              x1 + x2
+              x1 - x2
             case _ =>
               val sumTerms = terms.map(term => bigSum.modify(newBody = term))
               (sumTerms).reduceOption(_ + _).getOrElse(Cst(0))
