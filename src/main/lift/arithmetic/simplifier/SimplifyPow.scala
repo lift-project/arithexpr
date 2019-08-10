@@ -37,6 +37,12 @@ object SimplifyPow {
     // Constant negative exponents: pow(x,-y) = pow(pow(x,y), -1)  (closed form)
     case (Cst(b), Cst(e)) if e < -1 => Some(Cst(scala.math.pow(b, -e).toInt) pow Cst(-1))
 
+     case (Cst(2), e) => e.min match {
+       case Cst(c) if c >= 0 => Some( LShift(Cst(1), e) )
+       case _ => None
+     }
+
+
     // Distribute product: x^(m+n) => x^m * x^n
     // This is not a closed form -- hence, this is now a "temporary view" for simplification
     // implemented in Prod.unapply()

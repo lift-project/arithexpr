@@ -228,6 +228,7 @@ abstract sealed class ArithExpr {
     case (v1: Var, v2: Var) => v1.id == v2.id
     case (AbsFunction(x), AbsFunction(y)) => x == y
     case (SteppedCase(v1, cases1), SteppedCase(v2, cases2)) => v1.name == v2.name && cases1 == cases2
+    case (LShift(a1, b1), LShift(a2, b2)) => a1 == a2 && b1 == b2
     case _ =>
 //      System.err.println(s"$this and $that are not equal")
       false
@@ -754,6 +755,9 @@ object ArithExpr {
       case x if x.getClass == ?.getClass =>
       case PosInf | NegInf =>
       case AbsFunction(expr) => visit(expr, f)
+      case LShift(a, b) =>
+        visit(a, f)
+        visit(b, f)
     }
   }
 
@@ -786,6 +790,8 @@ object ArithExpr {
         case x if x.getClass == ?.getClass => false
         case PosInf | NegInf => false
         case AbsFunction(expr) => visitUntil(expr, f)
+        case LShift(a, b) =>
+          visitUntil(a, f) || visitUntil(b, f)
       }
     }
   }

@@ -162,6 +162,8 @@ object SimplifyProd {
       case (Pow(Cst(y), Cst(-1)), Cst(x)) if y % x == 0  && x != -1 =>
         Some(SimplifyPow(Cst(y / x), Cst(-1)))
 
+      case (Cst(2), LShift(a, b)) => Some(LShift(a, b + Cst(1)))
+
 
       /********** Non-constant cases **********/
 
