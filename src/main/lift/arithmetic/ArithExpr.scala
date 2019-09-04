@@ -446,6 +446,15 @@ object ArithExpr {
     throw NotEvaluable
   }
 
+  def sqrt(in: ArithExpr) : ArithExpr = {
+
+    in match {
+      case Cst(c) => Cst( scala.math.sqrt(c.toDouble).toLong )
+      case other => assert(false,"Not implement"); Cst(0)
+    }
+
+  }
+
   private def upperBound(factors: List[ArithExpr]): Option[Long] = {
     Some(SimplifyProd(factors.map({
       case v: Var => v.range.max match {
