@@ -108,7 +108,6 @@ class TestExpr {
     val w = Var("a", RangeAdd(0, PosInf, 1))
     val x = Var("b", RangeAdd(0, w, 1))
     val expr = (Cst(4) + x + w) % (Cst(2) + w)
-    println(expr)
     assertEquals(Cst(2) + x, expr)
   }
 
@@ -117,7 +116,6 @@ class TestExpr {
     val w = Var("b", RangeAdd(0, PosInf, 1))
     val x = Var("a", RangeAdd(0, w, 1))
     val expr = (Cst(4) + x + w) % (Cst(2) + w)
-    println(expr)
     assertEquals(Cst(2) + x, expr)
   }
 
@@ -149,6 +147,40 @@ class TestExpr {
     val n = Var("n", RangeAdd(0, PosInf, 1))
     val expr = (5 + (2 * n)) / (2 + n)
     assertEquals(Cst(2), expr)
+  }
+
+  @Test
+  def acoustid3D_div1(): Unit = {
+    val n = NamedVar("n", RangeAdd(0, PosInf, 1))
+    val g = NamedVar("g", RangeAdd(0, PosInf, 1))
+    val expr = ((Cst(2) * g) + (g * n)) / (Cst(2) + n)
+    assertEquals(g, expr)
+  }
+
+  @Test
+  def acoustid3D_mod1(): Unit = {
+    val n = NamedVar("n", RangeAdd(0, PosInf, 1))
+    val g = NamedVar("g", RangeAdd(0, PosInf, 1))
+    val expr = ((Cst(2) * g) + (g * n)) % (Cst(2) + n)
+    assertEquals(Cst(0), expr)
+  }
+
+  @Test
+  def acoustid3D_modmod1(): Unit = {
+    val n = NamedVar("n", RangeAdd(0, PosInf, 1))
+    val g1 = NamedVar("g1", RangeAdd(0, PosInf, 1))
+    val g2 = NamedVar("g2", RangeAdd(0, PosInf, 1))
+    val expr = (((g1 % (2 + n)) + (2 * g2)) + (g2 * n)) % (2 + n)
+    assertEquals(g1 % (2 + n), expr)
+  }
+
+  @Test
+  def acoustid3D_moddiv1(): Unit = {
+    val n = NamedVar("n", RangeAdd(0, PosInf, 1))
+    val g1 = NamedVar("g1", RangeAdd(0, PosInf, 1))
+    val g2 = NamedVar("g2", RangeAdd(0, PosInf, 1))
+    val expr = (((g1 % (2 + n)) + (2 * g2)) + (g2 * n)) / (2 + n)
+    assertEquals(g2, expr)
   }
 
   @Test

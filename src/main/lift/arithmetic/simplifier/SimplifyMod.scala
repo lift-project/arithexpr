@@ -30,6 +30,19 @@ object SimplifyMod {
       ) if n1 == n2 && (a - c * b) >= 0 =>
       Some((a - c * b) % cpn)
 
+    // cn + mn % c+m  =>  n(c+m) % c+m  =>  0
+    case (
+      Sum(Prod(Cst(c1) :: n :: Nil) :: Prod(a :: b :: Nil) :: Nil),
+      Sum(Cst(c2) :: m :: Nil)
+      ) if c1 == c2 && ((a == n && b == m) || (a == m && b == n)) =>
+      Some(Cst(0))
+    // x + cn + mn % c+m  =>  x + n(c+m) % c+m  =>  x % c+m
+    case (
+      Sum(x :: Prod(Cst(c1) :: n :: Nil) :: Prod(a :: b :: Nil) :: Nil),
+      cpm @ Sum(Cst(c2) :: m :: Nil)
+      ) if c1 == c2 && ((a == n && b == m) || (a == m && b == n)) =>
+      Some(x % cpm)
+
     // FACTORIZATION
     // e + ca + ma % c+m == a(m+c) + e % c+m => e % c+m
     case (Sum(

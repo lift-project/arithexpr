@@ -85,14 +85,18 @@ object SimplifyIntDiv {
       ) if n1 == n2 && (a - c * b) >= 0 =>
       Some((a - c * b) / cpn + b)
 
-      // cn + mn / c+m == n(c+m) / c+m => n
-      case (Sum(
-      Prod(Cst(c1) :: (n2: Var) :: Nil) ::
-        Prod((m1: Var) :: (n1: Var) :: Nil) ::
-        Nil),
-      Sum(Cst(c2) :: (m2: Var) :: Nil))
-        if m1 == m2 && n1 == n2 && c1 == c2 =>
-        Some(n1)
+    // cn + mn / c+m  =>  n(c+m) / c+m  =>  n
+    case (
+      Sum(Prod(Cst(c1) :: n :: Nil) :: Prod(a :: b :: Nil) :: Nil),
+      Sum(Cst(c2) :: m :: Nil)
+      ) if c1 == c2 && ((a == n && b == m) || (a == m && b == n)) =>
+      Some(n)
+    // x + cn + mn / c+m  =>  x + n(c+m) / c+m  =>  x / c+m + n
+    case (
+      Sum(x :: Prod(Cst(c1) :: n :: Nil) :: Prod(a :: b :: Nil) :: Nil),
+      cpm @ Sum(Cst(c2) :: m :: Nil)
+      ) if c1 == c2 && ((a == n && b == m) || (a == m && b == n)) =>
+      Some(x / cpm + n)
 
       // i + ca + ma / c+m == a(c+m) + i / c+m => a true if i < c+m
       case (Sum(
