@@ -125,11 +125,11 @@ object SimplifyMod {
     // (m1 + .. + mN + x1 + .. + xN) % (m1 + .. + mN)
     // => (x1 + .. + xN) % (m1 + .. + mN)
     case (Sum(mxs), Sum(ms)) if ms.intersect(mxs) == ms =>
-      Some(mxs.diff(ms).reduce(_+_) % Sum(ms))
+      Some(mxs.diff(ms).fold(0: ArithExpr)(_+_) % Sum(ms))
     // (a + m1 + .. + mN + x1 + .. + xN) % (b + m1 + .. + mN)
     // => ((a - b) + x1 + .. + xN) % (b + m1 + .. + mN)
     case (Sum(Cst(a) :: mxs), Sum(Cst(b) :: ms)) if ms.intersect(mxs) == ms =>
-      val x = (a - b) + mxs.diff(ms).reduce(_+_)
+      val x = mxs.diff(ms).fold[ArithExpr](a - b)(_+_)
       Some(x % Sum(Cst(b) :: ms))
 
     // Modulo 1
