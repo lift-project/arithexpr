@@ -150,40 +150,6 @@ class TestExpr {
   }
 
   @Test
-  def acoustid3D_div1(): Unit = {
-    val n = NamedVar("n", RangeAdd(0, PosInf, 1))
-    val g = NamedVar("g", RangeAdd(0, PosInf, 1))
-    val expr = ((Cst(2) * g) + (g * n)) / (Cst(2) + n)
-    assertEquals(g, expr)
-  }
-
-  @Test
-  def acoustid3D_mod1(): Unit = {
-    val n = NamedVar("n", RangeAdd(0, PosInf, 1))
-    val g = NamedVar("g", RangeAdd(0, PosInf, 1))
-    val expr = ((Cst(2) * g) + (g * n)) % (Cst(2) + n)
-    assertEquals(Cst(0), expr)
-  }
-
-  @Test
-  def acoustid3D_modmod1(): Unit = {
-    val n = NamedVar("n", RangeAdd(0, PosInf, 1))
-    val g1 = NamedVar("g1", RangeAdd(0, PosInf, 1))
-    val g2 = NamedVar("g2", RangeAdd(0, PosInf, 1))
-    val expr = (((g1 % (2 + n)) + (2 * g2)) + (g2 * n)) % (2 + n)
-    assertEquals(g1 % (2 + n), expr)
-  }
-
-  @Test
-  def acoustid3D_moddiv1(): Unit = {
-    val n = NamedVar("n", RangeAdd(0, PosInf, 1))
-    val g1 = NamedVar("g1", RangeAdd(0, PosInf, 1))
-    val g2 = NamedVar("g2", RangeAdd(0, PosInf, 1))
-    val expr = (((g1 % (2 + n)) + (2 * g2)) + (g2 * n)) / (2 + n)
-    assertEquals(g2, expr)
-  }
-
-  @Test
   def binomial_filter_ineq1(): Unit = {
     val h = Var("h", RangeAdd(3, PosInf, 1))
     val y = Var("y", RangeAdd(0, h, 1))
@@ -197,6 +163,27 @@ class TestExpr {
     val i = Var("i", RangeAdd(0, 3, 1))
     val expr = i lt (1 + w)
     assertEquals(BoolExpr.True, expr)
+  }
+
+  @Test
+  def acoustid3D(): Unit = {
+    val n1 = NamedVar("n1", RangeAdd(0, PosInf, 1))
+    val n2 = NamedVar("n2", RangeAdd(0, PosInf, 1))
+    val g1 = NamedVar("g1", RangeAdd(0, PosInf, 1))
+    val g2 = NamedVar("g2", RangeAdd(0, PosInf, 1))
+
+    assertEquals(g1,
+      ((Cst(2) * g1) + (g1 * n1)) / (Cst(2) + n1))
+    assertEquals(Cst(0),
+      ((Cst(2) * g1) + (g1 * n1)) % (Cst(2) + n1))
+    assertEquals(g1 % (2 + n1),
+      (((g1 % (2 + n1)) + (2 * g2)) + (g2 * n1)) % (2 + n1))
+    assertEquals(g2,
+      (((g1 % (2 + n1)) + (2 * g2)) + (g2 * n1)) / (2 + n1))
+    assertEquals(g1 % (2 + n2),
+      (((2 * g1) + (g1 * n1)) / (2 + n1)) % (2 + n2))
+    assertEquals(2 + g1,
+      ((4+(2*g1)+(2*n1)+(g1*n1))) / (2+n1))
   }
 
   @Test

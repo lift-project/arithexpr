@@ -85,18 +85,30 @@ object SimplifyIntDiv {
       ) if n1 == n2 && (a - c * b) >= 0 =>
       Some((a - c * b) / cpn + b)
 
-    // cn + mn / c+m  =>  n(c+m) / c+m  =>  n
-    case (
-      Sum(Prod(Cst(c1) :: n :: Nil) :: Prod(a :: b :: Nil) :: Nil),
-      Sum(Cst(c2) :: m :: Nil)
-      ) if c1 == c2 && ((a == n && b == m) || (a == m && b == n)) =>
-      Some(n)
     // x + cn + mn / c+m  =>  x + n(c+m) / c+m  =>  x / c+m + n
-    case (
-      Sum(x :: Prod(Cst(c1) :: n :: Nil) :: Prod(a :: b :: Nil) :: Nil),
-      cpm @ Sum(Cst(c2) :: m :: Nil)
-      ) if c1 == c2 && ((a == n && b == m) || (a == m && b == n)) =>
-      Some(x / cpm + n)
+    case (Sum(xs), cpm @ Sum(Cst(c) :: m :: Nil)
+      ) if {
+      xs.exists {
+        case Prod(Cst(c2) :: n :: Nil) if c == c2 =>
+          xs.exists {
+            case Prod(a :: b :: Nil) => (a == n && b == m) || (a == m && b == n)
+            case _ => false
+          }
+        case _ => false
+      }
+    } =>
+      val ns = xs collect { case Prod(Cst(c2) :: n :: Nil) if c == c2 => n }
+      val nms = xs collect {
+        case nm @ Prod(a :: b :: Nil)
+          if (a == m && ns.contains(b)) || (b == m && ns.contains(a)) => nm
+      }
+      nms.head match {
+        case nm @ Prod(a :: b :: Nil) =>
+          val n = if (b == m) { a } else { b }
+          val x = xs.diff(Seq(Prod(Cst(c) :: n :: Nil), nm))
+              .fold(0: ArithExpr)(_+_)
+          Some(x / cpm + n)
+      }
 
       // i + ca + ma / c+m == a(c+m) + i / c+m => a true if i < c+m
       case (Sum(
