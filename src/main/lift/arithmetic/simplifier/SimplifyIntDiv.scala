@@ -72,7 +72,19 @@ object SimplifyIntDiv {
       val x = mxs.diff(ms).fold[ArithExpr](a - b)(_+_)
       Some(Cst(1) + x / Sum(Cst(b) :: ms))
 
-      // SPECIAL CASES
+    // SPECIAL CASES
+
+    // (a + bn) / (c + n)
+    // => (a + bn - b(c + n)) + b(c + n) / (c + n)
+    // => (a + b(n - c + n)) + b(c + n) / (c + n)
+    // => (a - cb) + b(c + n) / (c + n)
+    // => (a - cb) / (c + n) + b
+    case (
+      Sum(Cst(a) :: Prod(Cst(b) :: n1 :: Nil) :: Nil),
+      cpn @ Sum(Cst(c) :: n2 :: Nil)
+      ) if n1 == n2 && (a - c * b) >= 0 =>
+      Some((a - c * b) / cpn + b)
+
       // cn + mn / c+m == n(c+m) / c+m => n
       case (Sum(
       Prod(Cst(c1) :: (n2: Var) :: Nil) ::

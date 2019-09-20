@@ -20,6 +20,16 @@ object SimplifyMod {
     // SPECIAL CASES //todo combine cases which only differ in order of args
     ///////////////////////////////////////////////////////////////////////////////////
 
+    // (a + bn) % (c + n)
+    // => (a + bn - b(c + n)) + b(c + n) % (c + n)
+    // => (a + b(n - c + n)) % (c + n)
+    // => (a - cb) % (c + n)
+    case (
+      Sum(Cst(a) :: Prod(Cst(b) :: n1 :: Nil) :: Nil),
+      cpn @ Sum(Cst(c) :: n2 :: Nil)
+      ) if n1 == n2 && (a - c * b) >= 0 =>
+      Some((a - c * b) % cpn)
+
     // FACTORIZATION
     // e + ca + ma % c+m == a(m+c) + e % c+m => e % c+m
     case (Sum(
