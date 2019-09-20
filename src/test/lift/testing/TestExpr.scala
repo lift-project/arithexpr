@@ -108,7 +108,6 @@ class TestExpr {
     val w = Var("a", RangeAdd(0, PosInf, 1))
     val x = Var("b", RangeAdd(0, w, 1))
     val expr = (Cst(4) + x + w) % (Cst(2) + w)
-    println(expr)
     assertEquals(Cst(2) + x, expr)
   }
 
@@ -117,7 +116,6 @@ class TestExpr {
     val w = Var("b", RangeAdd(0, PosInf, 1))
     val x = Var("a", RangeAdd(0, w, 1))
     val expr = (Cst(4) + x + w) % (Cst(2) + w)
-    println(expr)
     assertEquals(Cst(2) + x, expr)
   }
 
@@ -165,6 +163,27 @@ class TestExpr {
     val i = Var("i", RangeAdd(0, 3, 1))
     val expr = i lt (1 + w)
     assertEquals(BoolExpr.True, expr)
+  }
+
+  @Test
+  def acoustid3D(): Unit = {
+    val n1 = NamedVar("n1", RangeAdd(0, PosInf, 1))
+    val n2 = NamedVar("n2", RangeAdd(0, PosInf, 1))
+    val g1 = NamedVar("g1", RangeAdd(0, PosInf, 1))
+    val g2 = NamedVar("g2", RangeAdd(0, PosInf, 1))
+
+    assertEquals(g1,
+      ((Cst(2) * g1) + (g1 * n1)) / (Cst(2) + n1))
+    assertEquals(Cst(0),
+      ((Cst(2) * g1) + (g1 * n1)) % (Cst(2) + n1))
+    assertEquals(g1 % (2 + n1),
+      (((g1 % (2 + n1)) + (2 * g2)) + (g2 * n1)) % (2 + n1))
+    assertEquals(g2,
+      (((g1 % (2 + n1)) + (2 * g2)) + (g2 * n1)) / (2 + n1))
+    assertEquals(g1 % (2 + n2),
+      (((2 * g1) + (g1 * n1)) / (2 + n1)) % (2 + n2))
+    assertEquals(2 + g1,
+      ((4+(2*g1)+(2*n1)+(g1*n1))) / (2+n1))
   }
 
   @Test
