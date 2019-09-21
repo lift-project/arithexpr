@@ -80,6 +80,10 @@ class Regressions {
 
     override def visitAndRebuild(f: (ArithExpr) => ArithExpr): ArithExpr =
       f(this)
+
+    override def exposedArgs: Seq[ArithExpr] = ???
+
+    override def substituteExposedArgs(subMap: Map[ArithExpr, SimplifiedExpr]): ArithExprFunctionCall = ???
   }
 
   class func2(a: Int) extends ArithExprFunctionCall("func2") {
@@ -92,6 +96,10 @@ class Regressions {
     override lazy val (min : ArithExpr, max: ArithExpr) = (Cst(0),PosInf)
 
     override def visitAndRebuild(f: (ArithExpr) => ArithExpr): ArithExpr = ???
+
+    override def exposedArgs: Seq[ArithExpr] = ???
+
+    override def substituteExposedArgs(subMap: Map[ArithExpr, SimplifiedExpr]): ArithExprFunctionCall = ???
   }
 
   @Test def expr10(): Unit = {
@@ -141,6 +149,10 @@ class Regressions {
 
       override def visitAndRebuild(f: (ArithExpr) => ArithExpr): ArithExpr =
         f(this)
+
+      override def exposedArgs: Seq[ArithExpr] = ???
+
+      override def substituteExposedArgs(subMap: Map[ArithExpr, SimplifiedExpr]): ArithExprFunctionCall = ???
     }
   @Test
   def expr14(): Unit = {
