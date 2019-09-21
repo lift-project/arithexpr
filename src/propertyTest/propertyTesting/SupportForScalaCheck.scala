@@ -130,7 +130,7 @@ object SupportForScalaCheck {
 
   def genArithExprFunction(level: Int) = Gen.lzy(for {
     range <- genRange(level)
-  } yield ArithExprFunction("fun", range))
+  } yield ArithExprFunctionCall("fun", range))
 
   def genLookup(level: Int) = Gen.lzy(for {
     id <- arbitrary[Int]

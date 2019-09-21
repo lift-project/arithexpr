@@ -37,7 +37,7 @@ object Sign extends Enumeration {
       case SteppedCase(_, cases) =>
         cases.map(_.sign).reduceOption(and).getOrElse(Sign.Unknown)
       case ? => Sign.Unknown
-      case _: ArithExprFunction => Sign.Unknown
+      case _: ArithExprFunctionCall => Sign.Unknown
       case LShift(a, b) => Sign.Unknown
     }
   }

@@ -155,20 +155,20 @@ abstract sealed class ArithExpr {
   lazy val isEvaluable: Boolean = {
     !ArithExpr.visitUntil(this, x => {
       x == PosInf || x == NegInf || x == ? ||
-        x.isInstanceOf[ArithExprFunction] || x.isInstanceOf[Var] || x.isInstanceOf[IfThenElse]
+        x.isInstanceOf[ArithExprFunctionCall] || x.isInstanceOf[Var] || x.isInstanceOf[IfThenElse]
     })
   }
 
   lazy val atMax: ArithExpr = {
     val vars = varList.filter(_.range.max != ?)
-    val exprFunctions = ArithExprFunction.getArithExprFuns(this).filter(_.range.max != ?)
+    val exprFunctions = ArithExprFunctionCall.getArithExprFuns(this).filter(_.range.max != ?)
     val maxLens = vars.map(_.range.max) ++ exprFunctions.map(_.range.max)
     ArithExpr.substitute(this, (vars ++ exprFunctions, maxLens).zipped.toMap)
   }
 
   lazy val atMin: ArithExpr = {
     val vars = varList.filter(_.range.min != ?)
-    val exprFunctions = ArithExprFunction.getArithExprFuns(this).filter(_.range.min != ?)
+    val exprFunctions = ArithExprFunctionCall.getArithExprFuns(this).filter(_.range.min != ?)
     val maxLens = vars.map(_.range.min) ++ exprFunctions.map(_.range.min)
     ArithExpr.substitute(this, (vars ++ exprFunctions, maxLens).zipped.toMap)
   }
@@ -223,7 +223,7 @@ abstract sealed class ArithExpr {
     case (IfThenElse(test1, t1, e1), IfThenElse(test2, t2, e2)) =>
       test1 == test2 && t1 == t2 && e1 == e2
     case (lu1: Lookup, lu2: Lookup) => lu1.table == lu2.table && lu1.index == lu2.index
-    case (f1: ArithExprFunction, f2: ArithExprFunction) => f1.name == f2.name
+    case (f1: ArithExprFunctionCall, f2: ArithExprFunctionCall) => f1.equals(f2)
     case (nv1: NamedVar, nv2: NamedVar) => nv1.name == nv2.name
     case (v1: Var, v2: Var) => v1.id == v2.id
     case (AbsFunction(x), AbsFunction(y)) => x == y
@@ -661,8 +661,8 @@ object ArithExpr {
     }
 
     // See TestExpr.numValsNotSimplifying2 and RangeAdd.numValues
-    val fun1 = ArithExprFunction.getArithExprFuns(ae1)
-    val fun2 = ArithExprFunction.getArithExprFuns(ae2)
+    val fun1 = ArithExprFunctionCall.getArithExprFuns(ae1)
+    val fun2 = ArithExprFunctionCall.getArithExprFuns(ae2)
     val union = fun1 ++ fun2
 
     if (union.nonEmpty) {
@@ -751,7 +751,7 @@ object ArithExpr {
       case SteppedCase(v, cases) =>
         visit(v, f)
         cases.foreach(visit(_, f))
-      case Var(_, _) | Cst(_) | ArithExprFunction(_, _) =>
+      case Var(_, _) | Cst(_) | ArithExprFunctionCall(_, _) =>
       case x if x.getClass == ?.getClass =>
       case PosInf | NegInf =>
       case AbsFunction(expr) => visit(expr, f)
@@ -786,7 +786,7 @@ object ArithExpr {
           visitUntil(variable, f) || visitUntil(body, f)
         case SteppedCase(v, cases) =>
           visitUntil(v, f) || visitUntilGroup(cases, f)
-        case Var(_, _) | Cst(_) | IfThenElse(_, _, _) | ArithExprFunction(_, _) => false
+        case Var(_, _) | Cst(_) | IfThenElse(_, _, _) | ArithExprFunctionCall(_, _) => false
         case x if x.getClass == ?.getClass => false
         case PosInf | NegInf => false
         case AbsFunction(expr) => visitUntil(expr, f)
@@ -826,7 +826,7 @@ object ArithExpr {
         case SteppedCase(v, cases) => cases.map(fv).foldLeft(Set[Var]())(_ ++ _) + v
         case v:Var  => Set(v)
         case Cst(_) => Set()
-        case fun:ArithExprFunction => fun.freeVariables
+        case fun:ArithExprFunctionCall => fun.freeVariables
         case x if x.getClass == ?.getClass => Set()
         case PosInf | NegInf => Set()
         case AbsFunction(expr) => fv(expr)
@@ -892,7 +892,7 @@ object ArithExpr {
 
     case steppedCase:SteppedCase => evalDouble(steppedCase.intoIfChain())
 
-    case `?` | NegInf | PosInf | _: Var | _: ArithExprFunction | _: SimplifiedExpr => throw NotEvaluable
+    case `?` | NegInf | PosInf | _: Var | _: ArithExprFunctionCall | _: SimplifiedExpr => throw NotEvaluable
   }
 
 
@@ -982,7 +982,7 @@ object ArithExpr {
     case IfThenElse(test, t, e) =>   s"SimplifyIfThenElse(${printToScalaString(test, printNonFixedVarIds)}, " +
                                         s"${printToScalaString(t, printNonFixedVarIds)}, " +
                                         s"${printToScalaString(e, printNonFixedVarIds)})"
-    case ArithExprFunction(name, range) =>
+    case ArithExprFunctionCall(name, range) =>
                                       "ArithExprFunction(\"" + s"$name" + "\"" +
                                         s", ${Range.printToScalaString(range, printNonFixedVarIds)})"
     case BitwiseXOR(a, b) =>         s"BitwiseXOR(${printToScalaString(a, printNonFixedVarIds)}, " +
@@ -1487,7 +1487,7 @@ case class IfThenElse (test: BoolExpr, t: ArithExpr with SimplifiedExpr, e: Arit
 }
 
 /* This class is meant to be used as a superclass, therefore, it is not private to this package */
-abstract case class ArithExprFunction(name: String, range: Range = RangeUnknown) extends ArithExpr with SimplifiedExpr {
+abstract case class ArithExprFunctionCall(name: String, range: Range = RangeUnknown) extends ArithExpr with SimplifiedExpr {
   override val HashSeed = 0x3105f133
 
   override lazy val digest: Int = HashSeed ^ range.digest() ^ name.hashCode
@@ -1496,13 +1496,16 @@ abstract case class ArithExprFunction(name: String, range: Range = RangeUnknown)
 
   def freeVariables:Set[Var] = Set()
 
+  def exposedArgs:Seq[ArithExpr]
+
+  def substituteExposedArgs(subMap:Map[ArithExpr, SimplifiedExpr]):ArithExprFunctionCall
 }
 
-object ArithExprFunction {
-  def getArithExprFuns(expr: ArithExpr): Set[ArithExprFunction] = {
-    val exprFunctions = scala.collection.mutable.HashSet[ArithExprFunction]()
+object ArithExprFunctionCall {
+  def getArithExprFuns(expr: ArithExpr): Set[ArithExprFunctionCall] = {
+    val exprFunctions = scala.collection.mutable.HashSet[ArithExprFunctionCall]()
     ArithExpr.visit(expr, {
-      case function: ArithExprFunction => exprFunctions += function
+      case function: ArithExprFunctionCall => exprFunctions += function
       case _ =>
     })
     exprFunctions.toSet
@@ -1511,7 +1514,7 @@ object ArithExprFunction {
 
 class Lookup private[arithmetic](val table: Seq[ArithExpr with SimplifiedExpr],
                                  val index: ArithExpr with SimplifiedExpr, val id: Int)
-  extends ArithExprFunction("lookup") {
+  extends ArithExprFunctionCall("lookup") {
   override lazy val digest: Int = HashSeed ^ table.hashCode ^ index.digest() ^ id.hashCode()
 
   override lazy val toString: String = "lookup" + id + "(" + index + ")"
@@ -1524,6 +1527,18 @@ class Lookup private[arithmetic](val table: Seq[ArithExpr with SimplifiedExpr],
 
   override def visitAndRebuild(f: (ArithExpr) => ArithExpr): ArithExpr = {
     f(Lookup(table.map(_.visitAndRebuild(f)), index.visitAndRebuild(f), id))
+  }
+
+  /**
+    * Arguments expressions which are exposed to the arith expr system
+    * @return
+    */
+  override def exposedArgs: Seq[ArithExpr] = table :+ index
+
+  override def substituteExposedArgs(subMap: Map[ArithExpr, SimplifiedExpr]): ArithExprFunctionCall = {
+    def sub(x:SimplifiedExpr):SimplifiedExpr = subMap.getOrElse(x, x)
+
+    new Lookup(table.map(sub), sub(index), id)
   }
 }
 
