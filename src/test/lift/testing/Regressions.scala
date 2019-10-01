@@ -69,7 +69,7 @@ class Regressions {
     assertEquals(a /^ 2, a * (a*1/^(2)) /^ a)
   }
 
-  class func1(a: Int) extends ArithExprFunction("func1") {
+  class func1(a: Int) extends ArithExprFunctionCall("func1") {
     override lazy val digest: Int =  0x3105f133 ^ range.digest() ^ name.hashCode ^ a.hashCode()
 
     override lazy val toString: String = s"$name($a)"
@@ -80,9 +80,13 @@ class Regressions {
 
     override def visitAndRebuild(f: (ArithExpr) => ArithExpr): ArithExpr =
       f(this)
+
+    override def exposedArgs: Seq[ArithExpr] = ???
+
+    override def substituteExposedArgs(subMap: Map[ArithExpr, SimplifiedExpr]): ArithExprFunctionCall = ???
   }
 
-  class func2(a: Int) extends ArithExprFunction("func2") {
+  class func2(a: Int) extends ArithExprFunctionCall("func2") {
     override lazy val digest: Int =  0x3105f133 ^ range.digest() ^ name.hashCode ^ a.hashCode()
 
     override lazy val toString: String = s"$name($a)"
@@ -92,6 +96,10 @@ class Regressions {
     override lazy val (min : ArithExpr, max: ArithExpr) = (Cst(0),PosInf)
 
     override def visitAndRebuild(f: (ArithExpr) => ArithExpr): ArithExpr = ???
+
+    override def exposedArgs: Seq[ArithExpr] = ???
+
+    override def substituteExposedArgs(subMap: Map[ArithExpr, SimplifiedExpr]): ArithExprFunctionCall = ???
   }
 
   @Test def expr10(): Unit = {
@@ -134,13 +142,17 @@ class Regressions {
     assertNotEquals(? / ?, 1)
   }
     class OclFunction(name: String, range: Range)
-      extends ArithExprFunction(name, range) {
+      extends ArithExprFunctionCall(name, range) {
 
       override lazy val (min : ArithExpr, max: ArithExpr) = (range.min.min, range.max.max)
       override lazy val sign: Sign.Value = Sign.Positive
 
       override def visitAndRebuild(f: (ArithExpr) => ArithExpr): ArithExpr =
         f(this)
+
+      override def exposedArgs: Seq[ArithExpr] = ???
+
+      override def substituteExposedArgs(subMap: Map[ArithExpr, SimplifiedExpr]): ArithExprFunctionCall = ???
     }
   @Test
   def expr14(): Unit = {
