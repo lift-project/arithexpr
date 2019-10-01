@@ -114,8 +114,8 @@ object SimplifyIntDiv {
       // => a + d(c + n/db) - dc / (c + n/db)
       // => (a - dc / (c + n/db)) + d
       case (
-        Sum(Cst(a) :: IntDiv(n1, Cst(b)) :: Nil),
-        cpndb @ Sum(Cst(c) :: IntDiv(n2, Cst(db)) :: Nil)
+        Sum(Cst(a) :: AnyDiv(n1, Cst(b)) :: Nil),
+        cpndb @ Sum(Cst(c) :: AnyDiv(n2, Cst(db)) :: Nil)
         ) if (n1 == n2) && (db % b == 0) && (a - (db / b)*c >= 0) =>
         val d = db / b
         Some(Cst(a - d*c) / cpndb + d)

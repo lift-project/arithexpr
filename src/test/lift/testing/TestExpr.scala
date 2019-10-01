@@ -133,8 +133,10 @@ class TestExpr {
   @Test
   def binomial_filter_mod5(): Unit = {
     val n = Var("n", RangeAdd(0, PosInf, 1))
-    val expr = (4 + (n / 2)) % (2 + (n / 4))
-    assertEquals(Cst(0), expr)
+    assertEquals(Cst(0),
+      (4 + (n / 2)) % (2 + (n / 4)))
+    assertEquals(Cst(0),
+      (4 + (n /^ 2)) % (2 + (n /^ 4)))
   }
 
   @Test
@@ -164,8 +166,10 @@ class TestExpr {
   def binomial_filter_div4(): Unit = {
     val n = Var("n", RangeAdd(0, PosInf, 1))
     val i = Var("i", RangeAdd(0, PosInf, 1))
-    val expr = i + ((5 + (n / 2)) / (2 + (n / 4)))
-    assertEquals(Cst(2) + i, expr)
+    assertEquals(Cst(2) + i,
+      i + ((5 + (n / 2)) / (2 + (n / 4))))
+    assertEquals(Cst(2) + i,
+      i + ((5 + (n /^ 2)) / (2 + (n /^ 4))))
   }
 
   @Test
