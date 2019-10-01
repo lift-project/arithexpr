@@ -110,6 +110,16 @@ object SimplifyIntDiv {
           Some(x / cpm + n)
       }
 
+      // (a + n/b) / (c + n/db)
+      // => a + d(c + n/db) - dc / (c + n/db)
+      // => (a - dc / (c + n/db)) + d
+      case (
+        Sum(Cst(a) :: IntDiv(n1, Cst(b)) :: Nil),
+        cpndb @ Sum(Cst(c) :: IntDiv(n2, Cst(db)) :: Nil)
+        ) if (n1 == n2) && (db % b == 0) && (a - (db / b)*c >= 0) =>
+        val d = db / b
+        Some(Cst(a - d*c) / cpndb + d)
+
       // i + ca + ma / c+m == a(c+m) + i / c+m => a true if i < c+m
       case (Sum(
       (i: Var) ::
