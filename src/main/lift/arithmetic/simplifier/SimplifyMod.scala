@@ -30,15 +30,24 @@ object SimplifyMod {
       ) if n1 == n2 && (a - c * b) >= 0 =>
       Some((a - c * b) % cpn)
 
-    // (a + n/b) % (c + n/db)
-    // => a + d(c + n/db) - dc % (c + n/db)
-    // => a - dc % (c + n/db)
-    case (
-      Sum(Cst(a) :: AnyDiv(n1, Cst(b)) :: Nil),
-      cpndb @ Sum(Cst(c) :: AnyDiv(n2, Cst(db)) :: Nil)
-      ) if (n1 == n2) && (db % b == 0) && (a - (db / b)*c >= 0) =>
+    // (a + x + n/b) % (c + n/db)
+    // => a + x + d(c + n/db) - dc % (c + n/db)
+    // => a - dc + x % (c + n/db)
+    case (Sum(Cst(a) :: xs),
+      cpndb @ Sum(Cst(c) :: AnyDiv(n, Cst(db)) :: Nil)
+      ) if {
+      xs.exists {
+        case AnyDiv(n2, Cst(b)) =>
+          (n == n2) && (db % b == 0) && (a - (db / b)*c >= 0)
+        case _ => false
+      }
+    } =>
+      val ndbs = xs collect { case ndb @ AnyDiv(n2, Cst(b)) if (n == n2) && (db % b == 0) && (a - (db / b)*c >= 0) => ndb }
+      val ndb = ndbs.head
+      val b = ndb match { case AnyDiv(_, Cst(b)) => b }
       val d = db / b
-      Some(Cst(a - d*c) / cpndb)
+      val rest = xs.diff(Seq(ndb)).fold(a - d*c: ArithExpr)(_+_)
+      Some(rest % cpndb)
 
     // x + cn + mn % c+m  =>  x + n(c+m) % c+m  =>  x % c+m
     case (Sum(xs), cpm @ Sum(Cst(c) :: m :: Nil)
