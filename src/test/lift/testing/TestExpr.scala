@@ -215,6 +215,15 @@ class TestExpr {
   }
 
   @Test
+  def harrisCornerDetection(): Unit = {
+    val h = NamedVar("h", RangeAdd(0, PosInf, 1))
+    val w = NamedVar("w", RangeAdd(0, PosInf, 1))
+    val vx = NamedVar("x", RangeAdd(0, w /^ 4, 1))
+    assertEquals(2*h*w + 4*vx,
+        ((2 * h) * w) + (4 * ((vx + (w /^ 2)) % (w /^ 4))))
+  }
+
+  @Test
   def issue141(): Unit = {
     val i = SimplifyVar(Var("i"))
     val expr = (3 + ((-3 + i) % 3)) % 3
