@@ -499,6 +499,10 @@ object ArithExpr {
     * @return True if `that` is a multiple of `expr`, false otherwise
     */
   def multipleOf(expr: ArithExpr, that: ArithExpr): Boolean = (ExprSimplifier(expr), that) match {
+    case (Var(_, RangeAdd(a, _, s)), d)
+      if multipleOf(a, d) && multipleOf(s, d)
+    =>
+      true
 
     // Compare two products, look for inclusion of common denominator
     case (Prod(terms), Prod(otherTerms)) => terms.count(isDivision) == otherTerms.count(isDivision) && otherTerms.map({

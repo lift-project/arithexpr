@@ -260,8 +260,6 @@ object SimplifyMod {
       }
       Some(shorterSum % d)
 
-    case (x, y) if ArithExpr.multipleOf(x, y) => Some(Cst(0))
-
     case _ => None
   }
 
