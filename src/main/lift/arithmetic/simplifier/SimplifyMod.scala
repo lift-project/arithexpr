@@ -248,8 +248,17 @@ object SimplifyMod {
         case (x, y) => ArithExpr.gcd(x, y) == y
       })
       val shorterSum = s.withoutTerm(multiple)
-      if (multiple.nonEmpty && !ArithExpr.mightBeNegative(shorterSum)) Some(shorterSum % d)
-      else None
+      if (multiple.isEmpty) return None
+      if (ArithExpr.mightBeNegative(shorterSum)) {
+        (shorterSum, d) match {
+          // TODO: generalize
+          case (Cst(a), Cst(b)) if a < 0 && b > 0 && (a + b) >= 0 =>
+            return Some((a + b) % d)
+          case _ =>
+            return None
+        }
+      }
+      Some(shorterSum % d)
 
     case (x, y) if ArithExpr.multipleOf(x, y) => Some(Cst(0))
 
