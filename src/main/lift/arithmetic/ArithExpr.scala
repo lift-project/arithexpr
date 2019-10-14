@@ -450,7 +450,8 @@ object ArithExpr {
 
     in match {
       case Cst(c) => Cst( scala.math.sqrt(c.toDouble).toLong )
-      case other => assert(false,"Not implement"); Cst(0)
+      //case other => assert(false,"sqrt a thing other than Cst is not implement"); Cst(0)
+      case other => SizeVar("sqrt_unknown")
     }
 
   }
