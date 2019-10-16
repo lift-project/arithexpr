@@ -1136,6 +1136,15 @@ object IntDiv {
     }
 }
 
+object AnyDiv {
+  def unapply(ae: ArithExpr): Option[(ArithExpr with SimplifiedExpr, ArithExpr with SimplifiedExpr)] =
+    ae match {
+      case IntDiv(n, d) => Some((n, d))
+      case Prod(n :: Pow(d, Cst(-1)) :: Nil) => Some((n, d))
+      case _ => None
+    }
+}
+
 case class Pow private[arithmetic](b: ArithExpr with SimplifiedExpr, e: ArithExpr with SimplifiedExpr)
   extends ArithExpr {
   override val HashSeed = 0x63fcd7c2

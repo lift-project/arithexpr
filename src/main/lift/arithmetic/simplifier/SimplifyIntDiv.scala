@@ -110,6 +110,25 @@ object SimplifyIntDiv {
           Some(x / cpm + n)
       }
 
+      // (a + x + n/b) / (c + n/db)
+      // => a + x + d(c + n/db) - dc / (c + n/db)
+      // => (a - dc + x / (c + n/db)) + d
+      case (Sum(Cst(a) :: xs),
+      cpndb @ Sum(Cst(c) :: AnyDiv(n, Cst(db)) :: Nil)
+        ) if {
+        xs.exists {
+          case AnyDiv(n2, Cst(b)) =>
+            (n == n2) && (db % b == 0) && (a - (db / b)*c >= 0)
+          case _ => false
+        }
+      } =>
+        val ndbs = xs collect { case ndb @ AnyDiv(n2, Cst(b)) if (n == n2) && (db % b == 0) && (a - (db / b)*c >= 0) => ndb }
+        val ndb = ndbs.head
+        val b = ndb match { case AnyDiv(_, Cst(b)) => b }
+        val d = db / b
+        val rest = xs.diff(Seq(ndb)).fold(a - d*c: ArithExpr)(_+_)
+        Some(rest / cpndb + d)
+
       // i + ca + ma / c+m == a(c+m) + i / c+m => a true if i < c+m
       case (Sum(
       (i: Var) ::
