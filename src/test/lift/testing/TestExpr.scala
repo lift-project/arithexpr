@@ -219,10 +219,12 @@ class TestExpr {
     val h = NamedVar("h", RangeAdd(3, PosInf, 1))
     val w = NamedVar("w", RangeAdd(4, PosInf, 4))
     val vx = NamedVar("x", RangeAdd(0, w /^ 4, 1))
+    assertEquals(Cst(3),
+      (Cst(10)*(Cst(1)/^4)) + (Cst(1)/^2))
     assertEquals(Cst(0),
       w % 4)
     assertEquals(2*h*w + 4*vx,
-        ((2 * h) * w) + (4 * ((vx + (w /^ 2)) % (w /^ 4))))
+      ((2 * h) * w) + (4 * ((vx + (w /^ 2)) % (w /^ 4))))
     assertEquals(Cst(1),
       (-2 + (3 * h)) % 3)
   }

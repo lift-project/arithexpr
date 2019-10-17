@@ -76,6 +76,10 @@ object SimplifySum {
       case (Cst(0), _) => Some(rhs)
       case (_, Cst(0)) => Some(lhs)
 
+      // special float div case
+      case (Pow(Cst(a), Cst(-1)), x) if ArithExpr.multipleOf(1 + x * a, a) =>
+        Some((1 + x * a) /^ a)
+
       // Prune zeroed vars (a Var with a range that can only be 0 should have been simplified!)
       case (x, v: Var) if v.range.min == v.range.max && v.range.min != ? => Some(x + v.range.min)
       case (v: Var, y) if v.range.min == v.range.max && v.range.min != ? => Some(y + v.range.min)
