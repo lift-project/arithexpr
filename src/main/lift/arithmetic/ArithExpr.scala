@@ -378,6 +378,10 @@ object ArithExpr {
   implicit def simplifyImplicitly(ae: ArithExpr): ArithExpr with SimplifiedExpr = ExprSimplifier(ae)
   implicit def simplifyImplicitly(aes: Seq[ArithExpr]): Seq[ArithExpr with SimplifiedExpr] = ExprSimplifier(aes)
   implicit def simplifyImplicitly(aes: List[ArithExpr]): List[ArithExpr with SimplifiedExpr] = ExprSimplifier(aes)
+  implicit def simplifyImplicitly(ae: Option[ArithExpr]): Option[ArithExpr with SimplifiedExpr] = ae match {
+    case Some(e) => Some(ExprSimplifier(e))
+    case None => None
+  }
 
   val isCanonicallySorted: (ArithExpr, ArithExpr) => Boolean = (x: ArithExpr, y: ArithExpr) => (x, y) match {
     case (Cst(a), Cst(b)) => a < b
