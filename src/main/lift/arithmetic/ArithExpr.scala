@@ -449,7 +449,12 @@ object ArithExpr {
   def sqrt(in: ArithExpr) : ArithExpr = {
 
     in match {
-      case Cst(c) => Cst( scala.math.sqrt(c.toDouble).toLong )
+      case Cst(c) =>
+        val sqrted = scala.math.sqrt(c.toDouble)
+        //assert( sqrted % 1 == 0  )
+        if ( sqrted % 1 != 0  )
+          System.err.println("warning: a square root that lead to not exactly an integer happened!")
+        Cst( sqrted.toLong )
       //case other => assert(false,"sqrt a thing other than Cst is not implement"); Cst(0)
       case other => SizeVar("sqrt_unknown")
     }
