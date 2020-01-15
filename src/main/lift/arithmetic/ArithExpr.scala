@@ -1496,7 +1496,7 @@ case class LShift private[arithmetic](a: ArithExpr with SimplifiedExpr, b: Arith
   */
 class Var private[arithmetic](val name: String,
                               val range: Range = RangeUnknown,
-                              val fixedId: Option[Long] = None) extends ArithExpr {
+                              val fixedId: Option[Long] = None, val no_number_suffix : Boolean = false) extends ArithExpr {
   override lazy val hashCode: Int = 8 * 79 + id.hashCode
 
   override val HashSeed = 0x54e9bd5e
@@ -1518,7 +1518,13 @@ class Var private[arithmetic](val name: String,
     case _ => false
   }
 
-  override lazy val toString = s"v_${name}_$id"
+  override lazy val toString =
+    no_number_suffix match {
+
+      case false => s"v_${name}_$id"
+      case true => s"${name}"
+
+    }
 
   lazy val toStringWithRange = s"$toString[${range.toString}]"
 
@@ -1557,6 +1563,8 @@ object Var {
   def apply(name: String, range: Range): Var = new Var(name, range)
 
   def apply(name: String, range: Range, fixedId: Option[Long]): Var = new Var(name, range, fixedId)
+
+  def apply(name: String, no_number_suffix: Boolean): Var = new Var(name, no_number_suffix = no_number_suffix)
 
   def unapply(v: Var): Option[(String, Range)] = Some((v.name, v.range))
 }
