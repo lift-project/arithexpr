@@ -378,6 +378,10 @@ object ArithExpr {
   implicit def simplifyImplicitly(ae: ArithExpr): ArithExpr with SimplifiedExpr = ExprSimplifier(ae)
   implicit def simplifyImplicitly(aes: Seq[ArithExpr]): Seq[ArithExpr with SimplifiedExpr] = ExprSimplifier(aes)
   implicit def simplifyImplicitly(aes: List[ArithExpr]): List[ArithExpr with SimplifiedExpr] = ExprSimplifier(aes)
+  implicit def simplifyImplicitly(ae: Option[ArithExpr]): Option[ArithExpr with SimplifiedExpr] = ae match {
+    case Some(e) => Some(ExprSimplifier(e))
+    case None => None
+  }
 
   val isCanonicallySorted: (ArithExpr, ArithExpr) => Boolean = (x: ArithExpr, y: ArithExpr) => (x, y) match {
     case (Cst(a), Cst(b)) => a < b
@@ -670,6 +674,8 @@ object ArithExpr {
       // Disable simplification before rebuilding to save time
       // This is allowed because obscuring vars (replacing them with opaques) does not add new information,
       // so no new simplification will be possible.
+      // NB: this is dangerous: if another function lower in the call stack depends on simplification, it might
+      // recurse infinitely. Special care has to be taken to reenable simplification for such functions
       val originalSimplificationFlag = PerformSimplification.simplify
       PerformSimplification.simplify = false
       val substitute1 = ArithExpr.substitute(ae1, replacementsMap)
@@ -1236,11 +1242,18 @@ case class Sum private[arithmetic](terms: List[ArithExpr with SimplifiedExpr]) e
     // We should never have a sum with one term
     assume(terms.length > 1)
 
+    // This function depends on simplification. In case another function higher in the call stack disabled
+    // simplification, reenable it for the duration of this function
+    val originalSimplificationFlag = PerformSimplification.simplify
+    PerformSimplification.simplify = true
+
     // Convert each term into a list of factors (if a term is not a prod, the result will be a list of 1 element)
-    val prodTerms: List[List[ArithExpr]] = terms.map {
-      case Prod(factors) => factors
+    def factorize(potentialProd: ArithExpr): List[ArithExpr] = potentialProd match {
+      case Prod(factors) if !factors.contains(Cst(1)) => factors.flatMap(factorize)
       case x => List(x)
     }
+
+    val prodTerms: List[List[ArithExpr]] = terms.map(factorize)
 
     val (cstCommonFactor: Cst, nonCstCommonFactors: List[ArithExpr]) =
       prodTerms.tail.foldLeft(Prod.partitionFactorsOnCst(prodTerms.head, simplified = true)) {
@@ -1261,7 +1274,7 @@ case class Sum private[arithmetic](terms: List[ArithExpr with SimplifiedExpr]) e
     val prodTermsWithoutCommonFactors = prodTermsWithoutCommonNonCstFactors.map(_ /^ cstCommonFactor)
 
     // Finally, construct the common factor
-    ((cstCommonFactor, nonCstCommonFactors) match {
+    val result = ((cstCommonFactor, nonCstCommonFactors) match {
       case (Cst(1), Nil) => None
       case (Cst(1), _) => Some(nonCstCommonFactors)
       case (_, Nil) => Some(List(cstCommonFactor))
@@ -1272,6 +1285,11 @@ case class Sum private[arithmetic](terms: List[ArithExpr with SimplifiedExpr]) e
       case Some(commonFactors) =>
         Some(Prod(commonFactors :+ prodTermsWithoutCommonFactors.reduce(_ + _)))
     }
+
+    // Reset simplification flag
+    PerformSimplification.simplify = originalSimplificationFlag
+
+    result
   }
 
   override def equals(that: Any): Boolean = that match {
