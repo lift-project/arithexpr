@@ -1233,10 +1233,12 @@ case class Sum private[arithmetic](terms: List[ArithExpr with SimplifiedExpr]) e
     PerformSimplification.simplify = true
 
     // Convert each term into a list of factors (if a term is not a prod, the result will be a list of 1 element)
-    val prodTerms: List[List[ArithExpr]] = terms.map {
-      case Prod(factors) => factors
+    def factorize(potentialProd: ArithExpr): List[ArithExpr] = potentialProd match {
+      case Prod(factors) if !factors.contains(Cst(1)) => factors.flatMap(factorize)
       case x => List(x)
     }
+
+    val prodTerms: List[List[ArithExpr]] = terms.map(factorize)
 
     val (cstCommonFactor: Cst, nonCstCommonFactors: List[ArithExpr]) =
       prodTerms.tail.foldLeft(Prod.partitionFactorsOnCst(prodTerms.head, simplified = true)) {
