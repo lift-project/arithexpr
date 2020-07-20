@@ -450,27 +450,62 @@ object ArithExpr {
     throw NotEvaluable
   }
 
-  private def upperBound(factors: List[ArithExpr]): Option[Long] = {
-    Some(SimplifyProd(factors.map({
-      case v: Var => v.range.max match {
-        case max: Cst => max
-        case _ => return None
-      }
-      case c: Cst => c
-      case _ => throw new IllegalArgumentException("upperBound expects a Var or a Cst")
-    })).eval)
+  /**
+   * The bound is conservative -- smaller than actual for the upper bound and larger
+   * than actual for the lower bound -- due to rounding of floating numbers
+   */
+  private def bound(ae: ArithExpr,
+                    rangeBound: Range => ArithExpr with SimplifiedExpr,
+                    roundConservatively: Double => Double): Option[Double] = {
+    try {
+      // If an expression is evaluable to a constant, then the upper bound is the expression itself
+      Some(ae.evalDouble)
+    } catch {
+      case NotEvaluableException() =>
+        try {
+          // If an expression is not evaluable because of the usage of variables, try and replace
+          // variables with their maximums (minimums) and reevaluate the expression
+          val substitutionTable = collectVars(ae).map(v =>
+            v -> Cst(
+              roundConservatively(rangeBound(v.range).evalDouble).toLong)
+          ).toMap
+
+          Some(
+            ae.visitAndRebuild {
+              case v: Var => substitutionTable.getOrElse(v, v)
+              case e => e
+            }.evalDouble)
+        } catch {
+          // Expression is not evaluable: it either contains variables whose maximums (minimums) are not evaluable,
+          // or other non-evaluable ArithExpr
+          case NotEvaluableException() => None
+        }
+    }
   }
 
-  private def lowerBound(factors: List[ArithExpr]): Option[Long] = {
-    Some(SimplifyProd(factors.map({
-      case v: Var => v.range.min match {
-        case min: Cst => min
-        case _ => return None
-      }
-      case c: Cst => c
-      case _ => throw new IllegalArgumentException("lowerBound expects a Var or a Cst")
-    })).eval)
+  private def bound(factors: List[ArithExpr],
+                    rangeBound: Range => ArithExpr with SimplifiedExpr,
+                    roundConservatively: Double => Double): Option[Long] = {
+    Some(factors.foldLeft[Double](1)((exprBound, factor) =>
+      roundConservatively(
+        bound(factor, rangeBound, roundConservatively) match {
+          case Some(factorUB) => exprBound * factorUB
+          case None => return None
+        })).toLong)
   }
+
+  private def upperBound(ae: ArithExpr): Option[Double] = bound(ae,
+    rangeBound = (r: Range) => r.max, roundConservatively = scala.math.floor)
+
+  private def upperBound(factors: List[ArithExpr]): Option[Long] = bound(factors,
+    rangeBound = (r: Range) => r.max, roundConservatively = scala.math.floor)
+
+  private def lowerBound(ae: ArithExpr): Option[Double] = bound(ae,
+    rangeBound = (r: Range) => r.min, roundConservatively = scala.math.ceil)
+
+  private def lowerBound(factors: List[ArithExpr]): Option[Long] = bound(factors,
+    rangeBound = (r: Range) => r.min, roundConservatively = scala.math.ceil)
+
 
 
   def contains(expr: ArithExpr, elem: ArithExpr): Boolean = {
@@ -659,6 +694,8 @@ object ArithExpr {
       // Disable simplification before rebuilding to save time
       // This is allowed because obscuring vars (replacing them with opaques) does not add new information,
       // so no new simplification will be possible.
+      // NB: this is dangerous: if another function lower in the call stack depends on simplification, it might
+      // recurse infinitely. Special care has to be taken to reenable simplification for such functions
       val originalSimplificationFlag = PerformSimplification.simplify
       PerformSimplification.simplify = false
       val substitute1 = ArithExpr.substitute(ae1, replacementsMap)
@@ -1225,11 +1262,18 @@ case class Sum private[arithmetic](terms: List[ArithExpr with SimplifiedExpr]) e
     // We should never have a sum with one term
     assume(terms.length > 1)
 
+    // This function depends on simplification. In case another function higher in the call stack disabled
+    // simplification, reenable it for the duration of this function
+    val originalSimplificationFlag = PerformSimplification.simplify
+    PerformSimplification.simplify = true
+
     // Convert each term into a list of factors (if a term is not a prod, the result will be a list of 1 element)
-    val prodTerms: List[List[ArithExpr]] = terms.map {
-      case Prod(factors) => factors
+    def factorize(potentialProd: ArithExpr): List[ArithExpr] = potentialProd match {
+      case Prod(factors) if !factors.contains(Cst(1)) => factors.flatMap(factorize)
       case x => List(x)
     }
+
+    val prodTerms: List[List[ArithExpr]] = terms.map(factorize)
 
     val (cstCommonFactor: Cst, nonCstCommonFactors: List[ArithExpr]) =
       prodTerms.tail.foldLeft(Prod.partitionFactorsOnCst(prodTerms.head, simplified = true)) {
@@ -1250,7 +1294,7 @@ case class Sum private[arithmetic](terms: List[ArithExpr with SimplifiedExpr]) e
     val prodTermsWithoutCommonFactors = prodTermsWithoutCommonNonCstFactors.map(_ /^ cstCommonFactor)
 
     // Finally, construct the common factor
-    ((cstCommonFactor, nonCstCommonFactors) match {
+    val result = ((cstCommonFactor, nonCstCommonFactors) match {
       case (Cst(1), Nil) => None
       case (Cst(1), _) => Some(nonCstCommonFactors)
       case (_, Nil) => Some(List(cstCommonFactor))
@@ -1261,6 +1305,11 @@ case class Sum private[arithmetic](terms: List[ArithExpr with SimplifiedExpr]) e
       case Some(commonFactors) =>
         Some(Prod(commonFactors :+ prodTermsWithoutCommonFactors.reduce(_ + _)))
     }
+
+    // Reset simplification flag
+    PerformSimplification.simplify = originalSimplificationFlag
+
+    result
   }
 
   override def equals(that: Any): Boolean = that match {
@@ -1485,7 +1534,7 @@ case class LShift private[arithmetic](a: ArithExpr with SimplifiedExpr, b: Arith
   */
 class Var private[arithmetic](val name: String,
                               val range: Range = RangeUnknown,
-                              val fixedId: Option[Long] = None) extends ArithExpr {
+                              val fixedId: Option[Long] = None, val no_number_suffix : Boolean = false) extends ArithExpr {
   override lazy val hashCode: Int = 8 * 79 + id.hashCode
 
   override val HashSeed = 0x54e9bd5e
@@ -1507,7 +1556,13 @@ class Var private[arithmetic](val name: String,
     case _ => false
   }
 
-  override lazy val toString = s"v_${name}_$id"
+  override lazy val toString =
+    no_number_suffix match {
+
+      case false => s"v_${name}_$id"
+      case true => s"${name}"
+
+    }
 
   lazy val toStringWithRange = s"$toString[${range.toString}]"
 
@@ -1546,6 +1601,8 @@ object Var {
   def apply(name: String, range: Range): Var = new Var(name, range)
 
   def apply(name: String, range: Range, fixedId: Option[Long]): Var = new Var(name, range, fixedId)
+
+  def apply(name: String, no_number_suffix: Boolean): Var = new Var(name, no_number_suffix = no_number_suffix)
 
   def unapply(v: Var): Option[(String, Range)] = Some((v.name, v.range))
 }
