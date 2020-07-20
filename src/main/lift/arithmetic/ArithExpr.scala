@@ -465,27 +465,61 @@ object ArithExpr {
 
   }
 
-  private def upperBound(factors: List[ArithExpr]): Option[Long] = {
-    Some(SimplifyProd(factors.map({
-      case v: Var => v.range.max match {
-        case max: Cst => max
-        case _ => return None
-      }
-      case c: Cst => c
-      case _ => throw new IllegalArgumentException("upperBound expects a Var or a Cst")
-    })).eval)
+  /**
+   * The bound is conservative -- smaller than actual for the upper bound and larger
+   * than actual for the lower bound -- due to rounding of floating numbers
+   */
+  private def bound(ae: ArithExpr,
+                    rangeBound: Range => ArithExpr with SimplifiedExpr,
+                    roundConservatively: Double => Double): Option[Double] = {
+    try {
+      // If an expression is evaluable to a constant, then the upper bound is the expression itself
+      Some(ae.evalDouble)
+    } catch {
+      case NotEvaluableException() =>
+        try {
+          // If an expression is not evaluable because of the usage of variables, try and replace
+          // variables with their maximums (minimums) and reevaluate the expression
+          val substitutionTable = collectVars(ae).map(v =>
+            v -> Cst(
+              roundConservatively(rangeBound(v.range).evalDouble).toLong)
+          ).toMap
+
+          Some(
+            ae.visitAndRebuild {
+              case v: Var => substitutionTable.getOrElse(v, v)
+              case e => e
+            }.evalDouble)
+        } catch {
+          // Expression is not evaluable: it either contains variables whose maximums (minimums) are not evaluable,
+          // or other non-evaluable ArithExpr
+          case NotEvaluableException() => None
+        }
+    }
   }
 
-  private def lowerBound(factors: List[ArithExpr]): Option[Long] = {
-    Some(SimplifyProd(factors.map({
-      case v: Var => v.range.min match {
-        case min: Cst => min
-        case _ => return None
-      }
-      case c: Cst => c
-      case _ => throw new IllegalArgumentException("lowerBound expects a Var or a Cst")
-    })).eval)
+  private def bound(factors: List[ArithExpr],
+                    rangeBound: Range => ArithExpr with SimplifiedExpr,
+                    roundConservatively: Double => Double): Option[Long] = {
+    Some(factors.foldLeft[Double](1)((exprBound, factor) =>
+      roundConservatively(
+        bound(factor, rangeBound, roundConservatively) match {
+          case Some(factorUB) => exprBound * factorUB
+          case None => return None
+        })).toLong)
   }
+
+  private def upperBound(ae: ArithExpr): Option[Double] = bound(ae,
+    rangeBound = (r: Range) => r.max, roundConservatively = scala.math.floor)
+
+  private def upperBound(factors: List[ArithExpr]): Option[Long] = bound(factors,
+    rangeBound = (r: Range) => r.max, roundConservatively = scala.math.floor)
+
+  private def lowerBound(ae: ArithExpr): Option[Double] = bound(ae,
+    rangeBound = (r: Range) => r.min, roundConservatively = scala.math.ceil)
+
+  private def lowerBound(factors: List[ArithExpr]): Option[Long] = bound(factors,
+    rangeBound = (r: Range) => r.min, roundConservatively = scala.math.ceil)
 
 
   def contains(expr: ArithExpr, elem: ArithExpr): Boolean = {
