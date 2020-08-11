@@ -932,7 +932,7 @@ object ArithExpr {
     case (f1: FloorFunction, f2: FloorFunction)               => equalStructurally(f1.ae, f2.ae)
     case (c1: CeilingFunction, c2: CeilingFunction)           => equalStructurally(c1.ae, c2.ae)
     case (i1: IfThenElse, i2: IfThenElse)                     => throw new NotImplementedError()
-    case (a1: ArithExprFunction, a2: ArithExprFunction)       => a1.name.equals(a2.name) && equalStructurally(a1.range, a2.range)
+    case (a1: ArithExprFunction, a2: ArithExprFunction)       => a1.equals(a2)
     case (b1: BitwiseXOR, b2: BitwiseXOR)                     => equalStructurally(b1.a, b2.a) && equalStructurally(b1.b, b2.b)
     case (b1: BitwiseAND, b2: BitwiseAND)                     => equalStructurally(b1.a, b2.a) && equalStructurally(b1.b, b2.b)
     case (l1: LShift, l2: LShift)                             => equalStructurally(l1.a, l2.a) && equalStructurally(l1.b, l2.b)
@@ -940,10 +940,14 @@ object ArithExpr {
   }
 
   def equalStructurally(r1: Range, r2: Range): Boolean = (r1, r2) match {
-    case (ra1: RangeAdd, ra2: RangeAdd)             => ra1.start == ra2.start && ra1.stop == ra2.stop && ra1.step == ra2.step
-    case (rm1: RangeMul, rm2: RangeMul)             => rm1.start == rm2.start && rm1.stop == rm2.stop && rm1.mul == rm2.mul
-    case (rg1: GoesToRange, rg2: GoesToRange)       => rg1.`end` == rg2.`end`
-    case (rs1: StartFromRange, rs2: StartFromRange) => rs1.start == rs2.start
+    case (ra1: RangeAdd, ra2: RangeAdd)             => equalStructurally(ra1.start, ra2.start) &&
+                                                        equalStructurally(ra1.stop, ra2.stop) &&
+                                                        equalStructurally(ra1.step, ra2.step)
+    case (rm1: RangeMul, rm2: RangeMul)             => equalStructurally(rm1.start, rm2.start) &&
+                                                        equalStructurally(rm1.stop, rm2.stop) &&
+                                                        equalStructurally(rm1.mul, rm2.mul)
+    case (rg1: GoesToRange, rg2: GoesToRange)       => equalStructurally(rg1.`end`, rg2.`end`)
+    case (rs1: StartFromRange, rs2: StartFromRange) => equalStructurally(rs1.start, rs2.start)
     case _                                          => false
   }
 
