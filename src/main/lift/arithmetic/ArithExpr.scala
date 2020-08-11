@@ -915,6 +915,38 @@ object ArithExpr {
     }))
   }
 
+  def equalStructurally(a: ArithExpr, b: ArithExpr): Boolean = (a, b) match {
+    case (_: Cst, _: Cst)                                     => a == b
+    case (v1: Var, v2: Var)                                   => equalStructurally(v1.range, v2.range)
+    case (id1: IntDiv, id2: IntDiv)                           => equalStructurally(id1.numer, id2.numer) &&
+                                                                  equalStructurally(id1.denom, id2.denom)
+    case (p1: Pow, p2: Pow)                                   => equalStructurally(p1.b, p2.b) && equalStructurally(p1.e, p2.e)
+    case (l1: Log, l2: Log)                                   => equalStructurally(l1.b, l2.b) && equalStructurally(l1.x, l2.x)
+    case (Prod(fs1), Prod(fs2)) if fs1.length == fs2.length   => fs1.zip(fs2).foldLeft(true) {
+      case (othersEqual, pair) => othersEqual && equalStructurally(pair._1, pair._2) }
+    case (Sum(ts1), Sum(ts2)) if ts1.length == ts2.length     => ts1.zip(ts2).foldLeft(true) {
+      case (othersEqual, pair) => othersEqual && equalStructurally(pair._1, pair._2) }
+    case (m1: Mod, m2: Mod)                                   => equalStructurally(m1.dividend, m2.dividend) &&
+                                                                  equalStructurally(m1.divisor, m2.divisor)
+    case (a1: AbsFunction, a2: AbsFunction)                   => equalStructurally(a1.ae, a2.ae)
+    case (f1: FloorFunction, f2: FloorFunction)               => equalStructurally(f1.ae, f2.ae)
+    case (c1: CeilingFunction, c2: CeilingFunction)           => equalStructurally(c1.ae, c2.ae)
+    case (i1: IfThenElse, i2: IfThenElse)                     => throw new NotImplementedError()
+    case (a1: ArithExprFunction, a2: ArithExprFunction)       => a1.name.equals(a2.name) && equalStructurally(a1.range, a2.range)
+    case (b1: BitwiseXOR, b2: BitwiseXOR)                     => equalStructurally(b1.a, b2.a) && equalStructurally(b1.b, b2.b)
+    case (b1: BitwiseAND, b2: BitwiseAND)                     => equalStructurally(b1.a, b2.a) && equalStructurally(b1.b, b2.b)
+    case (l1: LShift, l2: LShift)                             => equalStructurally(l1.a, l2.a) && equalStructurally(l1.b, l2.b)
+    case _                                                    => false
+  }
+
+  def equalStructurally(r1: Range, r2: Range): Boolean = (r1, r2) match {
+    case (ra1: RangeAdd, ra2: RangeAdd)             => ra1.start == ra2.start && ra1.stop == ra2.stop && ra1.step == ra2.step
+    case (rm1: RangeMul, rm2: RangeMul)             => rm1.start == rm2.start && rm1.stop == rm2.stop && rm1.mul == rm2.mul
+    case (rg1: GoesToRange, rg2: GoesToRange)       => rg1.`end` == rg2.`end`
+    case (rs1: StartFromRange, rs2: StartFromRange) => rs1.start == rs2.start
+    case _                                          => false
+  }
+
   /**
     * Recursively converts an arithmetic expression to a Scala notation String which can be evaluated into a
     * valid ArithExpr.
