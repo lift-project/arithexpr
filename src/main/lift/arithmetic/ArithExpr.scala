@@ -1268,6 +1268,11 @@ object Prod {
     case _ => None
   }
 
+  def factorize(ae: ArithExpr): List[ArithExpr] = ae match {
+    case Prod(factors) if !factors.contains(Cst(1)) => factors.flatMap(factorize)
+    case x => List(x)
+  }
+
   def removeFactors(from: List[ArithExpr], toRemove: List[ArithExpr]): List[ArithExpr] =
     from.diff(toRemove) match {
       // If we took all the elements out, return neutral (1 for product)
@@ -1280,7 +1285,7 @@ object Prod {
     else Cst(factors.filter(_.isInstanceOf[Cst]).foldLeft[Long](1)(_ * _.asInstanceOf[Cst].c))
   }
 
-  def partitionFactorsOnCst(factors: List[ArithExpr], simplified: Boolean): (Cst, List[ArithExpr]) = {
+  def partitionFactorsOnCst(factors: List[ArithExpr]): (Cst, List[ArithExpr]) = {
     factors.partition(_.isInstanceOf[Cst]) match {
       case (Nil, nonCstFactors) => (Cst(1), nonCstFactors)
       case (cstFactor, nonCstFactors) => (Cst(cstFactor.foldLeft[Long](1)(_ * _.asInstanceOf[Cst].c)), nonCstFactors)
@@ -1318,15 +1323,10 @@ case class Sum private[arithmetic](terms: List[ArithExpr with SimplifiedExpr]) e
     PerformSimplification.simplify = true
 
     // Convert each term into a list of factors (if a term is not a prod, the result will be a list of 1 element)
-    def factorize(potentialProd: ArithExpr): List[ArithExpr] = potentialProd match {
-      case Prod(factors) if !factors.contains(Cst(1)) => factors.flatMap(factorize)
-      case x => List(x)
-    }
-
-    val prodTerms: List[List[ArithExpr]] = terms.map(factorize)
+    val prodTerms: List[List[ArithExpr]] = terms.map(Prod.factorize)
 
     val (cstCommonFactor: Cst, nonCstCommonFactors: List[ArithExpr]) =
-      prodTerms.tail.foldLeft(Prod.partitionFactorsOnCst(prodTerms.head, simplified = true)) {
+      prodTerms.tail.foldLeft(Prod.partitionFactorsOnCst(prodTerms.head)) {
         case ((cstCommonFactorAcc: Cst, nonCstCommonFactorsAcc: List[ArithExpr]), nextTerm: List[ArithExpr]) =>
           SimplifySum.getCommonFactors(cstCommonFactorAcc, nonCstCommonFactorsAcc, nextTerm)
       }
