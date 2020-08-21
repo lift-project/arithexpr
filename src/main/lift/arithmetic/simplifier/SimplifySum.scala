@@ -121,8 +121,8 @@ object SimplifySum {
       case (Cst(1), Nil) => None
       case (cstCommonFactor, nonCstCommonFactors) =>
 
-        val (term1CstFactor, term1NonCstFactors) = Prod.partitionFactorsOnCst(term1factors, simplified = true)
-        val (term2CstFactor, term2NonCstFactors) = Prod.partitionFactorsOnCst(term2factors, simplified = true)
+        val (term1CstFactor, term1NonCstFactors) = Prod.partitionFactorsOnCst(term1factors)
+        val (term2CstFactor, term2NonCstFactors) = Prod.partitionFactorsOnCst(term2factors)
 
         val term1WithoutCommonFactors = SimplifyProd(Cst(term1CstFactor.c / cstCommonFactor.c) +: Prod.removeFactors(term1NonCstFactors, nonCstCommonFactors))
         val term2WithoutCommonFactors = SimplifyProd(Cst(term2CstFactor.c / cstCommonFactor.c) +: Prod.removeFactors(term2NonCstFactors, nonCstCommonFactors))
@@ -282,7 +282,7 @@ object SimplifySum {
     */
   def getCommonFactors(factors1: List[ArithExpr with SimplifiedExpr], factors2: List[ArithExpr with SimplifiedExpr]):
   (Cst, List[ArithExpr]) = {
-    val (cstFactor1, nonCstFactors1) = Prod.partitionFactorsOnCst(factors1, simplified = true)
+    val (cstFactor1, nonCstFactors1) = Prod.partitionFactorsOnCst(factors1)
 
     getCommonFactors(cstFactor1, nonCstFactors1, factors2)
   }
@@ -301,7 +301,7 @@ object SimplifySum {
   def getCommonFactors(cstFactor1: Cst, nonCstFactors1: List[ArithExpr with SimplifiedExpr],
                        factors2: List[ArithExpr with SimplifiedExpr]):
   (Cst, List[ArithExpr]) = {
-    val (cstFactor2, nonCstFactors2) = Prod.partitionFactorsOnCst(factors2, simplified = true)
+    val (cstFactor2, nonCstFactors2) = Prod.partitionFactorsOnCst(factors2)
 
     val cstFactors: List[Long] = List(cstFactor1.c, cstFactor2.c)
 
