@@ -1,6 +1,8 @@
 package lift
 package arithmetic
 
+import scala.collection.mutable.ListBuffer
+
 sealed abstract class Range {
   // default impl
   def *(e: ArithExpr with SimplifiedExpr): Range = this
@@ -14,6 +16,18 @@ sealed abstract class Range {
   override def equals(that: Any): Boolean = that match {
     case r: Range => this.min == r.min && this.max == r.max
     case _ => false
+  }
+
+  def equalsStructurally(that: Range): Boolean = (this, that) match {
+    case (ra1: RangeAdd, ra2: RangeAdd)             => ra1.start.equalsStructurally(ra2.start) &&
+                                                        ra1.stop.equalsStructurally(ra2.stop) &&
+                                                        ra1.step.equalsStructurally(ra2.step)
+    case (rm1: RangeMul, rm2: RangeMul)             => rm1.start.equalsStructurally(rm2.start) &&
+                                                        rm1.stop.equalsStructurally(rm2.stop) &&
+                                                        rm1.mul.equalsStructurally(rm2.mul)
+    case (rg1: GoesToRange, rg2: GoesToRange)       => rg1.`end`.equalsStructurally(rg2.`end`)
+    case (rs1: StartFromRange, rs2: StartFromRange) => rs1.start.equalsStructurally(rs2.start)
+    case _                                          => false
   }
 
   def visitAndRebuild(f: ArithExpr => ArithExpr): Range
@@ -149,6 +163,74 @@ case class RangeAdd(start: ArithExpr with SimplifiedExpr,
 
   override def visitAndRebuild(f: (ArithExpr) => ArithExpr): Range =
     RangeAdd(start.visitAndRebuild(f), stop.visitAndRebuild(f), step.visitAndRebuild(f))
+
+  def includedIn(other: RangeAdd): Boolean = {
+    if (ArithExpr.isSmaller(this.stop, other.start).getOrElse(true) || this.stop == other.start)
+      return false
+
+    if (ArithExpr.isSmaller(other.stop, this.start).getOrElse(true) || other.stop == this.start)
+      return false
+
+    other.step % this.step == Cst(0) &&
+      abs(this.start - other.start) % this.step == Cst(0)
+  }
+
+  def includedIn(others: List[RangeAdd]): Boolean = others.exists(other => this.includedIn(other))
+}
+
+object RangeAdd {
+  def flattenContinuousTermRanges(sumTermRanges: List[RangeAdd]): List[RangeAdd] = {
+    val updatedRanges = ListBuffer[RangeAdd](sumTermRanges: _*)
+
+    def mergeWithOneOfUpdatedRanges(thisRange: RangeAdd,
+                                    thisRangeIdx: Int): Boolean = {
+      updatedRanges.zipWithIndex.foreach {
+        case (otherRange, otherRangeIdx) if otherRange != thisRange =>
+          val merged = merge(thisRange, otherRange)
+          if (merged.isDefined) {
+            updatedRanges.remove(otherRangeIdx)
+            updatedRanges.insert(otherRangeIdx, merged.get)
+            updatedRanges.remove(thisRangeIdx)
+            return true
+          }
+        case _ =>
+      }
+      false
+    }
+
+    def flattenAPairIfPossible(): Boolean = {
+      updatedRanges.zipWithIndex.foreach(range =>
+        if (mergeWithOneOfUpdatedRanges(range._1, range._2))
+          return true)
+      false
+    }
+
+    var flattenAgain = true
+    while (flattenAgain)
+      flattenAgain = flattenAPairIfPossible()
+
+    updatedRanges.toList
+  }
+
+  def merge(r1: RangeAdd, r2: RangeAdd): Option[RangeAdd] = {
+
+    def aCoversIntervalsOfB(rA: RangeAdd, rB: RangeAdd): Boolean =
+      rA.start == rB.start &&
+        // Steps overlap and rA.step >= rB.step
+        rA.step % rB.step == Cst(0) &&
+        // Range rA covers the whole interval between the steps of range rB
+        (rA.step == rB.stop || ArithExpr.isSmaller(rA.step, rB.stop).getOrElse(false))
+
+    // [0, 3, 6] + [0, 1, 2] = [0, 1, 2, 3, 4, 6, 7, 8]
+    if (aCoversIntervalsOfB(rA=r1, rB=r2))
+      Some(RangeAdd(r1.start, ArithExpr.max(r1.stop, r2.stop), r2.step))
+
+    // [0, 1, 2] + [0, 3, 6] = [0, 1, 2, 3, 4, 6, 7, 8]
+    else if (aCoversIntervalsOfB(rA=r2, rB=r1))
+      Some(RangeAdd(r1.start, ArithExpr.max(r1.stop, r2.stop), r1.step))
+
+    else None
+  }
 }
 
 case class RangeMul(start: ArithExpr with SimplifiedExpr,

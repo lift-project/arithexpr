@@ -1,5 +1,6 @@
 package lift.testing
 
+import lift.arithmetic.ArithExpr.isCanonicallySorted
 import lift.arithmetic._
 import lift.arithmetic.simplifier._
 import org.junit.Assert._
@@ -1350,5 +1351,119 @@ class TestExpr {
 
   @Test def ceilInfinity(): Unit = {
     assertEquals(?, ceil(NegInf) % ?)
+  }
+
+  @Test
+  def structEquality_sort(): Unit = {
+    val v_i_1 = Var("i", RangeAdd(0,56,1))
+    val v_i_2 = Var("i", RangeAdd(0,7,1))
+    val v_i_3 = Var("i", RangeAdd(0,16,1))
+    val v_i_4 = Var("i", RangeAdd(0,3,1))
+    val v_i_5 = Var("i", RangeAdd(0,8,1))
+    val v_i_8 = Var("i", RangeAdd(0,8,1))
+    val v_i_9 = Var("i", RangeAdd(0,16,1))
+    val v_wg_id_0 = Var("wg_id", RangeAdd(get_group_id(RangeAdd(0,64,1)),64,64))
+    val v_l_id_0 = Var("l_id", RangeAdd(get_local_id(RangeAdd(0,223,1)),1,223))
+
+    val a = ((1354752*v_wg_id_0)+(1152*v_i_1)+(193536*v_i_2)+(72*v_i_3)+(64512*v_i_4)+(64512*v_l_id_0)+(9*v_i_5))
+    val b = (9*v_i_5) + (72*v_i_3) + (1152*v_i_1) + (64512*v_i_4) + (64512*v_l_id_0) + (193536*v_i_2) + (1354752*v_wg_id_0)
+
+    assertEquals(a.equalsStructurally(b), true)
+  }
+
+  @Test
+  def structEquality_diffvars(): Unit = {
+    val v_i_0 = Var("i", RangeAdd(0,3,1))
+    val v_i_1 = Var("i", RangeAdd(0,56,1))
+    val v_i_2 = Var("i", RangeAdd(0,7,1))
+    val v_i_3 = Var("i", RangeAdd(0,16,1))
+    val v_i_4 = Var("i", RangeAdd(0,3,1))
+    val v_i_5 = Var("i", RangeAdd(0,8,1))
+    val v_i_6 = Var("i", RangeAdd(0,3,1))
+    val v_i_7 = Var("i", RangeAdd(0,9,1))
+    val v_i_8 = Var("i", RangeAdd(0,8,1))
+    val v_i_9 = Var("i", RangeAdd(0,16,1))
+    val v_wg_id_0 = Var("wg_id", RangeAdd(get_group_id(RangeAdd(0,64,1)),64,64))
+    val v_l_id_0 = Var("l_id", RangeAdd(get_local_id(RangeAdd(0,223,1)),1,223))
+
+//        val a = (v_i_0+(1354752*v_wg_id_0)+(1152*v_i_1)+(193536*v_i_2)+(72*v_i_3)+(64512*v_i_4)+(64512*v_l_id_0)+(9*v_i_5)+(3*v_i_6))
+//        val b = (v_i_7+(1152*v_i_1)+(64512*v_i_4)+(64512*v_l_id_0)+(1354752*v_wg_id_0)+(193536*v_i_2)+(9*v_i_8)+(72*v_i_9))
+    val a = ((1354752*v_wg_id_0)+(1152*v_i_1)+(193536*v_i_2)+(72*v_i_3)+(64512*v_i_4)+(64512*v_l_id_0)+(9*v_i_5))
+    val b = ((1152*v_i_1)+(64512*v_i_4)+(64512*v_l_id_0)+(1354752*v_wg_id_0)+(193536*v_i_2)+(9*v_i_8)+(72*v_i_9))
+
+    println(a.simpleRanges)
+    println(b.simpleRanges)
+
+    assertEquals(a.equalsStructurally(b), true)
+
+  }
+
+  @Test
+  def rangeFlatteningAndInclusion(): Unit = {
+    val v_i_0 = Var("i", RangeAdd(0,3,1))
+    val v_i_6 = Var("i", RangeAdd(0,3,1))
+    val v_i_7 = Var("i", RangeAdd(0,9,1))
+
+    val a = v_i_0+(3*v_i_6)
+    val b = v_i_7
+
+    assertEquals(a.equalsStructurally(b), false)
+
+    assertEquals(RangeAdd.flattenContinuousTermRanges(a.simpleRanges.get).forall(
+      _.includedIn(RangeAdd.flattenContinuousTermRanges(b.simpleRanges.get))), true)
+
+    assertEquals(RangeAdd.flattenContinuousTermRanges(b.simpleRanges.get).forall(
+      _.includedIn(RangeAdd.flattenContinuousTermRanges(a.simpleRanges.get))), true)
+  }
+
+  @Test
+  def structuralDiff(): Unit = {
+    val v_i_0 = Var("i", RangeAdd(0,3,1))
+    val v_i_1 = Var("i", RangeAdd(0,56,1))
+    val v_i_2 = Var("i", RangeAdd(0,7,1))
+    val v_i_3 = Var("i", RangeAdd(0,16,1))
+    val v_i_4 = Var("i", RangeAdd(0,3,1))
+    val v_i_5 = Var("i", RangeAdd(0,8,1))
+    val v_i_6 = Var("i", RangeAdd(0,3,1))
+    val v_i_7 = Var("i", RangeAdd(0,9,1))
+    val v_i_8 = Var("i", RangeAdd(0,8,1))
+    val v_i_9 = Var("i", RangeAdd(0,16,1))
+    val v_wg_id_0 = Var("wg_id", RangeAdd(get_group_id(RangeAdd(0,64,1)),64,64))
+    val v_l_id_0 = Var("l_id", RangeAdd(get_local_id(RangeAdd(0,223,1)),1,223))
+
+    val a = (v_i_0+(1354752*v_wg_id_0)+(1152*v_i_1)+(193536*v_i_2)+(72*v_i_3)+(64512*v_i_4)+(64512*v_l_id_0)+(9*v_i_5)+(3*v_i_6))
+    val b = (v_i_7+(1152*v_i_1)+(64512*v_i_4)+(64512*v_l_id_0)+(1354752*v_wg_id_0)+(193536*v_i_2)+(9*v_i_8)+(72*v_i_9))
+
+    assertTrue(a.structuralDiff(b) match {
+      case Some((Some(aDiff), Some(bDiff)))
+        if aDiff == v_i_0+(3*v_i_6) && bDiff == v_i_7 => true
+      case _ => false
+    })
+  }
+
+  @Test
+  def aRangeIncludedInBRange(): Unit = {
+    val v_i_0 = Var("i", RangeAdd(0,3,1))
+    val v_i_1 = Var("i", RangeAdd(0,56,1))
+    val v_i_2 = Var("i", RangeAdd(0,7,1))
+    val v_i_3 = Var("i", RangeAdd(0,16,1))
+    val v_i_4 = Var("i", RangeAdd(0,3,1))
+    val v_i_5 = Var("i", RangeAdd(0,8,1))
+    val v_i_6 = Var("i", RangeAdd(0,3,1))
+    val v_i_7 = Var("i", RangeAdd(0,9,1))
+    val v_i_8 = Var("i", RangeAdd(0,8,1))
+    val v_i_9 = Var("i", RangeAdd(0,16,1))
+    val v_wg_id_0 = Var("wg_id", RangeAdd(get_group_id(RangeAdd(0,64,1)),64,64))
+    val v_l_id_0 = Var("l_id", RangeAdd(get_local_id(RangeAdd(0,223,1)),1,223))
+
+    val a = v_i_0+(3*v_i_6)
+    val b = v_i_7
+
+    assertTrue(a.rangeIncludedInRangeOf(b))
+
+    val c = (v_i_0+(1354752*v_wg_id_0)+(1152*v_i_1)+(193536*v_i_2)+(72*v_i_3)+(64512*v_i_4)+(64512*v_l_id_0)+(9*v_i_5)+(3*v_i_6))
+    val d = (v_i_7+(1152*v_i_1)+(64512*v_i_4)+(64512*v_l_id_0)+(1354752*v_wg_id_0)+(193536*v_i_2)+(9*v_i_8)+(72*v_i_9))
+
+    assertTrue(c.rangeIncludedInRangeOf(d))
   }
 }

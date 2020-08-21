@@ -3,10 +3,12 @@ package arithmetic
 
 import java.util.concurrent.atomic.AtomicLong
 
+import lift.arithmetic.ArithExpr.isCanonicallySorted
 import lift.arithmetic.NotEvaluableException._
 import lift.arithmetic.NotEvaluableToIntException._
 import lift.arithmetic.simplifier._
 
+import scala.collection.mutable.ListBuffer
 import scala.language.implicitConversions
 
 /**
@@ -222,6 +224,102 @@ abstract sealed class ArithExpr {
 
   def !===(that: ArithExpr): Boolean = ! ===(that)
 
+  def equalsStructurally(that: ArithExpr): Boolean = this.structuralDiff(that).isEmpty
+
+  /**
+   * Returns members of two arithmetic expressions that do not have structurally matching
+   * counterparts. Structural equivalence concerns ranges, not values, i.e. two vars are
+   * structurally equal if their ranges are equal.
+   * It is not guaranteed that any pair of equivalent expressions will be determined to be
+   * structurally equivalent since the same expression might have more than one canonical
+   * representation. Might return false negatives, mut the positives should be true.
+   * @return None for struct-equal expressions, and a pair of differences otherwise.
+   */
+  def structuralDiff(that: ArithExpr): Option[(Option[ArithExpr], Option[ArithExpr])] = {
+
+    def sumDiff(ts1: List[ArithExpr with SimplifiedExpr], ts2: List[ArithExpr with SimplifiedExpr]):
+    Option[(Option[ArithExpr], Option[ArithExpr])] = {
+      val termPairs = for (t1 <- ts1.sortWith(isCanonicallySorted);
+                           t2 <- ts2.sortWith(isCanonicallySorted)) yield (t1, t2)
+      val structEqualPairs = termPairs.filter(pair => pair._1.equalsStructurally(pair._2))
+
+      def getDiff(terms: List[ArithExpr],
+                  getPairElement: (ArithExpr, ArithExpr) => ArithExpr): List[ArithExpr] = {
+        val structEqualPairsCopy = ListBuffer(structEqualPairs: _*)
+
+        terms.filter(term => structEqualPairsCopy.zipWithIndex.find(p =>
+          getPairElement(p._1._1, p._1._2) == term) match {
+          case Some((_, i)) => structEqualPairsCopy.remove(i); false
+          case None => true
+        })
+      }
+
+      ( getDiff(ts1, (el1: ArithExpr, el2: ArithExpr) => el1),
+        getDiff(ts2, (el1: ArithExpr, el2: ArithExpr) => el2)) match {
+        case (Nil, Nil) => None
+        case (ts1Diff, Nil) => Some((Some(ts1Diff.reduce(_+_)), None))
+        case (Nil, ts2Diff) => Some((None, Some(ts2Diff.reduce(_+_))))
+        case (ts1Diff, ts2Diff) => Some((Some(ts1Diff.reduce(_+_)), Some(ts2Diff.reduce(_+_))))
+      }
+    }
+
+    val equal = (this, that) match {
+      case (_: Cst, _: Cst)                                     => this == that
+      case (v1: Var, v2: Var)                                   => v1.range.equalsStructurally(v2.range)
+      case (id1: IntDiv, id2: IntDiv)                           => id1.numer.equalsStructurally(id2.numer) &&
+                                                                    id1.denom.equalsStructurally(id2.denom)
+      case (p1: Pow, p2: Pow)                                   => p1.b.equalsStructurally(p2.b) && p1.e.equalsStructurally(p2.e)
+      case (l1: Log, l2: Log)                                   => l1.b.equalsStructurally(l2.b) && l1.x.equalsStructurally(l2.x)
+
+      case (Prod(fs1), Prod(fs2)) if fs1.length == fs2.length   => fs1.sortWith(isCanonicallySorted).zip(
+                                                                    fs2.sortWith(isCanonicallySorted)).foldLeft(true) {
+                                                                      case (othersEqual, pair) => othersEqual &&
+                                                                        pair._1.equalsStructurally(pair._2)
+                                                                    }
+      // For sums, return the differing term pairs, if any
+      case (Sum(ts1), Sum(ts2))                                 => return sumDiff(ts1, ts2)
+
+      case (m1: Mod, m2: Mod)                                   => m1.dividend.equalsStructurally(m2.dividend) &&
+                                                                    m1.divisor.equalsStructurally(m2.divisor)
+      case (a1: AbsFunction, a2: AbsFunction)                   => a1.ae.equalsStructurally(a2.ae)
+      case (f1: FloorFunction, f2: FloorFunction)               => f1.ae.equalsStructurally(f2.ae)
+      case (c1: CeilingFunction, c2: CeilingFunction)           => c1.ae.equalsStructurally(c2.ae)
+      case (i1: IfThenElse, i2: IfThenElse)                     => throw new NotImplementedError()
+      case (a1: ArithExprFunction, a2: ArithExprFunction)       => a1.equals(a2)
+      case (b1: BitwiseXOR, b2: BitwiseXOR)                     => b1.a.equalsStructurally(b2.a) && b1.b.equalsStructurally(b2.b)
+      case (b1: BitwiseAND, b2: BitwiseAND)                     => b1.a.equalsStructurally(b2.a) && b1.b.equalsStructurally(b2.b)
+      case (l1: LShift, l2: LShift)                             => l1.a.equalsStructurally(l2.a) && l1.b.equalsStructurally(l2.b)
+      case _                                                    => false
+    }
+
+    if (equal) None else Some((Some(this), Some(that)))
+  }
+
+  /**
+   * For arithmetic expressions where a simple range can be determined as a collection of RangeAdds,
+   * checks if value range of one expression is included in that of the other.
+   * The function is conservative and might return false negatives, but the positives should be true.
+   */
+  def rangeIncludedInRangeOf(that: ArithExpr): Boolean =
+    this.structuralDiff(that) match {
+      // (a+b).diff(a+b)
+      case None | Some((None, None)) => true
+      // (a+b).diff(a+b+c)
+      case Some((None, Some(_))) => true
+      // (a+b+c).diff(a+b) -- the range of c could be included in a+b
+      case Some((Some(thisDiff), None)) => thisDiff.rangeIncludedInRangeOf(that)
+
+      case Some((Some(thisDiff), Some(thatDiff))) =>
+        (thisDiff.simpleRanges, thatDiff.simpleRanges) match {
+          case (Some(thisDiffSubranges), Some(thatDiffSubranges)) =>
+            val thisDiffSubrangesFlattened = RangeAdd.flattenContinuousTermRanges(thisDiffSubranges)
+            val thatDiffSubrangesFlattened = RangeAdd.flattenContinuousTermRanges(thatDiffSubranges)
+
+            thisDiffSubrangesFlattened.forall(r => r.includedIn(thatDiffSubrangesFlattened))
+          case _ => throw NotEvaluable
+        }
+    }
+
   def pow(that: ArithExpr): ArithExpr with SimplifiedExpr = SimplifyPow(this, that)
 
   /**
@@ -390,7 +488,23 @@ object ArithExpr {
     case (x: Var, y: Var) => x.id < y.id // order variables based on id
     case (_: Var, _) => true // variables always after constants second
     case (_, _: Var) => false
-    case (Prod(factors1), Prod(factors2)) => factors1.zip(factors2).map(x => isCanonicallySorted(x._1, x._2)).foldLeft(false)(_ || _)
+    case (Prod(factors1), Prod(factors2)) =>
+      factors1.zip(factors2).flatMap(x => {
+        if (x._1 == x._2) None
+        else Some(isCanonicallySorted(x._1, x._2))
+      }) match {
+        case Nil => true // All pairs are equal
+        case sorteds => sorteds.head // Decide using the first non-equal pair of factors
+      }
+
+    case (m1: Mod, m2: Mod) =>
+      if (m1.dividend !== m2.dividend) isCanonicallySorted(m1.dividend, m2.dividend)
+      else isCanonicallySorted(m1.divisor, m2.divisor)
+
+    case (i1: IntDiv, i2: IntDiv) =>
+      if (i1.numer !== i2.numer) isCanonicallySorted(i1.numer, i2.numer)
+      else isCanonicallySorted(i1.denom, i2.denom)
+
     case _ => x.HashSeed() < y.HashSeed() || (x.HashSeed() == y.HashSeed() && x.digest() < y.digest())
   }
 
@@ -915,42 +1029,6 @@ object ArithExpr {
     }))
   }
 
-  def equalStructurally(a: ArithExpr, b: ArithExpr): Boolean = (a, b) match {
-    case (_: Cst, _: Cst)                                     => a == b
-    case (v1: Var, v2: Var)                                   => equalStructurally(v1.range, v2.range)
-    case (id1: IntDiv, id2: IntDiv)                           => equalStructurally(id1.numer, id2.numer) &&
-                                                                  equalStructurally(id1.denom, id2.denom)
-    case (p1: Pow, p2: Pow)                                   => equalStructurally(p1.b, p2.b) && equalStructurally(p1.e, p2.e)
-    case (l1: Log, l2: Log)                                   => equalStructurally(l1.b, l2.b) && equalStructurally(l1.x, l2.x)
-    case (Prod(fs1), Prod(fs2)) if fs1.length == fs2.length   => fs1.zip(fs2).foldLeft(true) {
-      case (othersEqual, pair) => othersEqual && equalStructurally(pair._1, pair._2) }
-    case (Sum(ts1), Sum(ts2)) if ts1.length == ts2.length     => ts1.zip(ts2).foldLeft(true) {
-      case (othersEqual, pair) => othersEqual && equalStructurally(pair._1, pair._2) }
-    case (m1: Mod, m2: Mod)                                   => equalStructurally(m1.dividend, m2.dividend) &&
-                                                                  equalStructurally(m1.divisor, m2.divisor)
-    case (a1: AbsFunction, a2: AbsFunction)                   => equalStructurally(a1.ae, a2.ae)
-    case (f1: FloorFunction, f2: FloorFunction)               => equalStructurally(f1.ae, f2.ae)
-    case (c1: CeilingFunction, c2: CeilingFunction)           => equalStructurally(c1.ae, c2.ae)
-    case (i1: IfThenElse, i2: IfThenElse)                     => throw new NotImplementedError()
-    case (a1: ArithExprFunction, a2: ArithExprFunction)       => a1.equals(a2)
-    case (b1: BitwiseXOR, b2: BitwiseXOR)                     => equalStructurally(b1.a, b2.a) && equalStructurally(b1.b, b2.b)
-    case (b1: BitwiseAND, b2: BitwiseAND)                     => equalStructurally(b1.a, b2.a) && equalStructurally(b1.b, b2.b)
-    case (l1: LShift, l2: LShift)                             => equalStructurally(l1.a, l2.a) && equalStructurally(l1.b, l2.b)
-    case _                                                    => false
-  }
-
-  def equalStructurally(r1: Range, r2: Range): Boolean = (r1, r2) match {
-    case (ra1: RangeAdd, ra2: RangeAdd)             => equalStructurally(ra1.start, ra2.start) &&
-                                                        equalStructurally(ra1.stop, ra2.stop) &&
-                                                        equalStructurally(ra1.step, ra2.step)
-    case (rm1: RangeMul, rm2: RangeMul)             => equalStructurally(rm1.start, rm2.start) &&
-                                                        equalStructurally(rm1.stop, rm2.stop) &&
-                                                        equalStructurally(rm1.mul, rm2.mul)
-    case (rg1: GoesToRange, rg2: GoesToRange)       => equalStructurally(rg1.`end`, rg2.`end`)
-    case (rs1: StartFromRange, rs2: StartFromRange) => equalStructurally(rs1.start, rs2.start)
-    case _                                          => false
-  }
-
   /**
     * Recursively converts an arithmetic expression to a Scala notation String which can be evaluated into a
     * valid ArithExpr.
@@ -1053,6 +1131,38 @@ object ArithExpr {
 
 trait SimplifiedExpr extends ArithExpr {
   override val simplified = true
+
+  lazy val simpleRanges: Option[List[RangeAdd]] = try {
+    this match {
+      case c: Cst               => Some(List(RangeAdd(c, c + 1, 1)))
+      case Var(_, r: RangeAdd)  => Some(List(r))
+      case Prod(factors)        => Prod.partitionFactorsOnCst(factors) match {
+        case (c: Cst, Nil)                          => c.simpleRanges
+        case (c: Cst, Var(_, r: RangeAdd) :: Nil)   => Some(List(RangeAdd(c * r.start, c * r.stop, c * r.step)))
+        case x => None
+      }
+      case Sum(terms) => terms.sortWith(isCanonicallySorted) match {
+        case Nil                    => throw NotEvaluable
+        case singleTerm :: Nil      => singleTerm.simpleRanges
+        case sortedTerms @ (_ :: _) =>
+          val (cst, ranges) = sortedTerms.head match {
+            case c: Cst => (Some(c), sortedTerms.tail.flatMap(_.simpleRanges).flatten)
+            case _ => (None, sortedTerms.flatMap(_.simpleRanges).flatten)
+          }
+
+          (cst, ranges) match {
+            case (Some(c), Nil)         => Some(List(RangeAdd(c, c + 1, 1)))
+            case (Some(c), someRanges)  => Some(
+              RangeAdd(c + someRanges.head.start, c + someRanges.head.stop, someRanges.head.step) +: someRanges.tail)
+            case (None, Nil)            => None
+            case (None, someRanges)     => Some(someRanges)
+          }
+      }
+      case x => None
+    }
+  } catch {
+    case NotEvaluable => None
+  }
 }
 
 /* ? represents an unknown value. */
