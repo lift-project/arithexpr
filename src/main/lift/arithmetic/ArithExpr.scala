@@ -159,6 +159,21 @@ abstract sealed class ArithExpr {
     })
   }
 
+  /**
+   * Like isEvaluable, but less strict: returns true if an expression doesn't contain
+   * infinities and unknowns (?). The difference with isEvaluable() is that expressions with
+   * ArithExprFunction, Var and IfThenElse can be evaluated if we substitute all the unknowns
+   * with constants, while expressions with infinities/unknowns can never be evaluated.
+   * This is helpful when we are checking equality of two expressions and they happen to be
+   * both "?". These are currently treated as equal. TODO: make them not equal.
+   * For now, we'll just check for "?".
+   */
+  lazy val isEvaluableGivenEnoughExtraData: Boolean = {
+    !ArithExpr.visitUntil(this, x => {
+      x == PosInf || x == NegInf || x == ?
+    })
+  }
+
   lazy val atMax: ArithExpr = {
     val vars = varList.filter(_.range.max != ?)
     val exprFunctions = ArithExprFunction.getArithExprFuns(this).filter(_.range.max != ?)
@@ -1173,6 +1188,7 @@ case object ? extends ArithExpr with SimplifiedExpr {
 
   override lazy val sign = Sign.Unknown
 
+  // TODO: return None or throw the NonEvaluableException
   override def ==(that: ArithExpr): Boolean = that.getClass == this.getClass
 
   override def visitAndRebuild(f: (ArithExpr) => ArithExpr): ArithExpr = f(this)
