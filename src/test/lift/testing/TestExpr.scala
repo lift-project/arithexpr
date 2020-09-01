@@ -1,6 +1,6 @@
 package lift.testing
 
-import lift.arithmetic.ArithExpr.isCanonicallySorted
+import lift.arithmetic.ArithExpr.{intToCst, isCanonicallySorted}
 import lift.arithmetic._
 import lift.arithmetic.simplifier._
 import org.junit.Assert._
@@ -1465,5 +1465,17 @@ class TestExpr {
     val d = (v_i_7+(1152*v_i_1)+(64512*v_i_4)+(64512*v_l_id_0)+(1354752*v_wg_id_0)+(193536*v_i_2)+(9*v_i_8)+(72*v_i_9))
 
     assertTrue(c.rangeIncludedInRangeOf(d))
+  }
+
+  @Test
+  def minMaxBug(): Unit = {
+    val a0 = ceil(((-1*get_local_id(RangeAdd(0,171,1))*(1/^(171))) + (2*(1/^(171)))))
+    val a = SimplifyCeiling(((SimplifySum(
+      SimplifyProd(List(-1, get_local_id(RangeAdd(0,171,1)), (1 /^ (171)))),
+      (2*(1/^(171)))))))
+
+    println(a.min)
+    println(a.max)
+    // TODO
   }
 }
