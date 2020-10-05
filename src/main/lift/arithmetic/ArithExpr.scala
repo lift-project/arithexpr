@@ -229,6 +229,7 @@ abstract sealed class ArithExpr {
     case (IfThenElse(test1, t1, e1), IfThenElse(test2, t2, e2)) =>
       test1.op == test2.op && test1.lhs == test2.lhs && test1.rhs == test2.rhs && t1 == t2 && e1 == e2
     case (lu1: Lookup, lu2: Lookup) => lu1.table == lu2.table && lu1.index == lu2.index
+    case (m1: Max, m2: Max) => m1.a == m2.a && m1.b == m2.b
     case (f1: ArithExprFunction, f2: ArithExprFunction) => f1.name == f2.name
     case (v1: Var, v2: Var) => v1.id == v2.id
     case (AbsFunction(x), AbsFunction(y)) => x == y
@@ -908,6 +909,9 @@ object ArithExpr {
       case lu: Lookup =>
         visit(lu.index, f)
         lu.table.foreach(t => visit(t, f))
+      case m: Max =>
+        visit(m.a, f)
+        visit(m.b, f)
       case Var(_, _) | Cst(_) | ArithExprFunction(_, _) =>
       case x if x.getClass == ?.getClass =>
       case PosInf | NegInf =>
@@ -936,6 +940,7 @@ object ArithExpr {
           terms.foreach(t => if (visitUntil(t, f)) return true)
           false
         case gc: Lookup => visitUntil(gc.index, f)
+        case m: Max => visitUntil(m.a, f) || visitUntil(m.b, f)
         case Var(_, _) | Cst(_) | IfThenElse(_, _, _) | ArithExprFunction(_, _) => false
         case x if x.getClass == ?.getClass => false
         case PosInf | NegInf => false
@@ -1662,6 +1667,23 @@ class Lookup private[arithmetic](val table: Seq[ArithExpr with SimplifiedExpr],
 object Lookup {
   def apply(table: Seq[ArithExpr], index: ArithExpr, id: Int): ArithExpr with SimplifiedExpr =
     SimplifyLookup(table, index, id)
+}
+
+class Max private[arithmetic](val a: ArithExpr with SimplifiedExpr,
+                              val b: ArithExpr with SimplifiedExpr)
+  extends ArithExprFunction("max") {
+  override val HashSeed = 0xcf2b1f35
+
+  override lazy val digest: Int = HashSeed ^ a.digest() ^ b.digest()
+
+  override lazy val toString: String = "max" + "(" + a + "," + b + ")"
+
+  override def visitAndRebuild(f: (ArithExpr) => ArithExpr): ArithExpr =
+    f(Max(a.visitAndRebuild(f), b.visitAndRebuild(f)))
+}
+
+object Max {
+  def apply(a: ArithExpr, b: ArithExpr): ArithExpr with SimplifiedExpr = SimplifyMax(a, b)
 }
 
 case class BitwiseXOR private[arithmetic](a: ArithExpr with SimplifiedExpr, b: ArithExpr with SimplifiedExpr)
