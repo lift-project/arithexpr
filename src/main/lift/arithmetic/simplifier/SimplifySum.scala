@@ -119,18 +119,73 @@ object SimplifySum {
   Option[ArithExpr with SimplifiedExpr] = {
     getCommonFactors(term1factors, term2factors) match {
       case (Cst(1), Nil) => None
-      case (cstCommonFactor, nonCstCommonFactors) =>
+      case (commonCstFactor, commonNonCstFactors) =>
 
-        val (term1CstFactor, term1NonCstFactors) = Prod.partitionFactorsOnCst(term1factors)
-        val (term2CstFactor, term2NonCstFactors) = Prod.partitionFactorsOnCst(term2factors)
+        // Split common factors
+        val (commonCstFractionFactor, commonNonCstFractionFactors) = Prod.partitionFactorsOnCstFraction(commonNonCstFactors)
 
-        val term1WithoutCommonFactors = SimplifyProd(Cst(term1CstFactor.c / cstCommonFactor.c) +: Prod.removeFactors(term1NonCstFactors, nonCstCommonFactors))
-        val term2WithoutCommonFactors = SimplifyProd(Cst(term2CstFactor.c / cstCommonFactor.c) +: Prod.removeFactors(term2NonCstFactors, nonCstCommonFactors))
+        // Returns the term without common factors and its constant fractional part without common factors
+        def removeCommonFactors(termFactors: List[ArithExpr with SimplifiedExpr]): (ArithExpr with SimplifiedExpr, ArithExpr) = {
 
-        val commonFactors = cstCommonFactor match {
-          case Cst(1) => nonCstCommonFactors
-          case _ => cstCommonFactor +: nonCstCommonFactors
+          val (termCstFactor, termCstFracFactor, termNonCstFactors) = Prod.partitionFactorsOnCst(termFactors) match {
+            case (cstFactor, nonCstFactors) if commonCstFractionFactor.isEmpty =>
+              (cstFactor, Cst(1), nonCstFactors)
+
+            case (cstFactor, nonCstFactorsWithCstFractions) =>
+              val (cstFracFactor, nonCstFactors) = Prod.partitionFactorsOnCstFraction(nonCstFactorsWithCstFractions)
+              (cstFactor, cstFracFactor.getOrElse(Cst(1)), nonCstFactors)
+          }
+
+          val termCstFracFactorWithoutCommonFactors =
+            (commonCstFractionFactor match {
+              case None => termCstFracFactor
+              case Some(commonFrac) => termCstFracFactor /^ commonFrac
+            }) match {
+            case Cst(c) if c == 1 => new Pow(1, -1) with SimplifiedExpr
+            case other => other
+          }
+
+          (SimplifyProd(
+              List(Cst(termCstFactor.c / commonCstFactor.c)) ++
+                Prod.removeFactors(termNonCstFactors, commonNonCstFractionFactors)),
+            termCstFracFactorWithoutCommonFactors)
         }
+
+        val (term1WithoutCommonFactorsWithoutCstFracFactor, term1CstFracFactorWithDistinctDenom) = removeCommonFactors(term1factors)
+        val (term2WithoutCommonFactorsWithoutCstFracFactor, term2CstFracFactorWithDistinctDenom) = removeCommonFactors(term2factors)
+
+        val (term1WithoutCommonFactors, term2WithoutCommonFactors) =
+          (term1CstFracFactorWithDistinctDenom, term2CstFracFactorWithDistinctDenom) match {
+            case (p1: Pow, p2: Pow) if !(p1.b == 1 && p2.b == 1) =>
+              assert(p1.b.isInstanceOf[Cst] && p2.b.isInstanceOf[Cst])
+              assert(p1.e == Cst(-1) && p2.e == Cst(-1))
+
+              // Now that we have constant fraction common factor removed from the two terms, merge the two
+              // terms (both have fractions) and try to simplify the result.
+              // (a * (1/b), c * (1/d)) -> (a * (d/(b*d)), c * (b/(b*d))
+
+              // The reason we are simplifying fractions here and not in simplify is that we want the fractions to be
+              // factorized before merging to avoid large denominators
+
+              (term1WithoutCommonFactorsWithoutCstFracFactor * p2.b,
+                term2WithoutCommonFactorsWithoutCstFracFactor * p1.b)
+
+            case _ =>
+              (term1WithoutCommonFactorsWithoutCstFracFactor * term1CstFracFactorWithDistinctDenom,
+                term2WithoutCommonFactorsWithoutCstFracFactor * term2CstFracFactorWithDistinctDenom)
+          }
+
+        val commonCstFractionFactorWithMergedDenominators = commonCstFractionFactor match {
+          case Some(frac) => Some(frac * term1CstFracFactorWithDistinctDenom * term2CstFracFactorWithDistinctDenom)
+          case None => None
+          }
+
+        val commonFactors =
+          (if (commonCstFactor != Cst(1)) List(commonCstFactor) else List()) ++
+            (if (commonCstFractionFactorWithMergedDenominators.isDefined)
+              List(commonCstFractionFactorWithMergedDenominators.get)
+            else List()) ++
+            commonNonCstFractionFactors
 
         // Here even if we fail to simplify, we might convert into normal form using asPowOfSum inside simplify
         simplify(term1WithoutCommonFactors, term2WithoutCommonFactors) match {
@@ -294,7 +349,7 @@ object SimplifySum {
     * the second time.
     *
     * @param cstFactor1 Constant factor of the first product.
-    * @param nonCstFactors1 Non-constant factors of the first product.
+    * @param nonCstFactors1 Non-constant factors of the first product. NB: constant fractions are currently treated as non-constant factors
     * @param factors2 Second product
     * @return A tuple of constant and non-constant common factors
     */
@@ -302,12 +357,29 @@ object SimplifySum {
                        factors2: List[ArithExpr with SimplifiedExpr]):
   (Cst, List[ArithExpr]) = {
     val (cstFactor2, nonCstFactors2) = Prod.partitionFactorsOnCst(factors2)
+    val (cstFractionFactor1, nonCstFracFactors1) = Prod.partitionFactorsOnCstFraction(nonCstFactors1)
+    val (cstFractionFactor2, nonCstFracFactors2) = Prod.partitionFactorsOnCstFraction(nonCstFactors2)
 
     val cstFactors: List[Long] = List(cstFactor1.c, cstFactor2.c)
 
     val cstCommonFactor = ComputeGCD.gcdLong(cstFactors)
 
-    (Cst(cstCommonFactor), nonCstFactors1.intersect(nonCstFactors2))
+    // TODO: apply this logic to non-cst fractions when extending ComputeGCD.apply
+    val cstFractionCommonFactor = (cstFractionFactor1, cstFractionFactor2) match {
+
+      case (Some(Pow(b1: Cst, e1: Cst)), Some(Pow(b2: Cst, e2: Cst))) =>
+
+        assert(e1 == Cst(-1) && e2 == Cst(-1))
+
+        val gcd = ComputeGCD.gcdLong(b1.c, b2.c)
+
+        if (gcd == 1) List()
+        else List(new Pow(gcd, -1) with SimplifiedExpr)
+
+      case _ => List()
+    }
+
+    (Cst(cstCommonFactor), cstFractionCommonFactor ++ nonCstFracFactors1.intersect(nonCstFracFactors2))
   }
 
 

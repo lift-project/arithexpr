@@ -1259,6 +1259,7 @@ object IntDiv {
 case class Pow private[arithmetic](b: ArithExpr with SimplifiedExpr, e: ArithExpr with SimplifiedExpr)
   extends ArithExpr {
   override val HashSeed = 0x63fcd7c2
+  assert( !(b.isInstanceOf[Cst] && e != Cst(-1)) )
 
   override lazy val digest: Int = HashSeed ^ b.digest() ^ e.digest()
 
@@ -1420,6 +1421,15 @@ object Prod {
     factors.partition(_.isInstanceOf[Cst]) match {
       case (Nil, nonCstFactors) => (Cst(1), nonCstFactors)
       case (cstFactor, nonCstFactors) => (Cst(cstFactor.foldLeft[Long](1)(_ * _.asInstanceOf[Cst].c)), nonCstFactors)
+    }
+  }
+
+  def partitionFactorsOnCstFraction(factors: List[ArithExpr]): (Option[Pow], List[ArithExpr]) = {
+    factors.partition { case Pow(_: Cst, e) if e == Cst(-1) => true; case _ => false } match {
+      case (Nil, nonCstFracFactors) => (None, nonCstFracFactors)
+      case (cstFracFactors, nonCstFracFactors) =>
+        assert(cstFracFactors.length == 1)
+        (Some(cstFracFactors.head.asInstanceOf[Pow]), nonCstFracFactors)
     }
   }
 }

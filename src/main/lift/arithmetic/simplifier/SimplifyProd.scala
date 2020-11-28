@@ -151,17 +151,26 @@ object SimplifyProd {
       // Compute powers when all bases and exponents are negative constants
       case (Pow(Cst(b1), Cst(e1)), Pow(Cst(b2), Cst(e2))) if e1 < 0 && e2 < 0 =>
         Some(SimplifyPow(Cst((Math.pow(b1, -e1) * Math.pow(b2, -e2)).toInt), -1))
+// e2 can only be -1 for constant
+//      case (Cst(x), Pow(Cst(y), Cst(e2))) if e2 < 0 && x % y == 0 => // replace mod with gcdlong (if 1, don't do anything)
+//        Some(Cst(x / y) * SimplifyPow(Cst(y), Cst(e2 + 1)))// extra case: get common denominator for left=cst(x) and base=e // (x / gcd) * (pow(y, e2) * pow(gcd, -1))
+//      case (Pow(Cst(y), Cst(e1)), Cst(x)) if e1 < 0 && x % y == 0 =>
+//        Some(Cst(x / y) * SimplifyPow(Cst(y), Cst(e1 + 1)))
+//
+//      case (Cst(x), Pow(Cst(y), Cst(-1))) if y % x == 0 && x != -1 => // can go away, since 155 is generalized with gcdlong
+//        Some(SimplifyPow(Cst(y / x), Cst(-1))) // cheeck of x == -1 is not neccessary, since gcdlong will return 1
+//      case (Pow(Cst(y), Cst(-1)), Cst(x)) if y % x == 0  && x != -1 =>
+//        Some(SimplifyPow(Cst(y / x), Cst(-1)))
 
-      case (Cst(x), Pow(Cst(y), Cst(e2))) if e2 < 0 && x % y == 0 =>
-        Some(Cst(x / y) * SimplifyPow(Cst(y), Cst(e2 + 1)))
-      case (Pow(Cst(y), Cst(e1)), Cst(x)) if e1 < 0 && x % y == 0 =>
-        Some(Cst(x / y) * SimplifyPow(Cst(y), Cst(e1 + 1)))
+      case (Cst(x), Pow(Cst(y), Cst(e2))) if e2 == -1 && ComputeGCD.gcdLong(x, y) != 1 => {
+        val gcd = ComputeGCD.gcdLong(x, y)
+        Some(Cst(x / gcd) * SimplifyPow(y / gcd, e2))
+      }
 
-      case (Cst(x), Pow(Cst(y), Cst(-1))) if y % x == 0 && x != -1 =>
-        Some(SimplifyPow(Cst(y / x), Cst(-1)))
-      case (Pow(Cst(y), Cst(-1)), Cst(x)) if y % x == 0  && x != -1 =>
-        Some(SimplifyPow(Cst(y / x), Cst(-1)))
-
+      case (Pow(Cst(y), Cst(e1)), Cst(x)) if e1 == -1 && ComputeGCD.gcdLong(x, y) != 1 => {
+        val gcd = ComputeGCD.gcdLong(x, y)
+        Some(Cst(x / gcd) * SimplifyPow(y / gcd, e1))
+      }
 
       /********** Non-constant cases **********/
 
