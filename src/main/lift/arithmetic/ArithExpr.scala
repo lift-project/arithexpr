@@ -1467,14 +1467,30 @@ case class Sum private[arithmetic](terms: List[ArithExpr with SimplifiedExpr]) e
     // Convert each term into a list of factors (if a term is not a prod, the result will be a list of 1 element)
     val prodTerms: List[List[ArithExpr]] = terms.map(Prod.factorize)
 
-    val (cstCommonFactor: Cst, nonCstCommonFactors: List[ArithExpr]) =
-      prodTerms.tail.foldLeft(Prod.partitionFactorsOnCst(prodTerms.head)) {
-        case ((cstCommonFactorAcc: Cst, nonCstCommonFactorsAcc: List[ArithExpr]), nextTerm: List[ArithExpr]) =>
-          SimplifySum.getCommonFactors(cstCommonFactorAcc, nonCstCommonFactorsAcc, nextTerm)
+    val (cstCommonFactor: Cst,
+    cstFracCommonFactor: Option[Pow with SimplifiedExpr],
+    nonCstCommonFactors: List[ArithExpr]) = {
+
+      val headFactors = Prod.partitionFactorsOnCst(prodTerms.head) match {
+        case (cstFac, nonCstFacs) =>
+          val (fracFac, nonFracFacs) = Prod.partitionFactorsOnCstFraction(nonCstFacs)
+          (cstFac, fracFac, nonFracFacs)
       }
 
+      prodTerms.tail.foldLeft(headFactors) {
+        case (
+          (cstCommonFactorAcc: Cst,
+          cstFracCommonFactor: Option[Pow with SimplifiedExpr],
+          nonCstCommonFactorsAcc: List[ArithExpr]),
+          nextTerm: List[ArithExpr]) =>
+          SimplifySum.getCommonFactors(cstCommonFactorAcc,
+            (cstFracCommonFactor match { case Some(f) => List(f); case _ => List() }) ++ nonCstCommonFactorsAcc,
+            nextTerm)
+      }
+    }
+
     // First, remove all non-constant factors using simple matching
-    val prodTermsWithoutCommonNonCstFactors: List[ArithExpr] = nonCstCommonFactors match {
+    val prodTermsWithoutCommonNonCstNonFracFactors: List[ArithExpr] = nonCstCommonFactors match {
       case Nil => // No common non-constant factors
         prodTerms.map(SimplifyProd(_))
       case _ =>
@@ -1482,19 +1498,19 @@ case class Sum private[arithmetic](terms: List[ArithExpr with SimplifiedExpr]) e
           SimplifyProd(Prod.removeFactors(prodTermFactors, nonCstCommonFactors)))
     }
 
-    // Then, remove the constant factor using division
-    val prodTermsWithoutCommonFactors = prodTermsWithoutCommonNonCstFactors.map(_ /^ cstCommonFactor)
+    // Then, remove the constant whole and fractional factors using division
+    val prodTermsWithoutCommonFactors = prodTermsWithoutCommonNonCstNonFracFactors.map(
+      _ /^ (cstCommonFactor * cstFracCommonFactor.getOrElse(Cst(1))))
+
+
 
     // Finally, construct the common factor
-    val result = ((cstCommonFactor, nonCstCommonFactors) match {
-      case (Cst(1), Nil) => None
-      case (Cst(1), _) => Some(nonCstCommonFactors)
-      case (_, Nil) => Some(List(cstCommonFactor))
-      case _ => Some(cstCommonFactor +: nonCstCommonFactors)
-    }) match {
-      case None => None // We have found neither constant, nor non-constant common factors
+    val result = ((if (cstCommonFactor != Cst(1)) List(cstCommonFactor) else List()) ++
+      (if (cstFracCommonFactor.isDefined) List(cstFracCommonFactor.get) else List()) ++
+      nonCstCommonFactors) match {
+      case Nil => None // We have found neither constant, nor non-constant common factors
       // The Prod below is not simplified and we don't want to simplify it because we are creating a non-normal "view" here
-      case Some(commonFactors) =>
+      case commonFactors =>
         Some(Prod(commonFactors :+ prodTermsWithoutCommonFactors.reduce(_ + _)))
     }
 
