@@ -103,8 +103,9 @@ abstract sealed class ArithExpr {
         case Pow(b, e) =>
           (b.sign, e.sign) match {
             case (Sign.Positive, Sign.Positive) => (b.min pow e.min, b.max pow e.max)
-            case (Sign.Positive, Sign.Negative) => (b.min pow e.min, b.max pow e.max)
-            case (Sign.Negative, Sign.Positive) => (b.max pow e.min, b.min pow e.max)
+            case (Sign.Positive, Sign.Negative) => (b.max pow e.max, b.min pow e.min)
+            // Hard to say anything about max/mins of powers with negative bases. Max/min alternate based on oddness of the exponent
+//            case (Sign.Negative, Sign.Positive) => (b.max pow e.min, b.min pow e.max)
             case (Sign.Positive, _) => (?, ?) // could be anything
             case (Sign.Negative, _) => (?, ?) // could be anything
             case (_, _) => (?, ?) // unknown
