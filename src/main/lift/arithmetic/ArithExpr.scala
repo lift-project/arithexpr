@@ -1148,6 +1148,20 @@ object ArithExpr {
     def Clamp(x: ArithExpr, min: ArithExpr, max: ArithExpr) = Min(Max(x, min), max)
   }
 
+  def isInt(ae: ArithExpr): Boolean =
+    ae match {
+      case _: Cst => true
+      case _: Var => true
+      case _: IntDiv => true
+      case Pow(b, e) if e == Cst(0) || ArithExpr.isSmaller(0, e).getOrElse(false) =>
+        isInt(b) && isInt(e)
+      case Prod(factors) if factors.forall(isInt) => true
+      case Sum(terms) if terms.forall(isInt) => true
+      case Mod(divident, divisor) => isInt(divident) && isInt(divisor)
+      case AbsFunction(ae) => isInt(ae)
+
+      case _ => false
+    }
 }
 
 trait SimplifiedExpr extends ArithExpr {
