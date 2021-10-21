@@ -7,6 +7,7 @@ object SimplifyCeiling {
   def apply(ae: ArithExpr with SimplifiedExpr): ArithExpr with SimplifiedExpr = {
     ae match {
       case c: Cst => c
+      case i: IntDiv => i
       case NegInf => NegInf
       case PosInf => PosInf
       case _ =>
