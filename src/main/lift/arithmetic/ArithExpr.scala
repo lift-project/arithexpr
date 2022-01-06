@@ -1274,7 +1274,7 @@ object IntDiv {
 case class Pow private[arithmetic](b: ArithExpr with SimplifiedExpr, e: ArithExpr with SimplifiedExpr)
   extends ArithExpr {
   override val HashSeed = 0x63fcd7c2
-  assert( !(b.isInstanceOf[Cst] && e != Cst(-1)) )
+  assert( !(b.isInstanceOf[Cst] && e.isInstanceOf[Cst] && e != Cst(-1)) )
 
   override lazy val digest: Int = HashSeed ^ b.digest() ^ e.digest()
 
@@ -1409,7 +1409,11 @@ object Prod {
         case Some(productWithCommonFactor) => Some(productWithCommonFactor.factors)
         case None => None
       }
-      case p: Prod => Some(p.factors)
+//      case p: Prod => Some(p.factors)
+      case p: Prod => Some(p.factors.flatMap {
+        case Prod(factorFactors) => factorFactors
+        case e => List(e)
+      })
       case _ => None
     }
     case _ => None

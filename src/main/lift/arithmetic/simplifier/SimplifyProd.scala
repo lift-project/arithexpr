@@ -219,7 +219,7 @@ object SimplifyProd {
             addFactor(rhsFactors, lhsFactors.head, rhs.isInstanceOf[Prod],
               someFactorsComeFromSum, someFactorsComeFromPow)) {
 
-            case (acc: Prod, lhsFactor) => addFactor(acc.factors, lhsFactor, factorsComeFromProd = true,
+            case (Prod(accFactors), lhsFactor) => addFactor(accFactors, lhsFactor, factorsComeFromProd = true,
               someFactorsComeFromSum, someFactorsComeFromPow)
 
             case (acc: ArithExpr, lhsFactor) => addFactor(List(acc), lhsFactor, factorsComeFromProd = true,
