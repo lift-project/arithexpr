@@ -950,10 +950,10 @@ object ArithExpr {
     }
   }
 
-  def substitute(e: ArithExpr, substitutions: scala.collection.Map[ArithExpr, ArithExpr]): ArithExpr =
+  def substitute(e: ArithExpr, rule: PartialFunction[ArithExpr, ArithExpr]): ArithExpr =
     e.visitAndRebuild(expr =>
-      if (substitutions.isDefinedAt(expr))
-        substitutions(expr)
+      if (rule.isDefinedAt(expr))
+        rule(expr)
       else
         expr
     )
